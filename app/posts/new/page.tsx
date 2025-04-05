@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { DEMO_POSTS, CATEGORIES } from "../../../data";
 import { PlusCircle, X, Save, ArrowLeft } from "lucide-react";
 import {
   Category,
@@ -13,41 +14,7 @@ import {
 } from "../../../types";
 import { useRouter } from "next/navigation";
 
-const DEFAULT_POST: Post = {
-  id: "test",
-  title: "Nova reflexió",
-  category: "perspectives",
-  date: new Date().toLocaleDateString("ca-ES", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }),
-  images: [
-    {
-      url: "https://picsum.photos/1200/800",
-      title: "Títol de la imatge",
-    },
-  ],
-  portraitImage: {
-    url: "https://picsum.photos/id/2/1200/800",
-    title: "Imatge principal",
-  },
-  content: "<p>Comença a escriure el teu contingut aquí...</p>",
-  keywords: ["paraula clau"],
-  references: {
-    images: ["Font de la imatge"],
-    texts: ["Font del text"],
-  },
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  isPublished: false,
-};
-
-const CATEGORIES: Category[] = [
-  { id: "influencies", name: "Influències" },
-  { id: "perspectives", name: "Perspectives" },
-  { id: "vivencies", name: "Vivències" },
-];
+const DEFAULT_POST: Post = DEMO_POSTS[0];
 
 const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
   const router = useRouter();
