@@ -2,58 +2,19 @@
 
 import React, { useState } from "react";
 import { PlusCircle, X, Save, ArrowLeft } from "lucide-react";
+import {
+  Category,
+  EditableArrayFieldProps,
+  EditableFieldProps,
+  ImageData,
+  Post,
+  PostReferences,
+  PostEditorProps,
+} from "../../../types";
 import { useRouter } from "next/navigation";
 
-interface ImageData {
-  url: string;
-  title: string;
-}
-
-interface PostReferences {
-  images: string[];
-  texts: string[];
-}
-
-interface Post {
-  title: string;
-  category: "influencies" | "perspectives" | "vivencies";
-  date: string;
-  images: ImageData[];
-  portraitImage: ImageData;
-  content: string;
-  keywords: string[];
-  references: PostReferences;
-  isPublished?: boolean;
-}
-
-interface Category {
-  id: string;
-  name: string;
-}
-
-interface EditableFieldProps {
-  value: string;
-  fieldName: string;
-  isMultiline?: boolean;
-  isArray?: boolean;
-  index?: number | null;
-  arrayPath?: string | null;
-  className?: string;
-}
-
-interface EditableArrayFieldProps {
-  items: string[] | ImageData[];
-  arrayPath: string;
-  itemLabel: string;
-  defaultValue?: string;
-  isImageArray?: boolean;
-}
-
-interface PostEditorProps {
-  postId?: string;
-}
-
 const DEFAULT_POST: Post = {
+  id: "test",
   title: "Nova reflexió",
   category: "perspectives",
   date: new Date().toLocaleDateString("ca-ES", {
@@ -77,6 +38,9 @@ const DEFAULT_POST: Post = {
     images: ["Font de la imatge"],
     texts: ["Font del text"],
   },
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  isPublished: false,
 };
 
 const CATEGORIES: Category[] = [
@@ -101,6 +65,7 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
           title: "La influència del minimalisme en el disseny web modern",
           category: "perspectives",
           date: "12 de març de 2025",
+          isPublished: true,
         });
         setLoading(false);
       }, 500);

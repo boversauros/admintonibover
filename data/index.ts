@@ -1,15 +1,4 @@
-export interface Post {
-  id: string;
-  title: string;
-  category: "influencies" | "perspectives" | "vivencies";
-  date: string;
-  isPublished: boolean;
-}
-
-export interface Category {
-  id: string;
-  name: string;
-}
+import { Post, Category } from "../types";
 
 export const DEMO_POSTS: Post[] = [
   {
@@ -17,6 +6,24 @@ export const DEMO_POSTS: Post[] = [
     title: "La influència del minimalisme en el disseny web modern",
     category: "perspectives",
     date: "12 de març de 2025",
+    images: [
+      {
+        url: "https://picsum.photos/1200/800",
+        title: "Títol de la imatge",
+      },
+    ],
+    portraitImage: {
+      url: "https://picsum.photos/id/2/1200/800",
+      title: "Imatge principal",
+    },
+    content: "<p>Comença a escriure el teu contingut aquí...</p>",
+    keywords: ["paraula clau"],
+    references: {
+      images: ["Font de la imatge"],
+      texts: ["Font del text"],
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
     isPublished: true,
   },
   {
@@ -24,6 +31,24 @@ export const DEMO_POSTS: Post[] = [
     title: "Fotografia urbana: l'essència de la ciutat",
     category: "vivencies",
     date: "5 de febrer de 2025",
+    images: [
+      {
+        url: "https://picsum.photos/1200/800",
+        title: "Títol de la imatge",
+      },
+    ],
+    portraitImage: {
+      url: "https://picsum.photos/id/2/1200/800",
+      title: "Imatge principal",
+    },
+    content: "<p>Comença a escriure el teu contingut aquí...</p>",
+    keywords: ["paraula clau"],
+    references: {
+      images: ["Font de la imatge"],
+      texts: ["Font del text"],
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
     isPublished: true,
   },
   {
@@ -31,6 +56,24 @@ export const DEMO_POSTS: Post[] = [
     title: "El procés creatiu: entre la intuïció i la metodologia",
     category: "influencies",
     date: "18 de gener de 2025",
+    images: [
+      {
+        url: "https://picsum.photos/1200/800",
+        title: "Títol de la imatge",
+      },
+    ],
+    portraitImage: {
+      url: "https://picsum.photos/id/2/1200/800",
+      title: "Imatge principal",
+    },
+    content: "<p>Comença a escriure el teu contingut aquí...</p>",
+    keywords: ["paraula clau"],
+    references: {
+      images: ["Font de la imatge"],
+      texts: ["Font del text"],
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
     isPublished: false,
   },
   {
@@ -38,6 +81,24 @@ export const DEMO_POSTS: Post[] = [
     title: "Tendències visuals per al 2025",
     category: "perspectives",
     date: "2 de gener de 2025",
+    images: [
+      {
+        url: "https://picsum.photos/1200/800",
+        title: "Títol de la imatge",
+      },
+    ],
+    portraitImage: {
+      url: "https://picsum.photos/id/2/1200/800",
+      title: "Imatge principal",
+    },
+    content: "<p>Comença a escriure el teu contingut aquí...</p>",
+    keywords: ["paraula clau"],
+    references: {
+      images: ["Font de la imatge"],
+      texts: ["Font del text"],
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
     isPublished: false,
   },
 ];

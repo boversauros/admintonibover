@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
-import { DEMO_POSTS, CATEGORIES, Post } from "../data";
+import { DEMO_POSTS, CATEGORIES } from "../data";
+import { Post } from "../types";
 import { PlusCircle, Edit, Trash, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
