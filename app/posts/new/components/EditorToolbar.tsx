@@ -20,21 +20,21 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   const router = useRouter();
 
   return (
-    <div className="fixed top-0 left-0 right-0 bg-gray-900 border-b border-gray-800 z-10 px-6 py-3">
-      <div className="max-w-4xl mx-auto flex justify-between items-center">
+    <div className="fixed top-0 left-0 right-0 bg-black/95 border-b border-gray-800/50 z-10">
+      <div className="max-w-4xl mx-auto flex justify-between items-center h-20">
         <button
-          className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
+          className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors hover:cursor-pointer"
           onClick={() => router.push("/")}
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Tornar</span>
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center space-x-8">
           <select
             value={category}
             onChange={(e) => onCategoryChange(e.target.value)}
-            className="bg-gray-900 border border-gray-800 rounded px-3 py-1 text-gray-300"
+            className="text-gray-300 hover:text-white transition-colors hover:cursor-pointer"
           >
             {categories.map((cat) => (
               <option key={cat.id} value={cat.id}>
@@ -45,7 +45,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
 
           <button
             onClick={onSave}
-            className="flex items-center gap-1 px-4 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors"
             disabled={loading}
           >
             <Save className="w-4 h-4" />

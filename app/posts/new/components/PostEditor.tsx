@@ -38,7 +38,7 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
   }
 
   return (
-    <div className="bg-gray-900 text-white min-h-screen">
+    <div className="bg-black text-white min-h-screen">
       <EditorToolbar
         loading={loading}
         category={post.category}
