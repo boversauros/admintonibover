@@ -27,9 +27,9 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
     <div className="space-y-8">
       <div
         className={`grid gap-8 ${
-          images.length === 1
+          images.length === 0
             ? "grid-cols-1"
-            : images.length === 2
+            : images.length === 1
             ? "grid-cols-1 md:grid-cols-2"
             : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
         }`}
@@ -71,21 +71,22 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({
             </button>
           </div>
         ))}
-
-        <div
-          className="flex items-center justify-center border-2 border-dashed border-gray-800 rounded hover:border-gray-600 transition-colors cursor-pointer aspect-video"
-          onClick={() =>
-            onArrayAdd("images", {
-              url: "https://picsum.photos/id/3/1200/800",
-              title: "Nova imatge",
-            })
-          }
-        >
-          <div className="flex flex-col items-center justify-center">
-            <PlusCircle className="w-8 h-8 text-gray-600" />
-            <span className="mt-2 text-sm text-gray-500">Afegir imatge</span>
+        {images.length < 3 && (
+          <div
+            className="flex items-center justify-center border-2 border-dashed border-gray-800 rounded hover:border-gray-600 transition-colors cursor-pointer aspect-video"
+            onClick={() =>
+              onArrayAdd("images", {
+                url: "https://picsum.photos/id/3/1200/800",
+                title: "Nova imatge",
+              })
+            }
+          >
+            <div className="flex flex-col items-center justify-center">
+              <PlusCircle className="w-8 h-8 text-gray-600" />
+              <span className="mt-2 text-sm text-gray-500">Afegir imatge</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
