@@ -9,6 +9,8 @@ export const usePostEditor = (postId?: string) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [activeEditField, setActiveEditField] = useState<string | null>(null);
 
+  console.log(post);
+
   useEffect(() => {
     if (postId) {
       setLoading(true);
@@ -18,7 +20,7 @@ export const usePostEditor = (postId?: string) => {
           title: "La influència del minimalisme en el disseny web modern",
           category: "perspectives",
           date: "12 de març de 2025",
-          isPublished: true,
+          isPublished: false,
         });
         setLoading(false);
       }, 500);
