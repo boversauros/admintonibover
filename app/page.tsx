@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import { useState } from "react";
 import { DEMO_POSTS, CATEGORIES } from "../data";
 import { Post } from "../types";
 import { PlusCircle, Edit, Trash, Eye, EyeOff } from "lucide-react";

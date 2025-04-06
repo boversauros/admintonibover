@@ -1,5 +1,3 @@
-import React from "react";
-
 export interface EditableFieldProps {
   value: string;
   fieldName: string;

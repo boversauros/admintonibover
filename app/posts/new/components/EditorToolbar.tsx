@@ -1,4 +1,3 @@
-import React from "react";
 import { Save, ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Category } from "../../../../types";

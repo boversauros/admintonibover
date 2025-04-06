@@ -1,4 +1,3 @@
-import React from "react";
 import { PlusCircle, X } from "lucide-react";
 import { ImageData } from "../../../../types";
 import { EditableField } from "./EditableField";

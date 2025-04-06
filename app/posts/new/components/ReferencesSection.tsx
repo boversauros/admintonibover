@@ -1,4 +1,3 @@
-import React from "react";
 import { EditableArrayField } from "./EditableArrayField";
 import { PostReferences, ImageData } from "../../../../types";
 

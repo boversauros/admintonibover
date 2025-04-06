@@ -1,6 +1,4 @@
 "use client";
-
-import React from "react";
 import PostEditor from "./components/PostEditor";
 import { useSearchParams } from "next/navigation";
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { CATEGORIES } from "../../../../data";
 import { usePostEditor } from "../../hooks/usePostEditor";
 

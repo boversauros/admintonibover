@@ -1,5 +1,3 @@
-import React from "react";
-
 interface ContentEditorProps {
   content: string;
   contentEditMode: boolean;
