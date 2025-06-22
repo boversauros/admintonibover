@@ -1,9 +1,12 @@
+export type Language = 'ca' | 'en';
+
 export interface Post {
   id: string;
   title: string;
   category: Category["id"];
   content: string;
   date: string;
+  language: Language;
   image: ImageData | null;
   portraitImage: ImageData;
   keywords: string[];

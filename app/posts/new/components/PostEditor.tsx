@@ -10,6 +10,8 @@ import { ContentEditor } from "./ContentEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { KeywordsSection } from "./KeywordsSection";
 
+
+
 export interface PostEditorProps {
   postId?: string;
 }
@@ -67,8 +69,10 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
       <EditorToolbar
         loading={loading}
         category={post.category}
-        categories={CATEGORIES}
+        categories={Object.values(CATEGORIES)}
+        language={post.language}
         onCategoryChange={(category) => handleFieldChange("category", category)}
+        onLanguageChange={(language) => handleFieldChange("language", language)}
         onSave={handleSave}
       />
 
@@ -111,6 +115,8 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
                 />
               </div>
             </header>
+
+
 
             <PostImage
               image={post.image}

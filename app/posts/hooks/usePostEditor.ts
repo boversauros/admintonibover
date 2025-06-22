@@ -5,7 +5,10 @@ import { DEMO_POSTS } from "../../../data";
 const DEFAULT_POST: Post = DEMO_POSTS[0];
 
 export const usePostEditor = (postId?: string) => {
-  const [post, setPost] = useState<Post>(DEFAULT_POST);
+  const [post, setPost] = useState<Post>({
+    ...DEFAULT_POST,
+    language: 'ca' // Default to Catalan
+  });
   const [loading, setLoading] = useState<boolean>(false);
   const [activeEditField, setActiveEditField] = useState<string | null>(null);
 
@@ -21,6 +24,7 @@ export const usePostEditor = (postId?: string) => {
           category: "perspectives",
           date: "12 de març de 2025",
           isPublished: false,
+          language: 'ca',
         });
         setLoading(false);
       }, 500);
