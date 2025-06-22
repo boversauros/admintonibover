@@ -51,7 +51,7 @@ export const PostImage: React.FC<PostImageProps> = ({
           <X className="w-4 h-4" />
         </button>
       </div>
-      <p className="text-sm text-gray-400 font-serif italic mt-2">
+      <div className="text-sm text-gray-400 font-serif italic mt-2">
         <EditableField
           value={image.title}
           fieldName="image.title"
@@ -60,7 +60,7 @@ export const PostImage: React.FC<PostImageProps> = ({
           setActiveEditField={setActiveEditField}
           onChange={(value) => onImageUpdate({ ...image, title: value })}
         />
-      </p>
+      </div>
     </div>
   );
 };

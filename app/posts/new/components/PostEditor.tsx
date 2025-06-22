@@ -101,7 +101,7 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
                   onChange={handleFieldChange}
                 />
               </h1>
-              <p className="text-sm text-gray-400">
+              <div className="text-sm text-gray-400">
                 <EditableField
                   value={post.date}
                   fieldName="date"
@@ -109,7 +109,7 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
                   setActiveEditField={setActiveEditField}
                   onChange={handleFieldChange}
                 />
-              </p>
+              </div>
             </header>
 
             <PostImage
