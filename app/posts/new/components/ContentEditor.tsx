@@ -15,11 +15,11 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({
     <div className="prose max-w-none">
       <div
         className={`rounded relative ${
-          contentEditMode ? "bg-gray-900 border border-gray-800" : ""
+          contentEditMode ? "border border-gray-800" : ""
         }`}
       >
         {contentEditMode ? (
-          <div className="space-y-4 p-4">
+          <div className="space-y-4">
             <div
               className="min-h-32 p-2 focus:outline-none text-gray-300"
               contentEditable={true}

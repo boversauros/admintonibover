@@ -60,28 +60,32 @@ export const EditableField: React.FC<EditableFieldProps> = ({
     >
       {isEditing ? (
         isMultiline ? (
-          <textarea
-            value={value}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            className="w-full p-2 bg-gray-900 text-white border border-gray-700 rounded focus:outline-none"
-            rows={3}
-            autoFocus
-          />
+          <div className="border border-gray-700 rounded">
+            <textarea
+              value={value}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              className="w-full p-2 text-gray-300 focus:outline-none bg-transparent"
+              rows={3}
+              autoFocus
+            />
+          </div>
         ) : (
-          <input
-            type="text"
-            value={value}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            className="w-full p-2 bg-gray-900 text-white border border-gray-700 rounded focus:outline-none"
-            autoFocus
-          />
+          <div className="border border-gray-700 rounded">
+            <input
+              type="text"
+              value={value}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              className="w-full p-2 text-gray-300 focus:outline-none bg-transparent"
+              autoFocus
+            />
+          </div>
         )
       ) : (
         <>
-          <div className="editable-content">
+          <div className="editable-content text-gray-300">
             {value || (
               <span className="text-gray-500 italic">Clica per editar</span>
             )}
