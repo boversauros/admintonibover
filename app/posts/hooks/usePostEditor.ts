@@ -73,12 +73,8 @@ export const usePostEditor = (postId?: string) => {
             ],
           };
         }
-      } else {
-        if (arrayPath === "images") {
-          updated.images = [...updated.images, defaultValue as ImageData];
-        } else if (arrayPath === "keywords") {
-          updated.keywords = [...updated.keywords, defaultValue as string];
-        }
+      } else if (arrayPath === "keywords") {
+        updated.keywords = [...updated.keywords, defaultValue as string];
       }
 
       return updated;
@@ -104,60 +100,19 @@ export const usePostEditor = (postId?: string) => {
             [child]: newArray,
           };
         }
-      } else {
-        if (arrayPath === "images") {
-          updated.images = updated.images.filter((_, i) => i !== index);
-        } else if (arrayPath === "keywords") {
-          updated.keywords = updated.keywords.filter((_, i) => i !== index);
-        }
+      } else if (arrayPath === "keywords") {
+        updated.keywords = updated.keywords.filter((_, i) => i !== index);
       }
 
       return updated;
     });
   };
 
-  const handleArrayUpdate = (
-    arrayPath: string,
-    index: number,
-    value: string | ImageData
-  ): void => {
-    setPost((prev) => {
-      const updated = { ...prev };
-
-      if (arrayPath.includes(".")) {
-        const [parent, child] = arrayPath.split(".");
-        if (
-          parent === "references" &&
-          (child === "images" || child === "texts")
-        ) {
-          const newArray = [
-            ...(updated.references[child as keyof PostReferences] as string[]),
-          ];
-          newArray[index] = value as string;
-          updated.references = {
-            ...updated.references,
-            [child]: newArray,
-          };
-        }
-      } else {
-        if (arrayPath === "images") {
-          const newImages = [...updated.images];
-
-          if (typeof value === "string" && newImages[index]) {
-            newImages[index] = { ...newImages[index], title: value };
-          } else if (typeof value === "object") {
-            newImages[index] = value as ImageData;
-          }
-          updated.images = newImages;
-        } else if (arrayPath === "keywords") {
-          const newKeywords = [...updated.keywords];
-          newKeywords[index] = value as string;
-          updated.keywords = newKeywords;
-        }
-      }
-
-      return updated;
-    });
+  const handleImageUpdate = (image: ImageData | null): void => {
+    setPost((prev) => ({
+      ...prev,
+      image,
+    }));
   };
 
   const handleContentChange = (html: string): void => {
@@ -185,7 +140,7 @@ export const usePostEditor = (postId?: string) => {
     handleFieldChange,
     handleArrayAdd,
     handleArrayRemove,
-    handleArrayUpdate,
+    handleImageUpdate,
     handleContentChange,
     handleSave,
   };

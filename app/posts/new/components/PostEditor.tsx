@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CATEGORIES } from "../../../../data";
 import { usePostEditor } from "../../hooks/usePostEditor";
+import { Post, ImageData } from "../../../../types";
 
 import { EditorToolbar } from "./EditorToolbar";
 import { EditableField } from "./EditableField";
-import { ImageGallery } from "./ImageGallery";
+import { PostImage } from "./PostImage";
 import { ContentEditor } from "./ContentEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { KeywordsSection } from "./KeywordsSection";
@@ -24,10 +25,34 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
     handleFieldChange,
     handleArrayAdd,
     handleArrayRemove,
-    handleArrayUpdate,
+    handleImageUpdate,
     handleContentChange,
     handleSave,
   } = usePostEditor(postId);
+  
+  const [localPost, setLocalPost] = useState<Post>(post);
+  
+  // Update local state when post changes
+  useEffect(() => {
+    setLocalPost(post);
+  }, [post]);
+  
+  // Handle references update
+  const handleReferencesUpdate = (path: string, index: number, value: string | ImageData) => {
+    if (path === 'references.images' || path === 'references.texts') {
+      const [parent, child] = path.split('.');
+      const updated = { ...localPost.references };
+      updated[child as keyof typeof updated] = [
+        ...(updated[child as keyof typeof updated] as string[]).slice(0, index),
+        value as string,
+        ...(updated[child as keyof typeof updated] as string[]).slice(index + 1)
+      ];
+      setLocalPost(prev => ({
+        ...prev,
+        references: updated
+      }));
+    }
+  };
 
   if (loading) {
     return (
@@ -87,13 +112,12 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
               </p>
             </header>
 
-            <ImageGallery
-              images={post.images}
+            <PostImage
+              image={post.image}
               activeEditField={activeEditField}
               setActiveEditField={setActiveEditField}
-              onArrayUpdate={handleArrayUpdate}
-              onArrayRemove={handleArrayRemove}
-              onArrayAdd={handleArrayAdd}
+              onImageUpdate={handleImageUpdate}
+              onImageRemove={() => handleImageUpdate(null)}
             />
 
             <ContentEditor
@@ -104,21 +128,28 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
             />
 
             <ReferencesSection
-              references={post.references}
+              references={localPost.references}
               activeEditField={activeEditField}
               setActiveEditField={setActiveEditField}
               onArrayAdd={handleArrayAdd}
               onArrayRemove={handleArrayRemove}
-              onArrayUpdate={handleArrayUpdate}
+              onArrayUpdate={handleReferencesUpdate}
             />
 
             <KeywordsSection
-              keywords={post.keywords}
+              keywords={localPost.keywords}
               activeEditField={activeEditField}
               setActiveEditField={setActiveEditField}
               onArrayAdd={handleArrayAdd}
               onArrayRemove={handleArrayRemove}
-              onArrayUpdate={handleArrayUpdate}
+              onArrayUpdate={(path, index, value) => {
+                const newKeywords = [...localPost.keywords];
+                newKeywords[index] = value as string;
+                setLocalPost(prev => ({
+                  ...prev,
+                  keywords: newKeywords
+                }));
+              }}
             />
           </article>
         </div>

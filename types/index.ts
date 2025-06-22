@@ -4,7 +4,7 @@ export interface Post {
   category: Category["id"];
   content: string;
   date: string;
-  images: ImageData[];
+  image: ImageData | null;
   portraitImage: ImageData;
   keywords: string[];
   references: PostReferences;
