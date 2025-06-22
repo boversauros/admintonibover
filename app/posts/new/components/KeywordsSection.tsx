@@ -20,11 +20,11 @@ export const KeywordsSection: React.FC<KeywordsSectionProps> = ({
 }) => {
   return (
     <div className="border-t border-gray-800 pt-8">
-      <h2 className="text-xl font-serif mb-6">Paraules clau</h2>
+      <h3 className="text-lg font-serif mb-6 text-gray-200">Paraules Clau</h3>
       <div className="flex flex-wrap gap-2">
         {keywords.map((keyword, index) => (
           <div key={index} className="relative group">
-            <div className="bg-gray-800 py-1 px-3 rounded-full text-sm text-gray-300 group-hover:bg-gray-700 transition-colors">
+            <div className="text-gray-400 hover:text-white transition-colors text-sm">
               <EditableField
                 value={keyword}
                 fieldName={`keywords.${index}`}
@@ -39,8 +39,7 @@ export const KeywordsSection: React.FC<KeywordsSectionProps> = ({
             </div>
             <button
               onClick={() => onArrayRemove("keywords", index)}
-              className="absolute -top-1 -right-1 bg-gray-700 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-              style={{ transform: "scale(0.7)" }}
+              className="absolute -top-2 -right-2 bg-gray-700 hover:bg-gray-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all duration-200"
               title="Eliminar paraula clau"
             >
               <X className="w-3 h-3" />
@@ -49,9 +48,9 @@ export const KeywordsSection: React.FC<KeywordsSectionProps> = ({
         ))}
         <button
           onClick={() => onArrayAdd("keywords", "Nova paraula")}
-          className="bg-gray-800 hover:bg-gray-700 py-1 px-3 rounded-full text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+          className="text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1 group"
         >
-          <PlusCircle className="w-3 h-3" />
+          <PlusCircle className="w-4 h-4" />
           <span>Afegir</span>
         </button>
       </div>
