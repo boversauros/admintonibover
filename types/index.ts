@@ -1,4 +1,4 @@
-export type Language = 'ca' | 'en';
+export type Language = "ca" | "en";
 
 export interface Post {
   id: string;
@@ -27,6 +27,7 @@ export interface Category {
 export interface ImageData {
   url: string;
   title: string;
+  alt?: string;
 }
 
 export interface PostReferences {
