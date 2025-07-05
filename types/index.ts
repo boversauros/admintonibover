@@ -32,6 +32,8 @@ export interface ImageData {
   title: string;
   alt?: string;
   file?: File; // For uploads
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface PostReferences {
