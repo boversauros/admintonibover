@@ -38,11 +38,11 @@ export const usePostEditor = (postId?: string) => {
       if (field.includes(".")) {
         const [parent, child] = field.split(".");
         if (
-          parent === "portraitImage" &&
+          parent === "thumbnail" &&
           (child === "url" || child === "title")
         ) {
-          updated.portraitImage = {
-            ...updated.portraitImage,
+          updated.thumbnail = {
+            ...updated.thumbnail,
             [child]: value,
           };
         }

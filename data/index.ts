@@ -11,7 +11,7 @@ export const DEMO_POSTS: Post[] = [
       url: "https://picsum.photos/1200/800",
       title: "Títol de la imatge",
     },
-    portraitImage: {
+    thumbnail: {
       url: "https://picsum.photos/id/2/1200/800",
       title: "Imatge principal",
     },
@@ -35,7 +35,7 @@ export const DEMO_POSTS: Post[] = [
       url: "https://picsum.photos/1200/800",
       title: "Títol de la imatge",
     },
-    portraitImage: {
+    thumbnail: {
       url: "https://picsum.photos/id/2/1200/800",
       title: "Imatge principal",
     },
@@ -59,7 +59,7 @@ export const DEMO_POSTS: Post[] = [
       url: "https://picsum.photos/1200/800",
       title: "Títol de la imatge",
     },
-    portraitImage: {
+    thumbnail: {
       url: "https://picsum.photos/id/2/1200/800",
       title: "Imatge principal",
     },
@@ -83,7 +83,7 @@ export const DEMO_POSTS: Post[] = [
       url: "https://picsum.photos/1200/800",
       title: "Títol de la imatge",
     },
-    portraitImage: {
+    thumbnail: {
       url: "https://picsum.photos/id/2/1200/800",
       title: "Imatge principal",
     },

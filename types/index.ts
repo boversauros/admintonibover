@@ -8,7 +8,7 @@ export interface Post {
   date: string;
   language: Language;
   image: ImageData | null;
-  portraitImage: ImageData;
+  thumbnail: ImageData;
   keywords: string[];
   references: PostReferences;
   createdAt: Date;
