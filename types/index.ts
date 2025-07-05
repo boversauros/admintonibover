@@ -28,6 +28,7 @@ export interface ImageData {
   url: string;
   title: string;
   alt?: string;
+  file?: File; // Added for file uploads
 }
 
 export interface PostReferences {

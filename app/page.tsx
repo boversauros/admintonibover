@@ -46,6 +46,9 @@ const Home: React.FC = () => {
               <thead>
                 <tr className="border-b border-white">
                   <th className="text-left p-4 text-gray-400 font-normal">
+                    Miniatura
+                  </th>
+                  <th className="text-left p-4 text-gray-400 font-normal">
                     Títol
                   </th>
                   <th className="text-left p-4 text-gray-400 font-normal">
@@ -64,6 +67,15 @@ const Home: React.FC = () => {
                 {posts.map((post) => (
                   <React.Fragment key={post.id}>
                     <tr className="border-b border-gray-700">
+                      <td className="p-2">
+                        <div className="w-16 h-16 bg-gray-800 rounded overflow-hidden">
+                          <img 
+                            src={post.thumbnail.url} 
+                            alt={post.thumbnail.title} 
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </td>
                       <td className="p-4">
                         <Link
                           href={`/posts/${post.id}`}
@@ -122,7 +134,7 @@ const Home: React.FC = () => {
 
                     {visibleConfirmDelete === post.id && (
                       <tr className="bg-gray-700">
-                        <td colSpan={5} className="p-4">
+                        <td colSpan={6} className="p-4">
                           <div className="flex justify-between items-center">
                             <p className="text-gray-300">
                               Segur que vols eliminar aquesta reflexió? Aquesta
