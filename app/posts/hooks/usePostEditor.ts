@@ -23,7 +23,6 @@ export const usePostEditor = (postId?: string) => {
           ...DEFAULT_POST,
           title: "La influència del minimalisme en el disseny web modern",
           category: "perspectives",
-          date: "12 de març de 2025",
           isPublished: false,
           language: 'ca',
         });
@@ -132,7 +131,6 @@ export const usePostEditor = (postId?: string) => {
       title: postData.title.trim(),
       category: postData.category,
       content: postData.content,
-      date: postData.date || now.toISOString(),
       language: postData.language,
       image: postData.image,
       thumbnail: postData.thumbnail,

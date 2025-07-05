@@ -5,7 +5,6 @@ export interface Post {
   title: string;
   category: Category["id"];
   content: string;
-  date: string;
   language: Language;
   image: ImageData | null;
   thumbnail: ImageData;

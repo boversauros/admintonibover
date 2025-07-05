@@ -105,15 +105,7 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
                   onChange={handleFieldChange}
                 />
               </h1>
-              <div className="text-sm text-gray-400">
-                <EditableField
-                  value={post.date}
-                  fieldName="date"
-                  activeEditField={activeEditField}
-                  setActiveEditField={setActiveEditField}
-                  onChange={handleFieldChange}
-                />
-              </div>
+
             </header>
 
 

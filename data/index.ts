@@ -5,7 +5,6 @@ export const DEMO_POSTS: Post[] = [
     id: "1",
     title: "La influència del minimalisme en el disseny web modern",
     category: "perspectives",
-    date: "12 de març de 2025",
     language: "ca",
     image: {
       url: "https://picsum.photos/1200/800",
@@ -29,7 +28,6 @@ export const DEMO_POSTS: Post[] = [
     id: "2",
     title: "Fotografia urbana: l'essència de la ciutat",
     category: "vivencies",
-    date: "5 de febrer de 2025",
     language: "ca",
     image: {
       url: "https://picsum.photos/1200/800",
@@ -53,7 +51,6 @@ export const DEMO_POSTS: Post[] = [
     id: "3",
     title: "El procés creatiu: entre la intuïció i la metodologia",
     category: "influencies",
-    date: "18 de gener de 2025",
     language: "ca",
     image: {
       url: "https://picsum.photos/1200/800",
@@ -77,7 +74,6 @@ export const DEMO_POSTS: Post[] = [
     id: "4",
     title: "Tendències visuals per al 2025",
     category: "perspectives",
-    date: "2 de gener de 2025",
     language: "ca",
     image: {
       url: "https://picsum.photos/1200/800",

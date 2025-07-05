@@ -87,7 +87,9 @@ const Home: React.FC = () => {
                       <td className="p-4 text-gray-300">
                         {CATEGORIES.find((c) => c.id === post.category)?.name}
                       </td>
-                      <td className="p-4 text-gray-300">{post.date}</td>
+                      <td className="p-4 text-gray-300">
+                        {post.createdAt.toLocaleDateString('ca-ES', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      </td>
                       <td className="p-4">
                         <span
                           className={`px-2 py-1 text-xs ${
