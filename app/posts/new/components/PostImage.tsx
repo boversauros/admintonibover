@@ -2,6 +2,7 @@ import { X, Upload, Image as ImageIcon } from "lucide-react";
 import { ImageData } from "../../../../types";
 import { EditableField } from "./EditableField";
 import { useCallback, useRef } from "react";
+import { v4 as uuidv4 } from 'uuid';
 
 interface PostImageProps {
   image: ImageData | null;
@@ -27,12 +28,17 @@ export const PostImage: React.FC<PostImageProps> = ({
     // Create a URL for the selected file
     const fileUrl = URL.createObjectURL(file);
     
-    // Update the parent component with the new image
-    onImageUpdate({
+    // Create a properly typed ImageData object with all required fields
+    const imageData: ImageData = {
+      id: uuidv4(),
       url: fileUrl,
-      title: file.name.split('.')[0], // Use filename without extension as title
-      file // Keep the file reference for later upload
-    });
+      title: file.name.split('.')[0] || 'Untitled',
+      alt: file.name.split('.')[0] || 'Image',
+      file // Optional file reference for upload
+    };
+    
+    // Update the parent component with the new image
+    onImageUpdate(imageData);
     
     // Reset the input to allow selecting the same file again
     if (fileInputRef.current) {

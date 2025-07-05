@@ -6,8 +6,8 @@ export interface Post {
   category: Category["id"];
   content: string;
   language: Language;
-  image: ImageData | null;
-  thumbnail: ImageData;
+  image_id: string | null;
+  thumbnail_id: string;
   keywords: string[];
   references: PostReferences;
   createdAt: Date;
@@ -16,6 +16,9 @@ export interface Post {
   author?: string;
   slug?: string;
   tags?: string[];
+  // These are populated by the API
+  image?: ImageData | null;
+  thumbnail?: ImageData | null;
 }
 
 export interface Category {
@@ -24,10 +27,11 @@ export interface Category {
 }
 
 export interface ImageData {
+  id: string;
   url: string;
   title: string;
   alt?: string;
-  file?: File; // Added for file uploads
+  file?: File; // For uploads
 }
 
 export interface PostReferences {

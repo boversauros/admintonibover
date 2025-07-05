@@ -68,12 +68,18 @@ const Home: React.FC = () => {
                   <React.Fragment key={post.id}>
                     <tr className="border-b border-gray-700">
                       <td className="p-2">
-                        <div className="w-16 h-16 bg-gray-800 rounded overflow-hidden">
-                          <img 
-                            src={post.thumbnail.url} 
-                            alt={post.thumbnail.title} 
-                            className="w-full h-full object-cover"
-                          />
+                        <div className="w-16 h-16 bg-gray-800 rounded overflow-hidden flex items-center justify-center">
+                          {post.thumbnail ? (
+                            <img 
+                              src={post.thumbnail.url} 
+                              alt={post.thumbnail.title || 'Post thumbnail'} 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="text-gray-500 text-xs text-center p-2">
+                              No thumbnail
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="p-4">
