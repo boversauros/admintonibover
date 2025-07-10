@@ -10,8 +10,6 @@ import { ContentEditor } from "./ContentEditor";
 import { ReferencesSection } from "./ReferencesSection";
 import { KeywordsSection } from "./KeywordsSection";
 
-
-
 export interface PostEditorProps {
   postId?: string;
 }
@@ -31,27 +29,33 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
     handleContentChange,
     handleSave,
   } = usePostEditor(postId);
-  
+
   const [localPost, setLocalPost] = useState<Post>(post);
-  
+
   // Update local state when post changes
   useEffect(() => {
     setLocalPost(post);
   }, [post]);
-  
+
   // Handle references update
-  const handleReferencesUpdate = (path: string, index: number, value: string | ImageData) => {
-    if (path === 'references.images' || path === 'references.texts') {
-      const [parent, child] = path.split('.');
+  const handleReferencesUpdate = (
+    path: string,
+    index: number,
+    value: string | ImageData
+  ) => {
+    if (path === "references.images" || path === "references.texts") {
+      const [parent, child] = path.split(".");
       const updated = { ...localPost.references };
       updated[child as keyof typeof updated] = [
         ...(updated[child as keyof typeof updated] as string[]).slice(0, index),
         value as string,
-        ...(updated[child as keyof typeof updated] as string[]).slice(index + 1)
+        ...(updated[child as keyof typeof updated] as string[]).slice(
+          index + 1
+        ),
       ];
-      setLocalPost(prev => ({
+      setLocalPost((prev) => ({
         ...prev,
-        references: updated
+        references: updated,
       }));
     }
   };
@@ -105,13 +109,10 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
                   onChange={handleFieldChange}
                 />
               </h1>
-
             </header>
 
-
-
             <PostImage
-              image={post.image}
+              image={post.image || null}
               activeEditField={activeEditField}
               setActiveEditField={setActiveEditField}
               onImageUpdate={handleImageUpdate}
@@ -143,9 +144,9 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
               onArrayUpdate={(path, index, value) => {
                 const newKeywords = [...localPost.keywords];
                 newKeywords[index] = value as string;
-                setLocalPost(prev => ({
+                setLocalPost((prev) => ({
                   ...prev,
-                  keywords: newKeywords
+                  keywords: newKeywords,
                 }));
               }}
             />
