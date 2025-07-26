@@ -28,6 +28,7 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
     removeKeyword,
     addReference,
     removeReference,
+    updateReferences,
     getPostForSupabase
   } = usePostEditor(postId ? { id: postId } : undefined);
 
@@ -131,6 +132,12 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
               setActiveEditField={setActiveEditField}
               onAddReference={addReference}
               onRemoveReference={removeReference}
+              onUpdateReferences={(type, updatedReferences) => {
+                updateField('references', {
+                  ...post.references,
+                  [type]: updatedReferences
+                });
+              }}
             />
 
             <KeywordsSection

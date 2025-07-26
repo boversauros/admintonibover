@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Post, ImageData, PostReferences } from "../../../types";
+import { Post, ImageData } from "../../../types";
 
-const DEFAULT_POST: Omit<Post, 'id'> = {
+const DEFAULT_POST: Omit<Post, "id"> = {
   title: "",
   category: "",
   content: "",
@@ -16,14 +16,14 @@ const DEFAULT_POST: Omit<Post, 'id'> = {
   updatedAt: new Date(),
   author: "",
   slug: "",
-  tags: []
+  tags: [],
 };
 
 export const usePostEditor = (initialPost?: Partial<Post>) => {
   const [post, setPost] = useState<Post>(() => {
     const now = new Date();
     const id = initialPost?.id || uuidv4();
-    
+
     // Create a base post with default values
     const basePost: Post = {
       ...DEFAULT_POST,
@@ -35,16 +35,16 @@ export const usePostEditor = (initialPost?: Partial<Post>) => {
       references: {
         images: [],
         texts: [],
-        ...initialPost?.references
+        ...initialPost?.references,
       },
       // Ensure arrays are always arrays
       keywords: initialPost?.keywords || [],
-      tags: initialPost?.tags || []
+      tags: initialPost?.tags || [],
     };
-    
+
     return basePost;
   });
-  
+
   const [loading, setLoading] = useState<boolean>(false);
 
   // Load post if postId is provided
@@ -54,18 +54,18 @@ export const usePostEditor = (initialPost?: Partial<Post>) => {
       // In a real app, you would fetch the post from an API here
       // For now, we'll just use the initialPost if provided
       if (initialPost) {
-        setPost(prev => ({
+        setPost((prev) => ({
           ...prev,
           ...initialPost,
           // Ensure references is always an object with the correct shape
           references: {
             images: [],
             texts: [],
-            ...initialPost.references
+            ...initialPost.references,
           },
           // Ensure arrays are always arrays
           keywords: initialPost.keywords || [],
-          tags: initialPost.tags || []
+          tags: initialPost.tags || [],
         }));
       }
       setLoading(false);
@@ -73,81 +73,106 @@ export const usePostEditor = (initialPost?: Partial<Post>) => {
   }, [initialPost?.id]);
 
   const updateField = <K extends keyof Post>(field: K, value: Post[K]) => {
-    setPost(prev => ({
-      ...prev,
-      [field]: value,
-      updatedAt: new Date()
-    } as Post));
+    setPost(
+      (prev) =>
+        ({
+          ...prev,
+          [field]: value,
+          updatedAt: new Date(),
+        } as Post)
+    );
   };
 
   const updateImage = (image: ImageData | null) => {
-    setPost(prev => ({
+    setPost((prev) => ({
       ...prev,
       image,
       image_id: image?.id || null,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     }));
   };
 
   const updateThumbnail = (thumbnail: ImageData) => {
-    setPost(prev => ({
+    setPost((prev) => ({
       ...prev,
       thumbnail,
       thumbnail_id: thumbnail.id,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     }));
   };
 
   const addKeyword = (keyword: string) => {
-    if (!keyword.trim()) return;
-    setPost(prev => ({
-      ...prev,
-      keywords: [...new Set([...prev.keywords, keyword.trim()])],
-      updatedAt: new Date()
-    }));
+    const trimmedKeyword = keyword.trim();
+    if (!trimmedKeyword) return;
+    
+    setPost((prev) => {
+      // Check if the keyword already exists (case-insensitive)
+      const keywordExists = prev.keywords.some(
+        k => k.toLowerCase() === trimmedKeyword.toLowerCase()
+      );
+      
+      if (keywordExists) return prev;
+      
+      return {
+        ...prev,
+        keywords: [...prev.keywords, trimmedKeyword],
+        updatedAt: new Date(),
+      };
+    });
   };
 
   const removeKeyword = (keyword: string) => {
-    setPost(prev => ({
+    setPost((prev) => ({
       ...prev,
-      keywords: prev.keywords.filter(k => k !== keyword),
-      updatedAt: new Date()
+      keywords: prev.keywords.filter((k) => k !== keyword),
+      updatedAt: new Date(),
     }));
   };
 
-  const addReference = (type: 'images' | 'texts', value: string) => {
+  const addReference = (type: "images" | "texts", value: string) => {
     if (!value.trim()) return;
-    setPost(prev => ({
+    setPost((prev) => ({
       ...prev,
       references: {
         ...prev.references,
-        [type]: [...new Set([...prev.references[type], value])]
+        [type]: [...new Set([...prev.references[type], value])],
       },
-      updatedAt: new Date()
+      updatedAt: new Date(),
     }));
   };
 
-  const removeReference = (type: 'images' | 'texts', value: string) => {
-    setPost(prev => ({
+  const removeReference = (type: "images" | "texts", value: string) => {
+    setPost((prev) => ({
       ...prev,
       references: {
         ...prev.references,
-        [type]: prev.references[type].filter(item => item !== value)
+        [type]: prev.references[type].filter((item) => item !== value),
       },
-      updatedAt: new Date()
+      updatedAt: new Date(),
+    }));
+  };
+
+  const updateReferences = (type: "images" | "texts", references: string[]) => {
+    setPost((prev) => ({
+      ...prev,
+      references: {
+        ...prev.references,
+        [type]: references,
+      },
+      updatedAt: new Date(),
     }));
   };
 
   // Prepare the post data for Supabase
-  const getPostForSupabase = (): Omit<Post, 'image' | 'thumbnail'> => {
+  const getPostForSupabase = (): Omit<Post, "image" | "thumbnail"> => {
     const { image, thumbnail, ...postData } = post;
     return {
       ...postData,
       image_id: image?.id || null,
-      thumbnail_id: thumbnail?.id || '',
+      thumbnail_id: thumbnail?.id || "",
       // Ensure dates are properly formatted for Supabase
       createdAt: post.createdAt,
-      updatedAt: post.updatedAt
+      updatedAt: post.updatedAt,
     } as Post;
   };
 
@@ -161,6 +186,7 @@ export const usePostEditor = (initialPost?: Partial<Post>) => {
     removeKeyword,
     addReference,
     removeReference,
-    getPostForSupabase
+    updateReferences,
+    getPostForSupabase,
   };
 };

@@ -1,4 +1,5 @@
 import { PlusCircle, X } from "lucide-react";
+import { EditableField } from "./EditableField";
 
 interface KeywordsSectionProps {
   keywords: string[];
@@ -18,16 +19,19 @@ export const KeywordsSection: React.FC<KeywordsSectionProps> = ({
   onUpdateKeyword,
 }) => {
   const handleAddKeyword = () => {
-    const newKeyword = prompt('Introdueix una nova paraula clau:');
-    if (newKeyword) {
-      onAddKeyword(newKeyword);
-    }
+    // Add empty keyword and immediately start editing it
+    const newIndex = keywords.length;
+    onAddKeyword('');
+    // Set focus to the new empty keyword
+    setActiveEditField(`keyword-${newIndex}`);
   };
 
-  const handleUpdateKeyword = (index: number, currentValue: string) => {
-    const newValue = prompt('Edita la paraula clau:', currentValue);
-    if (newValue !== null && newValue !== currentValue) {
-      onUpdateKeyword(index, newValue);
+  const handleUpdateKeyword = (index: number, value: string) => {
+    if (value.trim() === '') {
+      // Remove empty keywords
+      onRemoveKeyword(keywords[index]);
+    } else {
+      onUpdateKeyword(index, value);
     }
   };
 
@@ -37,12 +41,18 @@ export const KeywordsSection: React.FC<KeywordsSectionProps> = ({
       <div className="flex flex-wrap gap-2">
         {keywords.map((keyword, index) => (
           <div key={index} className="relative group">
-            <div 
-              className="text-gray-400 hover:text-white transition-colors text-sm bg-gray-800 px-3 py-1 rounded cursor-pointer"
-              onClick={() => handleUpdateKeyword(index, keyword)}
-            >
-              {keyword}
-            </div>
+            <EditableField
+              value={keyword}
+              fieldName={`keyword-${index}`}
+              isArray={true}
+              index={index}
+              arrayPath="keywords"
+              className="text-gray-400 hover:text-white transition-colors text-sm bg-gray-800 px-3 py-1 rounded"
+              activeEditField={activeEditField}
+              setActiveEditField={setActiveEditField}
+              onChange={(field, value) => handleUpdateKeyword(index, value)}
+              onArrayUpdate={(arrayPath, idx, value) => handleUpdateKeyword(idx, value)}
+            />
             <button
               onClick={(e) => {
                 e.stopPropagation();
