@@ -6,9 +6,9 @@ interface ReferencesSectionProps {
   references: PostReferences;
   activeEditField: string | null;
   setActiveEditField: (field: string | null) => void;
-  onAddReference: (type: 'images' | 'texts', value: string) => void;
-  onRemoveReference: (type: 'images' | 'texts', value: string) => void;
-  onUpdateReferences: (type: 'images' | 'texts', references: string[]) => void;
+  onAddReference: (type: "images" | "texts", value: string) => void;
+  onRemoveReference: (type: "images" | "texts", value: string) => void;
+  onUpdateReferences: (type: "images" | "texts", references: string[]) => void;
 }
 
 export const ReferencesSection: React.FC<ReferencesSectionProps> = ({
@@ -19,43 +19,42 @@ export const ReferencesSection: React.FC<ReferencesSectionProps> = ({
   onRemoveReference,
   onUpdateReferences,
 }) => {
-  const handleAddReference = (type: 'images' | 'texts') => {
+  const handleAddReference = (type: "images" | "texts") => {
+    const nImages = references.images.length;
+    const nTexts = references.texts.length;
     // Add empty reference and immediately start editing it
-    onAddReference(type, '');
-    // Set focus to the new empty reference
-    setActiveEditField(`${type}-${type === 'images' ? references.images.length : references.texts.length}`);
+    onAddReference(
+      type,
+      `nova referencia ${type === "images" ? nImages : nTexts}`
+    );
   };
 
-  const handleUpdateReference = (type: 'images' | 'texts', index: number, value: string) => {
-    if (value.trim() === '') {
-      // Remove empty references
-      const refToRemove = (type === 'images' ? references.images : references.texts)[index];
-      if (refToRemove) {
-        onRemoveReference(type, refToRemove);
-      }
+  const handleUpdateReference = (
+    type: "images" | "texts",
+    index: number,
+    value: string
+  ) => {
+    if (value.trim() === "") {
+      // If the field is empty, remove the reference by index
+      const currentItems = [
+        ...(type === "images" ? references.images : references.texts),
+      ];
+      currentItems.splice(index, 1);
+      onUpdateReferences(type, currentItems);
     } else {
       // Update the reference by creating a new array with the updated value
-      const currentItems = [...(type === 'images' ? references.images : references.texts)];
+      const currentItems = [
+        ...(type === "images" ? references.images : references.texts),
+      ];
       currentItems[index] = value.trim();
-      
-      // Use the callback to update the parent component's state
-      if (onUpdateReferences) {
-        onUpdateReferences(type, currentItems);
-      } else {
-        // Fallback to using add/remove if onUpdateReferences is not provided
-        const oldValue = (type === 'images' ? references.images : references.texts)[index];
-        if (oldValue) {
-          onRemoveReference(type, oldValue);
-        }
-        onAddReference(type, value.trim());
-      }
+      onUpdateReferences(type, currentItems);
     }
   };
 
-  const renderReferenceList = (type: 'images' | 'texts', items: string[]) => (
+  const renderReferenceList = (type: "images" | "texts", items: string[]) => (
     <div>
       <h3 className="text-lg font-serif mb-3 text-gray-200">
-        {type === 'images' ? 'Imatges' : 'Textos'}
+        {type === "images" ? "Imatges" : "Textos"}
       </h3>
       <div className="space-y-2">
         {items.map((item, index) => {
@@ -66,17 +65,19 @@ export const ReferencesSection: React.FC<ReferencesSectionProps> = ({
                 <EditableField
                   value={item}
                   fieldName={fieldName}
-                  className="text-gray-400 hover:text-white transition-colors text-sm bg-gray-800 px-3 py-1 rounded w-full"
+                  className="flex-1 text-gray-300 hover:text-white transition-colors text-sm px-3 py-1 w-full"
                   activeEditField={activeEditField}
                   setActiveEditField={setActiveEditField}
-                  onChange={(field, value) => handleUpdateReference(type, index, value)}
+                  onChange={(field, value) =>
+                    handleUpdateReference(type, index, value)
+                  }
                 />
               </div>
               <button
                 type="button"
                 onClick={() => onRemoveReference(type, item)}
                 className="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity px-2"
-                title={`Eliminar ${type === 'images' ? 'imatge' : 'text'}`}
+                title={`Eliminar ${type === "images" ? "imatge" : "text"}`}
               >
                 ×
               </button>
@@ -86,10 +87,10 @@ export const ReferencesSection: React.FC<ReferencesSectionProps> = ({
         <button
           type="button"
           onClick={() => handleAddReference(type)}
-          className="text-blue-400 hover:text-blue-300 text-sm flex items-center mt-1"
+          className="text-sm flex items-center mt-1"
         >
           <PlusCircle className="w-4 h-4 mr-1" />
-          {`Afegir ${type === 'images' ? 'URL' : 'text'} de referència`}
+          {`Afegir ${type === "images" ? "URL" : "text"} de referència`}
         </button>
       </div>
     </div>
@@ -97,10 +98,10 @@ export const ReferencesSection: React.FC<ReferencesSectionProps> = ({
 
   return (
     <div className="border-t border-gray-800 pt-8">
-      <h2 className="text-xl font-serif mb-6">Referències</h2>
+      <h2 className="text-xl font-serif mb-6 text-gray-200">Referències</h2>
       <div className="space-y-8">
-        {renderReferenceList('images', references.images)}
-        {renderReferenceList('texts', references.texts)}
+        {renderReferenceList("images", references.images)}
+        {renderReferenceList("texts", references.texts)}
       </div>
     </div>
   );

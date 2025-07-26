@@ -21,13 +21,13 @@ export const KeywordsSection: React.FC<KeywordsSectionProps> = ({
   const handleAddKeyword = () => {
     // Add empty keyword and immediately start editing it
     const newIndex = keywords.length;
-    onAddKeyword('');
+    onAddKeyword(`Nova paraula clau ${newIndex > 0 ? `${newIndex}` : ""}`);
     // Set focus to the new empty keyword
     setActiveEditField(`keyword-${newIndex}`);
   };
 
   const handleUpdateKeyword = (index: number, value: string) => {
-    if (value.trim() === '') {
+    if (value.trim() === "") {
       // Remove empty keywords
       onRemoveKeyword(keywords[index]);
     } else {
@@ -36,8 +36,8 @@ export const KeywordsSection: React.FC<KeywordsSectionProps> = ({
   };
 
   return (
-    <div className="border-t border-gray-800 pt-8">
-      <h3 className="text-lg font-serif mb-6 text-gray-200">Paraules Clau</h3>
+    <div className="space-y-4">
+      <h3 className="text-lg font-serif text-gray-200">Paraules clau</h3>
       <div className="flex flex-wrap gap-2">
         {keywords.map((keyword, index) => (
           <div key={index} className="relative group">
@@ -47,11 +47,11 @@ export const KeywordsSection: React.FC<KeywordsSectionProps> = ({
               isArray={true}
               index={index}
               arrayPath="keywords"
-              className="text-gray-400 hover:text-white transition-colors text-sm bg-gray-800 px-3 py-1 rounded"
+              className="text-sm px-3 py-1 text-gray-300"
               activeEditField={activeEditField}
               setActiveEditField={setActiveEditField}
               onChange={(field, value) => handleUpdateKeyword(index, value)}
-              onArrayUpdate={(arrayPath, idx, value) => handleUpdateKeyword(idx, value)}
+              onArrayUpdate={(_, idx, value) => handleUpdateKeyword(idx, value)}
             />
             <button
               onClick={(e) => {
@@ -67,7 +67,7 @@ export const KeywordsSection: React.FC<KeywordsSectionProps> = ({
         ))}
         <button
           onClick={handleAddKeyword}
-          className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors text-sm"
+          className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors text-sm"
         >
           <PlusCircle className="w-4 h-4" />
           Afegir paraula clau
