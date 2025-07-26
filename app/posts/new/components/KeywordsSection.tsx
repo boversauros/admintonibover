@@ -58,7 +58,7 @@ export const KeywordsSection: React.FC<KeywordsSectionProps> = ({
                 e.stopPropagation();
                 onRemoveKeyword(keyword);
               }}
-              className="absolute -top-2 -right-2 bg-gray-700 hover:bg-gray-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all duration-200"
+              className="absolute -top-2 -right-2 bg-gray-700 hover:bg-gray-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer"
               title="Eliminar paraula clau"
             >
               <X className="w-3 h-3" />
@@ -67,7 +67,7 @@ export const KeywordsSection: React.FC<KeywordsSectionProps> = ({
         ))}
         <button
           onClick={handleAddKeyword}
-          className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors text-sm"
+          className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors text-sm cursor-pointer"
         >
           <PlusCircle className="w-4 h-4" />
           Afegir paraula clau

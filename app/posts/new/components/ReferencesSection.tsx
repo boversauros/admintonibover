@@ -87,7 +87,7 @@ export const ReferencesSection: React.FC<ReferencesSectionProps> = ({
         <button
           type="button"
           onClick={() => handleAddReference(type)}
-          className="text-sm flex items-center mt-1"
+          className="text-sm flex items-center mt-1 text-gray-300 hover:text-white transition-colors cursor-pointer"
         >
           <PlusCircle className="w-4 h-4 mr-1" />
           {`Afegir ${type === "images" ? "URL" : "text"} de referència`}
