@@ -3,7 +3,7 @@ import { Post, ImageData } from "../../../types";
 
 const DEFAULT_POST: Omit<Post, "id" | "user_id"> = {
   title: "",
-  category_id: 0, // You'll need to set a valid category_id
+  category_id: 0,
   content: "",
   language: "ca",
   image_id: null,
@@ -22,26 +22,21 @@ const DEFAULT_POST: Omit<Post, "id" | "user_id"> = {
 export const usePostEditor = (initialPost?: Partial<Post>, userId?: string) => {
   const [post, setPost] = useState<Post>(() => {
     const now = new Date();
-
-    // For new posts, we'll use a temporary negative ID until saved
     const id = initialPost?.id || -1;
 
-    // Create a base post with default values
     const basePost: Post = {
       ...DEFAULT_POST,
       id,
-      user_id: userId || initialPost?.user_id || "", // You'll need to provide this
+      user_id: userId || initialPost?.user_id || "",
       updated_at: now,
       created_at: initialPost?.created_at || now,
       date: initialPost?.date || now,
       ...initialPost,
-      // Ensure references is always an object with the correct shape
       references: {
         images: [],
         texts: [],
         ...initialPost?.references,
       },
-      // Ensure arrays are always arrays
       keywords: initialPost?.keywords || [],
       tags: initialPost?.tags || [],
     };
@@ -51,22 +46,18 @@ export const usePostEditor = (initialPost?: Partial<Post>, userId?: string) => {
 
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Load post if postId is provided
   useEffect(() => {
     if (initialPost?.id && initialPost.id > 0) {
       setLoading(true);
-      // In a real app, you would fetch the post from Supabase here
       if (initialPost) {
         setPost((prev) => ({
           ...prev,
           ...initialPost,
-          // Ensure references is always an object with the correct shape
           references: {
             images: [],
             texts: [],
             ...initialPost.references,
           },
-          // Ensure arrays are always arrays
           keywords: initialPost.keywords || [],
           tags: initialPost.tags || [],
         }));
@@ -109,7 +100,6 @@ export const usePostEditor = (initialPost?: Partial<Post>, userId?: string) => {
     if (!trimmedKeyword) return;
 
     setPost((prev) => {
-      // Check if the keyword already exists (case-insensitive)
       const keywordExists = prev.keywords.some(
         (k) => k.toLowerCase() === trimmedKeyword.toLowerCase()
       );
@@ -166,24 +156,20 @@ export const usePostEditor = (initialPost?: Partial<Post>, userId?: string) => {
     }));
   };
 
-  // Prepare the post data for Supabase
   const getPostForSupabase = (): Omit<Post, "image" | "thumbnail" | "id"> & {
     id?: number;
   } => {
     const { image, thumbnail, id, ...postData } = post;
 
-    // Don't include id if it's a new post (negative id)
     const supabasePost = {
       ...postData,
       image_id: image?.id || null,
       thumbnail_id: thumbnail?.id || null,
-      // Ensure dates are properly formatted for Supabase
       created_at: post.created_at,
       updated_at: post.updated_at,
       date: post.date,
     };
 
-    // Only include id if it's an existing post
     if (id > 0) {
       return { ...supabasePost, id };
     }
