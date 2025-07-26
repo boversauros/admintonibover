@@ -1,35 +1,39 @@
 import { useState, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
 import { Post, ImageData } from "../../../types";
 
-const DEFAULT_POST: Omit<Post, "id"> = {
+const DEFAULT_POST: Omit<Post, "id" | "user_id"> = {
   title: "",
-  category: "",
+  category_id: 0, // You'll need to set a valid category_id
   content: "",
   language: "ca",
   image_id: null,
-  thumbnail_id: "",
+  thumbnail_id: null,
   keywords: [],
   references: { images: [], texts: [] },
-  isPublished: false,
-  createdAt: new Date(),
-  updatedAt: new Date(),
+  is_published: false,
+  created_at: new Date(),
+  updated_at: new Date(),
+  date: new Date(),
   author: "",
   slug: "",
   tags: [],
 };
 
-export const usePostEditor = (initialPost?: Partial<Post>) => {
+export const usePostEditor = (initialPost?: Partial<Post>, userId?: string) => {
   const [post, setPost] = useState<Post>(() => {
     const now = new Date();
-    const id = initialPost?.id || uuidv4();
+
+    // For new posts, we'll use a temporary negative ID until saved
+    const id = initialPost?.id || -1;
 
     // Create a base post with default values
     const basePost: Post = {
       ...DEFAULT_POST,
       id,
-      updatedAt: now,
-      createdAt: initialPost?.createdAt || now,
+      user_id: userId || initialPost?.user_id || "", // You'll need to provide this
+      updated_at: now,
+      created_at: initialPost?.created_at || now,
+      date: initialPost?.date || now,
       ...initialPost,
       // Ensure references is always an object with the correct shape
       references: {
@@ -49,10 +53,9 @@ export const usePostEditor = (initialPost?: Partial<Post>) => {
 
   // Load post if postId is provided
   useEffect(() => {
-    if (initialPost?.id) {
+    if (initialPost?.id && initialPost.id > 0) {
       setLoading(true);
-      // In a real app, you would fetch the post from an API here
-      // For now, we'll just use the initialPost if provided
+      // In a real app, you would fetch the post from Supabase here
       if (initialPost) {
         setPost((prev) => ({
           ...prev,
@@ -78,7 +81,7 @@ export const usePostEditor = (initialPost?: Partial<Post>) => {
         ({
           ...prev,
           [field]: value,
-          updatedAt: new Date(),
+          updated_at: new Date(),
         } as Post)
     );
   };
@@ -88,35 +91,35 @@ export const usePostEditor = (initialPost?: Partial<Post>) => {
       ...prev,
       image,
       image_id: image?.id || null,
-      updatedAt: new Date(),
+      updated_at: new Date(),
     }));
   };
 
-  const updateThumbnail = (thumbnail: ImageData) => {
+  const updateThumbnail = (thumbnail: ImageData | null) => {
     setPost((prev) => ({
       ...prev,
       thumbnail,
-      thumbnail_id: thumbnail.id,
-      updatedAt: new Date(),
+      thumbnail_id: thumbnail?.id || null,
+      updated_at: new Date(),
     }));
   };
 
   const addKeyword = (keyword: string) => {
     const trimmedKeyword = keyword.trim();
     if (!trimmedKeyword) return;
-    
+
     setPost((prev) => {
       // Check if the keyword already exists (case-insensitive)
       const keywordExists = prev.keywords.some(
-        k => k.toLowerCase() === trimmedKeyword.toLowerCase()
+        (k) => k.toLowerCase() === trimmedKeyword.toLowerCase()
       );
-      
+
       if (keywordExists) return prev;
-      
+
       return {
         ...prev,
         keywords: [...prev.keywords, trimmedKeyword],
-        updatedAt: new Date(),
+        updated_at: new Date(),
       };
     });
   };
@@ -125,7 +128,7 @@ export const usePostEditor = (initialPost?: Partial<Post>) => {
     setPost((prev) => ({
       ...prev,
       keywords: prev.keywords.filter((k) => k !== keyword),
-      updatedAt: new Date(),
+      updated_at: new Date(),
     }));
   };
 
@@ -137,7 +140,7 @@ export const usePostEditor = (initialPost?: Partial<Post>) => {
         ...prev.references,
         [type]: [...new Set([...prev.references[type], value])],
       },
-      updatedAt: new Date(),
+      updated_at: new Date(),
     }));
   };
 
@@ -148,7 +151,7 @@ export const usePostEditor = (initialPost?: Partial<Post>) => {
         ...prev.references,
         [type]: prev.references[type].filter((item) => item !== value),
       },
-      updatedAt: new Date(),
+      updated_at: new Date(),
     }));
   };
 
@@ -159,21 +162,33 @@ export const usePostEditor = (initialPost?: Partial<Post>) => {
         ...prev.references,
         [type]: references,
       },
-      updatedAt: new Date(),
+      updated_at: new Date(),
     }));
   };
 
   // Prepare the post data for Supabase
-  const getPostForSupabase = (): Omit<Post, "image" | "thumbnail"> => {
-    const { image, thumbnail, ...postData } = post;
-    return {
+  const getPostForSupabase = (): Omit<Post, "image" | "thumbnail" | "id"> & {
+    id?: number;
+  } => {
+    const { image, thumbnail, id, ...postData } = post;
+
+    // Don't include id if it's a new post (negative id)
+    const supabasePost = {
       ...postData,
       image_id: image?.id || null,
-      thumbnail_id: thumbnail?.id || "",
+      thumbnail_id: thumbnail?.id || null,
       // Ensure dates are properly formatted for Supabase
-      createdAt: post.createdAt,
-      updatedAt: post.updatedAt,
-    } as Post;
+      created_at: post.created_at,
+      updated_at: post.updated_at,
+      date: post.date,
+    };
+
+    // Only include id if it's an existing post
+    if (id > 0) {
+      return { ...supabasePost, id };
+    }
+
+    return supabasePost;
   };
 
   return {

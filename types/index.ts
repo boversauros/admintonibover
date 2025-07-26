@@ -1,18 +1,20 @@
 export type Language = "ca" | "en";
 
 export interface Post {
-  id: string;
+  id: number;
   title: string;
-  category: Category["id"];
+  category_id: number;
   content: string;
   language: Language;
-  image_id: string | null;
-  thumbnail_id: string;
+  image_id: number | null;
+  thumbnail_id: number | null;
   keywords: string[];
   references: PostReferences;
-  createdAt: Date;
-  updatedAt: Date;
-  isPublished: boolean;
+  created_at: Date;
+  updated_at: Date;
+  is_published: boolean;
+  date: Date;
+  user_id: string;
   author?: string;
   slug?: string;
   tags?: string[];
@@ -22,18 +24,18 @@ export interface Post {
 }
 
 export interface Category {
-  id: string;
+  id: number;
   name: string;
 }
 
 export interface ImageData {
-  id: string;
+  id: number;
   url: string;
   title: string;
   alt?: string;
-  file?: File; // For uploads
-  createdAt?: Date;
-  updatedAt?: Date;
+  file?: File;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 export interface PostReferences {
@@ -42,7 +44,7 @@ export interface PostReferences {
 }
 
 export interface PostEditorProps {
-  postId?: string;
+  postId?: number;
 }
 
 export interface EditableFieldProps {
