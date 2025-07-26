@@ -8,7 +8,7 @@ interface PostImageProps {
   image: ImageData | null;
   activeEditField: string | null;
   setActiveEditField: (field: string | null) => void;
-  onImageUpdate: (image: ImageData) => void;
+  onImageUpdate: (image: ImageData | null) => void;
   onImageRemove: () => void;
 }
 
@@ -37,12 +37,16 @@ export const PostImage: React.FC<PostImageProps> = ({
       file // Optional file reference for upload
     };
     
-    // Update the parent component with the new image
-    onImageUpdate(imageData);
-    
-    // Reset the input to allow selecting the same file again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    try {
+      // Update the parent component with the new image
+      onImageUpdate(imageData);
+    } catch (error) {
+      console.error('Error updating image:', error);
+    } finally {
+      // Reset the input to allow selecting the same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   }, [onImageUpdate]);
 

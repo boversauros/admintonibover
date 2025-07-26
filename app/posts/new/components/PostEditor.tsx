@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { CATEGORIES } from "../../../../data";
 import { usePostEditor } from "../../hooks/usePostEditor";
-import { Post, ImageData } from "../../../../types";
+import { Post } from "../../../../types";
 
 import { EditorToolbar } from "./EditorToolbar";
 import { EditableField } from "./EditableField";
@@ -15,48 +15,44 @@ export interface PostEditorProps {
 }
 
 const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
+  const [activeEditField, setActiveEditField] = useState<string | null>(null);
   const [contentEditMode, setContentEditMode] = useState<boolean>(false);
 
   const {
     post,
     loading,
-    activeEditField,
-    setActiveEditField,
-    handleFieldChange,
-    handleArrayAdd,
-    handleArrayRemove,
-    handleImageUpdate,
-    handleContentChange,
-    handleSave,
-  } = usePostEditor(postId);
+    updateField,
+    updateImage,
+    updateThumbnail,
+    addKeyword,
+    removeKeyword,
+    addReference,
+    removeReference,
+    getPostForSupabase
+  } = usePostEditor(postId ? { id: postId } : undefined);
 
-  const [localPost, setLocalPost] = useState<Post>(post);
+  // Handle field changes with proper type safety
+  const handleFieldChange = (field: string, value: string) => {
+    updateField(field as keyof Post, value);
+  };
 
-  // Update local state when post changes
-  useEffect(() => {
-    setLocalPost(post);
-  }, [post]);
-
-  // Handle references update
-  const handleReferencesUpdate = (
-    path: string,
-    index: number,
-    value: string | ImageData
-  ) => {
-    if (path === "references.images" || path === "references.texts") {
-      const [parent, child] = path.split(".");
-      const updated = { ...localPost.references };
-      updated[child as keyof typeof updated] = [
-        ...(updated[child as keyof typeof updated] as string[]).slice(0, index),
-        value as string,
-        ...(updated[child as keyof typeof updated] as string[]).slice(
-          index + 1
-        ),
-      ];
-      setLocalPost((prev) => ({
-        ...prev,
-        references: updated,
-      }));
+  // Handle saving the post
+  const handleSave = async () => {
+    try {
+      const postToSave = getPostForSupabase();
+      console.log('Saving post:', postToSave);
+      
+      // TODO: Uncomment and implement Supabase save logic
+      // const { data, error } = await supabase
+      //   .from('posts')
+      //   .upsert(postToSave);
+      // 
+      // if (error) throw error;
+      
+      alert('Post saved successfully!');
+    } catch (error) {
+      console.error('Error saving post:', error);
+      alert('Failed to save post. Please try again.');
     }
   };
 
@@ -115,39 +111,38 @@ const PostEditor: React.FC<PostEditorProps> = ({ postId }) => {
               image={post.image || null}
               activeEditField={activeEditField}
               setActiveEditField={setActiveEditField}
-              onImageUpdate={handleImageUpdate}
-              onImageRemove={() => handleImageUpdate(null)}
+              onImageUpdate={updateImage}
+              onImageRemove={() => updateImage(null)}
             />
 
-            <ContentEditor
-              content={post.content}
-              contentEditMode={contentEditMode}
-              setContentEditMode={setContentEditMode}
-              onContentChange={handleContentChange}
-            />
+            <div className="mt-8">
+              <h2 className="text-xl font-serif mb-4 text-gray-200">Contingut</h2>
+              <ContentEditor
+                content={post.content || "<p>Fes clic per editar el contingut...</p>"}
+                contentEditMode={contentEditMode}
+                setContentEditMode={setContentEditMode}
+                onContentChange={(content) => updateField('content', content)}
+              />
+            </div>
 
             <ReferencesSection
-              references={localPost.references}
+              references={post.references}
               activeEditField={activeEditField}
               setActiveEditField={setActiveEditField}
-              onArrayAdd={handleArrayAdd}
-              onArrayRemove={handleArrayRemove}
-              onArrayUpdate={handleReferencesUpdate}
+              onAddReference={addReference}
+              onRemoveReference={removeReference}
             />
 
             <KeywordsSection
-              keywords={localPost.keywords}
+              keywords={post.keywords}
               activeEditField={activeEditField}
               setActiveEditField={setActiveEditField}
-              onArrayAdd={handleArrayAdd}
-              onArrayRemove={handleArrayRemove}
-              onArrayUpdate={(path, index, value) => {
-                const newKeywords = [...localPost.keywords];
-                newKeywords[index] = value as string;
-                setLocalPost((prev) => ({
-                  ...prev,
-                  keywords: newKeywords,
-                }));
+              onAddKeyword={addKeyword}
+              onRemoveKeyword={removeKeyword}
+              onUpdateKeyword={(index, value) => {
+                const newKeywords = [...post.keywords];
+                newKeywords[index] = value;
+                updateField('keywords', newKeywords);
               }}
             />
           </article>
