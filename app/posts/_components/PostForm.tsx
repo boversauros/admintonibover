@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Post, Category } from "@/app/_lib/types";
 import { Save, ArrowLeft, PlusCircle, X } from "lucide-react";
 import { LANGUAGES } from "@/app/_lib/mock-data";
+import { usePostEditor } from "@/app/_hooks/usePost";
 
 interface PostFormProps {
   post?: Post;
@@ -15,29 +16,22 @@ interface PostFormProps {
 }
 
 export const PostForm: React.FC<PostFormProps> = ({
-  post,
+  post: initialPost,
   categories,
   onSave,
   isLoading = false,
 }) => {
   const router = useRouter();
-  const [formData, setFormData] = useState({
-    title: post?.title || "",
-    category_id: post?.category_id || categories[0]?.id || 1,
-    language: post?.language || "ca",
-    content:
-      post?.content || "<p>Comença a escriure el teu contingut aquí...</p>",
-    keywords: post?.keywords || [],
-    references: post?.references || { images: [], texts: [] },
-    is_published: post?.is_published || false,
-    image_id: post?.image_id || null,
-    thumbnail_id: post?.thumbnail_id || null,
-    author: post?.author || "Admin",
-    date: post?.date || new Date(),
-    user_id: post?.user_id || "",
-    slug: post?.slug || "",
-    tags: post?.tags || [],
-  });
+  const {
+    post,
+    loading,
+    updateField,
+    addKeyword,
+    removeKeyword,
+    addReference,
+    removeReference,
+    getPostForSave,
+  } = usePostEditor(initialPost);
 
   const [newKeyword, setNewKeyword] = useState("");
   const [newImageRef, setNewImageRef] = useState("");
@@ -46,14 +40,15 @@ export const PostForm: React.FC<PostFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title.trim()) {
+    if (!post.title.trim()) {
       alert("El títol és obligatori");
       return;
     }
 
     setSaving(true);
     try {
-      await onSave(formData);
+      const postData = getPostForSave();
+      await onSave(postData);
       router.push("/");
     } catch (error) {
       console.error("Error saving post:", error);
@@ -63,44 +58,31 @@ export const PostForm: React.FC<PostFormProps> = ({
     }
   };
 
-  const addKeyword = () => {
-    if (newKeyword.trim() && !formData.keywords.includes(newKeyword.trim())) {
-      setFormData({
-        ...formData,
-        keywords: [...formData.keywords, newKeyword.trim()],
-      });
+  const handleAddKeyword = () => {
+    if (newKeyword.trim()) {
+      addKeyword(newKeyword.trim());
       setNewKeyword("");
     }
   };
 
-  const removeKeyword = (keyword: string) => {
-    setFormData({
-      ...formData,
-      keywords: formData.keywords.filter((k) => k !== keyword),
-    });
-  };
-
-  const addReference = (type: "images" | "texts", value: string) => {
-    if (value.trim() && !formData.references[type].includes(value.trim())) {
-      setFormData({
-        ...formData,
-        references: {
-          ...formData.references,
-          [type]: [...formData.references[type], value.trim()],
-        },
-      });
+  const handleAddReference = (type: "images" | "texts", value: string) => {
+    if (value.trim()) {
+      addReference(type, value.trim());
+      if (type === "images") {
+        setNewImageRef("");
+      } else {
+        setNewTextRef("");
+      }
     }
   };
 
-  const removeReference = (type: "images" | "texts", value: string) => {
-    setFormData({
-      ...formData,
-      references: {
-        ...formData.references,
-        [type]: formData.references[type].filter((item) => item !== value),
-      },
-    });
-  };
+  if (loading) {
+    return (
+      <div className="bg-black text-white min-h-screen flex items-center justify-center">
+        <div className="text-gray-400">Carregant...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-black text-white min-h-screen">
@@ -137,10 +119,8 @@ export const PostForm: React.FC<PostFormProps> = ({
               <label className="block text-sm text-gray-400 mb-2">Títol</label>
               <input
                 type="text"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
+                value={post.title}
+                onChange={(e) => updateField("title", e.target.value)}
                 className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-2 text-white focus:outline-none focus:border-gray-600"
                 placeholder="Títol de l'article..."
                 required
@@ -154,12 +134,9 @@ export const PostForm: React.FC<PostFormProps> = ({
                   Categoria
                 </label>
                 <select
-                  value={formData.category_id}
+                  value={post.category_id}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      category_id: Number(e.target.value),
-                    })
+                    updateField("category_id", Number(e.target.value))
                   }
                   className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-2 text-white focus:outline-none focus:border-gray-600"
                 >
@@ -176,12 +153,9 @@ export const PostForm: React.FC<PostFormProps> = ({
                   Idioma
                 </label>
                 <select
-                  value={formData.language}
+                  value={post.language}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      language: e.target.value as "ca" | "en",
-                    })
+                    updateField("language", e.target.value as "ca" | "en")
                   }
                   className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-2 text-white focus:outline-none focus:border-gray-600"
                 >
@@ -200,10 +174,8 @@ export const PostForm: React.FC<PostFormProps> = ({
                 Contingut
               </label>
               <textarea
-                value={formData.content}
-                onChange={(e) =>
-                  setFormData({ ...formData, content: e.target.value })
-                }
+                value={post.content}
+                onChange={(e) => updateField("content", e.target.value)}
                 className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-2 text-white focus:outline-none focus:border-gray-600 min-h-[300px] font-mono text-sm"
                 placeholder="<p>Escriu el contingut HTML aquí...</p>"
               />
@@ -215,7 +187,7 @@ export const PostForm: React.FC<PostFormProps> = ({
                 Paraules clau
               </label>
               <div className="flex flex-wrap gap-2 mb-2">
-                {formData.keywords.map((keyword) => (
+                {post.keywords.map((keyword) => (
                   <span
                     key={keyword}
                     className="bg-gray-800 px-3 py-1 rounded text-sm flex items-center gap-2"
@@ -237,14 +209,15 @@ export const PostForm: React.FC<PostFormProps> = ({
                   value={newKeyword}
                   onChange={(e) => setNewKeyword(e.target.value)}
                   onKeyPress={(e) =>
-                    e.key === "Enter" && (e.preventDefault(), addKeyword())
+                    e.key === "Enter" &&
+                    (e.preventDefault(), handleAddKeyword())
                   }
                   className="flex-1 bg-gray-900 border border-gray-800 rounded px-4 py-2 text-white focus:outline-none focus:border-gray-600"
                   placeholder="Nova paraula clau..."
                 />
                 <button
                   type="button"
-                  onClick={addKeyword}
+                  onClick={handleAddKeyword}
                   className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
                 >
                   <PlusCircle className="w-4 h-4" />
@@ -259,7 +232,7 @@ export const PostForm: React.FC<PostFormProps> = ({
                   Referències d'imatges
                 </label>
                 <div className="space-y-2 mb-2">
-                  {formData.references.images.map((ref, index) => (
+                  {post.references.images.map((ref, index) => (
                     <div key={index} className="flex items-center gap-2">
                       <span className="flex-1 bg-gray-900 px-3 py-2 rounded text-sm">
                         {ref}
@@ -282,18 +255,14 @@ export const PostForm: React.FC<PostFormProps> = ({
                     onKeyPress={(e) =>
                       e.key === "Enter" &&
                       (e.preventDefault(),
-                      addReference("images", newImageRef),
-                      setNewImageRef(""))
+                      handleAddReference("images", newImageRef))
                     }
                     className="flex-1 bg-gray-900 border border-gray-800 rounded px-4 py-2 text-white focus:outline-none focus:border-gray-600"
                     placeholder="URL de la imatge..."
                   />
                   <button
                     type="button"
-                    onClick={() => {
-                      addReference("images", newImageRef);
-                      setNewImageRef("");
-                    }}
+                    onClick={() => handleAddReference("images", newImageRef)}
                     className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
                   >
                     <PlusCircle className="w-4 h-4" />
@@ -306,7 +275,7 @@ export const PostForm: React.FC<PostFormProps> = ({
                   Referències de text
                 </label>
                 <div className="space-y-2 mb-2">
-                  {formData.references.texts.map((ref, index) => (
+                  {post.references.texts.map((ref, index) => (
                     <div key={index} className="flex items-center gap-2">
                       <span className="flex-1 bg-gray-900 px-3 py-2 rounded text-sm">
                         {ref}
@@ -329,18 +298,14 @@ export const PostForm: React.FC<PostFormProps> = ({
                     onKeyPress={(e) =>
                       e.key === "Enter" &&
                       (e.preventDefault(),
-                      addReference("texts", newTextRef),
-                      setNewTextRef(""))
+                      handleAddReference("texts", newTextRef))
                     }
                     className="flex-1 bg-gray-900 border border-gray-800 rounded px-4 py-2 text-white focus:outline-none focus:border-gray-600"
                     placeholder="Font o referència..."
                   />
                   <button
                     type="button"
-                    onClick={() => {
-                      addReference("texts", newTextRef);
-                      setNewTextRef("");
-                    }}
+                    onClick={() => handleAddReference("texts", newTextRef)}
                     className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
                   >
                     <PlusCircle className="w-4 h-4" />
@@ -354,10 +319,8 @@ export const PostForm: React.FC<PostFormProps> = ({
               <input
                 type="checkbox"
                 id="is_published"
-                checked={formData.is_published}
-                onChange={(e) =>
-                  setFormData({ ...formData, is_published: e.target.checked })
-                }
+                checked={post.is_published}
+                onChange={(e) => updateField("is_published", e.target.checked)}
                 className="w-4 h-4 bg-gray-900 border-gray-800 rounded text-green-500"
               />
               <label htmlFor="is_published" className="text-gray-300">

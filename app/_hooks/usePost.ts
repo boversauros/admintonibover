@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Post, ImageData } from "../../../types";
-import { DEMO_USER } from "../../../data";
+import { Post, ImageData } from "../_lib/types";
+import { DEMO_USER } from "../_lib/mock-data";
 
 const DEFAULT_POST: Omit<Post, "id" | "created_at" | "updated_at"> = {
   title: "",

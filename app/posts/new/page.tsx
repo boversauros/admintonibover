@@ -8,7 +8,6 @@ export default function NewPostPage() {
   const handleSave = async (
     postData: Omit<Post, "id" | "created_at" | "updated_at">
   ) => {
-    // Add user_id if not present
     const dataWithUser = {
       ...postData,
       user_id: postData.user_id || DEMO_USER.id,
