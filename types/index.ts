@@ -33,7 +33,7 @@ export interface ImageData {
   url: string;
   title: string;
   alt?: string;
-  file?: File;
+  file?: File; // For new uploads before saving
   created_at?: Date;
   updated_at?: Date;
 }
@@ -43,24 +43,42 @@ export interface PostReferences {
   texts: string[];
 }
 
-export interface PostEditorProps {
-  postId?: number;
+export interface PostTranslation {
+  id: number;
+  post_id: number;
+  title: string;
+  content: string;
+  slug: string;
+  references_images?: string;
+  references_texts?: string;
+  language_id: number;
 }
 
-export interface EditableFieldProps {
-  value: string;
-  fieldName: string;
-  isMultiline?: boolean;
-  isArray?: boolean;
-  index?: number | null;
-  arrayPath?: string | null;
-  className?: string;
+export interface PostKeyword {
+  post_translation_id: number;
+  keyword_id: number;
 }
 
-export interface EditableArrayFieldProps {
-  items: string[] | ImageData[];
-  arrayPath: string;
-  itemLabel: string;
-  defaultValue?: string;
-  isImageArray?: boolean;
+export interface Keyword {
+  id: number;
+  keyword: string;
+  language_id: number;
+}
+
+export interface User {
+  id: string; // UUID
+  email: string;
+  created_at: Date;
+}
+
+// Form-specific types
+export interface PostFormData
+  extends Omit<Post, "id" | "created_at" | "updated_at" | "user_id"> {
+  id?: number; // Optional for new posts
+}
+
+// Helper type for API responses
+export interface ApiResponse<T> {
+  data?: T;
+  error?: string;
 }
