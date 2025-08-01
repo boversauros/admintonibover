@@ -1,5 +1,5 @@
-import { Post, ApiResponse } from "../types";
-import { DEMO_POSTS, DEMO_IMAGES } from "../data";
+import { Post, ApiResponse } from "./types";
+import { DEMO_POSTS, DEMO_IMAGES } from "./mock-data";
 
 class PostsService {
   private posts: Post[] = [...DEMO_POSTS];

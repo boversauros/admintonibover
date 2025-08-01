@@ -1,4 +1,4 @@
-import { Post, Category, ImageData, User } from "../types";
+import { Post, Category, ImageData, User } from "./types";
 
 // Demo images that would be stored in the database
 export const DEMO_IMAGES: ImageData[] = [
