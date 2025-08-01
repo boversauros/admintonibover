@@ -1,8 +1,15 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Post, Category } from "@/app/_lib/types";
-import { Save, ArrowLeft, PlusCircle, X } from "lucide-react";
+import { Post, Category, ImageData } from "@/app/_lib/types";
+import {
+  Save,
+  ArrowLeft,
+  PlusCircle,
+  X,
+  Upload,
+  Image as ImageIcon,
+} from "lucide-react";
 import { LANGUAGES } from "@/app/_lib/mock-data";
 import { usePostEditor } from "@/app/_hooks/usePost";
 
@@ -31,6 +38,8 @@ export const PostForm: React.FC<PostFormProps> = ({
     addReference,
     removeReference,
     getPostForSave,
+    updateImage,
+    updateThumbnail,
   } = usePostEditor(initialPost);
 
   const [newKeyword, setNewKeyword] = useState("");
@@ -73,6 +82,30 @@ export const PostForm: React.FC<PostFormProps> = ({
       } else {
         setNewTextRef("");
       }
+    }
+  };
+
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: "main" | "thumbnail"
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // For now, create a local URL (before Supabase integration)
+    const localUrl = URL.createObjectURL(file);
+
+    const imageData: ImageData = {
+      id: Date.now(), // Temporary ID
+      url: localUrl,
+      title: file.name.split(".")[0],
+      alt: file.name.split(".")[0],
+    };
+
+    if (type === "main") {
+      updateImage(imageData);
+    } else {
+      updateThumbnail(imageData);
     }
   };
 
@@ -181,47 +214,75 @@ export const PostForm: React.FC<PostFormProps> = ({
               />
             </div>
 
-            {/* Keywords */}
+            {/* Featured Image */}
             <div>
               <label className="block text-sm text-gray-400 mb-2">
-                Paraules clau
+                Imatge principal
               </label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {post.keywords.map((keyword) => (
-                  <span
-                    key={keyword}
-                    className="bg-gray-800 px-3 py-1 rounded text-sm flex items-center gap-2"
-                  >
-                    {keyword}
+              <div className="space-y-2">
+                {post.image ? (
+                  <div className="relative">
+                    <img
+                      src={post.image.url}
+                      alt={post.image.title}
+                      className="w-full h-64 object-cover rounded"
+                    />
                     <button
                       type="button"
-                      onClick={() => removeKeyword(keyword)}
-                      className="text-gray-400 hover:text-white"
+                      onClick={() => updateImage(null)}
+                      className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-gray-800 rounded p-8 text-center block cursor-pointer hover:border-gray-600">
+                    <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                    <p className="text-gray-400">Click to upload image</p>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(e, "main")}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Thumbnail Image */}
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">
+                Miniatura
+              </label>
+              <div className="space-y-2">
+                {post.thumbnail ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={post.thumbnail.url}
+                      alt={post.thumbnail.title}
+                      className="w-32 h-32 object-cover rounded"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => updateThumbnail(null)}
+                      className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded"
                     >
                       <X className="w-3 h-3" />
                     </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newKeyword}
-                  onChange={(e) => setNewKeyword(e.target.value)}
-                  onKeyPress={(e) =>
-                    e.key === "Enter" &&
-                    (e.preventDefault(), handleAddKeyword())
-                  }
-                  className="flex-1 bg-gray-900 border border-gray-800 rounded px-4 py-2 text-white focus:outline-none focus:border-gray-600"
-                  placeholder="Nova paraula clau..."
-                />
-                <button
-                  type="button"
-                  onClick={handleAddKeyword}
-                  className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                </button>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-gray-800 rounded p-4 text-center cursor-pointer hover:border-gray-600 w-32 h-32 flex flex-col items-center justify-center">
+                    <ImageIcon className="w-6 h-6 text-gray-400 mb-1" />
+                    <p className="text-gray-400 text-xs">Add thumbnail</p>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(e, "thumbnail")}
+                    />
+                  </label>
+                )}
               </div>
             </div>
 
@@ -311,6 +372,50 @@ export const PostForm: React.FC<PostFormProps> = ({
                     <PlusCircle className="w-4 h-4" />
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Keywords */}
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">
+                Paraules clau
+              </label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {post.keywords.map((keyword) => (
+                  <span
+                    key={keyword}
+                    className="bg-gray-800 px-3 py-1 rounded text-sm flex items-center gap-2"
+                  >
+                    {keyword}
+                    <button
+                      type="button"
+                      onClick={() => removeKeyword(keyword)}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newKeyword}
+                  onChange={(e) => setNewKeyword(e.target.value)}
+                  onKeyPress={(e) =>
+                    e.key === "Enter" &&
+                    (e.preventDefault(), handleAddKeyword())
+                  }
+                  className="flex-1 bg-gray-900 border border-gray-800 rounded px-4 py-2 text-white focus:outline-none focus:border-gray-600"
+                  placeholder="Nova paraula clau..."
+                />
+                <button
+                  type="button"
+                  onClick={handleAddKeyword}
+                  className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
