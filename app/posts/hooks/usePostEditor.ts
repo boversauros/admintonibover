@@ -1,37 +1,36 @@
 import { useState, useEffect } from "react";
 import { Post, ImageData } from "../../../types";
+import { DEMO_USER } from "../../../data";
 
-const DEFAULT_POST: Omit<Post, "id" | "user_id"> = {
+const DEFAULT_POST: Omit<Post, "id" | "created_at" | "updated_at"> = {
   title: "",
-  category_id: 0,
-  content: "",
+  category_id: 1, // Default to first category
+  content: "<p>Comença a escriure el teu contingut aquí...</p>",
   language: "ca",
   image_id: null,
   thumbnail_id: null,
   keywords: [],
   references: { images: [], texts: [] },
   is_published: false,
-  created_at: new Date(),
-  updated_at: new Date(),
   date: new Date(),
-  author: "",
+  user_id: DEMO_USER.id,
+  author: DEMO_USER.email.split("@")[0], // Extract name from email
   slug: "",
   tags: [],
 };
 
-export const usePostEditor = (initialPost?: Partial<Post>, userId?: string) => {
+export const usePostEditor = (initialPost?: Partial<Post>) => {
   const [post, setPost] = useState<Post>(() => {
     const now = new Date();
-    const id = initialPost?.id || -1;
+    const id = initialPost?.id || -1; // -1 for new posts
 
     const basePost: Post = {
       ...DEFAULT_POST,
       id,
-      user_id: userId || initialPost?.user_id || "",
-      updated_at: now,
       created_at: initialPost?.created_at || now,
-      date: initialPost?.date || now,
+      updated_at: initialPost?.updated_at || now,
       ...initialPost,
+      // Ensure nested objects are properly initialized
       references: {
         images: [],
         texts: [],
@@ -46,35 +45,32 @@ export const usePostEditor = (initialPost?: Partial<Post>, userId?: string) => {
 
   const [loading, setLoading] = useState<boolean>(false);
 
+  // Load post data if editing existing post
   useEffect(() => {
     if (initialPost?.id && initialPost.id > 0) {
       setLoading(true);
-      if (initialPost) {
-        setPost((prev) => ({
-          ...prev,
-          ...initialPost,
-          references: {
-            images: [],
-            texts: [],
-            ...initialPost.references,
-          },
-          keywords: initialPost.keywords || [],
-          tags: initialPost.tags || [],
-        }));
-      }
+      // In a real app, you would fetch from API here
+      setPost((prev) => ({
+        ...prev,
+        ...initialPost,
+        references: {
+          images: [],
+          texts: [],
+          ...initialPost.references,
+        },
+        keywords: initialPost.keywords || [],
+        tags: initialPost.tags || [],
+      }));
       setLoading(false);
     }
   }, [initialPost?.id]);
 
   const updateField = <K extends keyof Post>(field: K, value: Post[K]) => {
-    setPost(
-      (prev) =>
-        ({
-          ...prev,
-          [field]: value,
-          updated_at: new Date(),
-        } as Post)
-    );
+    setPost((prev) => ({
+      ...prev,
+      [field]: value,
+      updated_at: new Date(),
+    }));
   };
 
   const updateImage = (image: ImageData | null) => {
@@ -100,6 +96,7 @@ export const usePostEditor = (initialPost?: Partial<Post>, userId?: string) => {
     if (!trimmedKeyword) return;
 
     setPost((prev) => {
+      // Check if keyword already exists (case-insensitive)
       const keywordExists = prev.keywords.some(
         (k) => k.toLowerCase() === trimmedKeyword.toLowerCase()
       );
@@ -128,7 +125,7 @@ export const usePostEditor = (initialPost?: Partial<Post>, userId?: string) => {
       ...prev,
       references: {
         ...prev.references,
-        [type]: [...new Set([...prev.references[type], value])],
+        [type]: [...new Set([...prev.references[type], value])], // Avoid duplicates
       },
       updated_at: new Date(),
     }));
@@ -156,25 +153,24 @@ export const usePostEditor = (initialPost?: Partial<Post>, userId?: string) => {
     }));
   };
 
-  const getPostForSupabase = (): Omit<Post, "image" | "thumbnail" | "id"> & {
+  // Prepare post data for saving (remove client-side only fields)
+  const getPostForSave = (): Omit<Post, "image" | "thumbnail" | "id"> & {
     id?: number;
   } => {
     const { image, thumbnail, id, ...postData } = post;
 
-    const supabasePost = {
+    const saveData = {
       ...postData,
       image_id: image?.id || null,
       thumbnail_id: thumbnail?.id || null,
-      created_at: post.created_at,
-      updated_at: post.updated_at,
-      date: post.date,
     };
 
+    // Include id only if editing existing post
     if (id > 0) {
-      return { ...supabasePost, id };
+      return { ...saveData, id };
     }
 
-    return supabasePost;
+    return saveData;
   };
 
   return {
@@ -188,6 +184,6 @@ export const usePostEditor = (initialPost?: Partial<Post>, userId?: string) => {
     addReference,
     removeReference,
     updateReferences,
-    getPostForSupabase,
+    getPostForSave,
   };
 };
