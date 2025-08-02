@@ -1,16 +1,11 @@
 "use client";
 import React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Save,
-  Eye,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { ArrowLeft, Save, Eye, Settings } from "lucide-react";
 
 interface PostFormHeaderProps {
+  PostId: number;
   sidebarVisible: boolean;
   onToggleSidebar: () => void;
   onSave: () => void;
@@ -19,6 +14,7 @@ interface PostFormHeaderProps {
 }
 
 export const PostFormHeader: React.FC<PostFormHeaderProps> = ({
+  PostId,
   sidebarVisible,
   onToggleSidebar,
   onSave,
@@ -56,10 +52,13 @@ export const PostFormHeader: React.FC<PostFormHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all">
+          <Link
+            href={`/posts/${PostId}`}
+            className="flex items-center gap-2 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all"
+          >
             <Eye className="w-4 h-4" />
             <span>Previsualitzar</span>
-          </button>
+          </Link>
           <button
             type="submit"
             form="post-form"
