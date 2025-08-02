@@ -52,13 +52,15 @@ export const PostFormHeader: React.FC<PostFormHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            href={`/posts/${PostId}`}
-            className="flex items-center gap-2 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all"
-          >
-            <Eye className="w-4 h-4" />
-            <span>Previsualitzar</span>
-          </Link>
+          {PostId > 0 && (
+            <Link
+              href={`/posts/${PostId}`}
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Previsualitzar</span>
+            </Link>
+          )}
           <button
             type="submit"
             form="post-form"
