@@ -98,7 +98,7 @@ export const PostForm: React.FC<PostFormProps> = ({
   return (
     <div className="bg-black text-white min-h-screen">
       <PostFormHeader
-        PostId={post.id}
+        postId={post.id}
         sidebarVisible={sidebarVisible}
         onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
         onSave={handleSubmit}
