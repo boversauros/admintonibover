@@ -28,9 +28,23 @@ export const PostFormHeader: React.FC<PostFormHeaderProps> = ({
   const router = useRouter();
 
   return (
-    <header className="fixed top-0 left-0 right-0 bg-black/95 backdrop-blur-sm border-b border-gray-800/50 z-50">
-      <div className="max-w-7xl mx-auto flex justify-between items-center h-16 px-6">
+    <header
+      className={`fixed top-0 right-0 bg-black/95 backdrop-blur-sm border-b border-gray-800/50 z-50 transition-all duration-300 ease-in-out ${
+        sidebarVisible ? "left-80" : "left-0"
+      }`}
+    >
+      <div className="flex justify-between items-center h-16 px-6">
         <div className="flex items-center gap-4">
+          {!sidebarVisible && (
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all"
+              title="Mostrar sidebar"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          )}
           <button
             type="button"
             className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors"
@@ -39,28 +53,9 @@ export const PostFormHeader: React.FC<PostFormHeaderProps> = ({
             <ArrowLeft className="w-4 h-4" />
             <span>Tornar</span>
           </button>
-          <div className="w-px h-6 bg-gray-700"></div>
-          <h1 className="text-lg font-medium text-gray-100">
-            Editor d'articles
-          </h1>
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            className="flex items-center gap-2 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all"
-            title={
-              sidebarVisible ? "Amagar configuració" : "Mostrar configuració"
-            }
-          >
-            <Settings className="w-4 h-4" />
-            {sidebarVisible ? (
-              <ChevronLeft className="w-4 h-4" />
-            ) : (
-              <ChevronRight className="w-4 h-4" />
-            )}
-          </button>
           <button className="flex items-center gap-2 px-3 py-1.5 text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all">
             <Eye className="w-4 h-4" />
             <span>Previsualitzar</span>

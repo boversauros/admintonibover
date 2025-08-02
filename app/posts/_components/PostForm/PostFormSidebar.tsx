@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { X } from "lucide-react";
+import { X, ChevronLeft } from "lucide-react";
 import { Post, Category } from "@/app/_lib/types";
 import { LANGUAGES } from "@/app/_lib/mock-data";
 
@@ -10,6 +10,7 @@ interface PostFormSidebarProps {
   categories: Category[];
   onUpdateField: <K extends keyof Post>(field: K, value: Post[K]) => void;
   onRemoveKeyword: (keyword: string) => void;
+  onToggleSidebar: () => void;
 }
 
 export const PostFormSidebar: React.FC<PostFormSidebarProps> = ({
@@ -18,13 +19,27 @@ export const PostFormSidebar: React.FC<PostFormSidebarProps> = ({
   categories,
   onUpdateField,
   onRemoveKeyword,
+  onToggleSidebar,
 }) => {
   return (
     <aside
-      className={`w-80 bg-gray-950/50 border-r border-gray-800/50 fixed left-0 top-16 bottom-0 overflow-y-auto transition-transform duration-300 ease-in-out z-40 ${
+      className={`w-80 bg-gray-950/50 border-r border-gray-800/50 fixed left-0 top-0 bottom-0 overflow-y-auto transition-transform duration-300 ease-in-out z-40 ${
         visible ? "translate-x-0" : "-translate-x-full"
       }`}
     >
+      {/* Sidebar Header */}
+      <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800/50">
+        <h1 className="text-lg font-medium text-gray-100">Editor d'articles</h1>
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-all"
+          title="Amagar sidebar"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+      </div>
+
       <div className="p-6 space-y-6">
         {/* Quick Settings */}
         <div className="space-y-4">

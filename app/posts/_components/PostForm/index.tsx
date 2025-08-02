@@ -102,21 +102,22 @@ export const PostForm: React.FC<PostFormProps> = ({
         onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
         onSave={handleSubmit}
         saving={saving}
-        isLoading={isLoading}
+        isLoading={false}
       />
 
-      <div className="pt-16 flex">
+      <div className="flex">
         <PostFormSidebar
           visible={sidebarVisible}
           post={post}
           categories={categories}
           onUpdateField={updateField}
           onRemoveKeyword={removeKeyword}
+          onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
         />
 
         {/* Main Content */}
         <main
-          className={`flex-1 transition-all duration-300 ease-in-out ${
+          className={`flex-1 transition-all duration-300 ease-in-out pt-16 ${
             sidebarVisible ? "ml-80" : "ml-0"
           }`}
         >
