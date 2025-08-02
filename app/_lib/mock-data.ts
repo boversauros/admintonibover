@@ -1,4 +1,4 @@
-import { Post, Category, ImageData, User } from "./types";
+import { Post, Category, ImageData, User, Keyword } from "./types";
 
 // Demo images that would be stored in the database
 export const DEMO_IMAGES: ImageData[] = [
@@ -138,3 +138,40 @@ export const LANGUAGES = [
   { id: 1, code: "ca", name: "Català" },
   { id: 2, code: "en", name: "English" },
 ] as const;
+
+// Mock keywords data using the existing Keyword type
+export const MOCK_KEYWORDS: Keyword[] = [
+  // Catalan keywords (language_id: 1)
+  { id: 1, keyword: "disseny", language_id: 1 },
+  { id: 2, keyword: "web", language_id: 1 },
+  { id: 3, keyword: "desenvolupament", language_id: 1 },
+  { id: 4, keyword: "programació", language_id: 1 },
+  { id: 5, keyword: "creativitat", language_id: 1 },
+  { id: 6, keyword: "innovació", language_id: 1 },
+  { id: 7, keyword: "tecnologia", language_id: 1 },
+  { id: 8, keyword: "fotografia", language_id: 1 },
+  { id: 9, keyword: "art", language_id: 1 },
+  { id: 10, keyword: "música", language_id: 1 },
+  { id: 11, keyword: "minimalisme", language_id: 1 },
+  { id: 12, keyword: "arquitectura", language_id: 1 },
+  { id: 13, keyword: "barcelona", language_id: 1 },
+  { id: 14, keyword: "reflexions", language_id: 1 },
+  { id: 15, keyword: "experiències", language_id: 1 },
+
+  // English keywords (language_id: 2)
+  { id: 16, keyword: "design", language_id: 2 },
+  { id: 17, keyword: "web", language_id: 2 },
+  { id: 18, keyword: "development", language_id: 2 },
+  { id: 19, keyword: "programming", language_id: 2 },
+  { id: 20, keyword: "creativity", language_id: 2 },
+  { id: 21, keyword: "innovation", language_id: 2 },
+  { id: 22, keyword: "technology", language_id: 2 },
+  { id: 23, keyword: "photography", language_id: 2 },
+  { id: 24, keyword: "art", language_id: 2 },
+  { id: 25, keyword: "music", language_id: 2 },
+  { id: 26, keyword: "minimalism", language_id: 2 },
+  { id: 27, keyword: "architecture", language_id: 2 },
+  { id: 28, keyword: "barcelona", language_id: 2 },
+  { id: 29, keyword: "thoughts", language_id: 2 },
+  { id: 30, keyword: "experiences", language_id: 2 },
+];

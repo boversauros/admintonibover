@@ -158,5 +158,4 @@ class PostsService {
   }
 }
 
-// Export singleton instance
 export const postsService = new PostsService();

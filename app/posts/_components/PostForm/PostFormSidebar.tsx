@@ -1,14 +1,16 @@
 "use client";
 import React from "react";
-import { X, ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { Post, Category } from "@/app/_lib/types";
 import { LANGUAGES } from "@/app/_lib/mock-data";
+import { KeywordSearch } from "@/app/posts/_components/ui/KeywordSearch";
 
 interface PostFormSidebarProps {
   visible: boolean;
   post: Post;
   categories: Category[];
   onUpdateField: <K extends keyof Post>(field: K, value: Post[K]) => void;
+  onAddKeyword: (keyword: string) => void;
   onRemoveKeyword: (keyword: string) => void;
   onToggleSidebar: () => void;
 }
@@ -18,6 +20,7 @@ export const PostFormSidebar: React.FC<PostFormSidebarProps> = ({
   post,
   categories,
   onUpdateField,
+  onAddKeyword,
   onRemoveKeyword,
   onToggleSidebar,
 }) => {
@@ -101,32 +104,13 @@ export const PostFormSidebar: React.FC<PostFormSidebarProps> = ({
           </div>
         </div>
 
-        {/* Keywords Preview */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">
-            Paraules clau
-          </h3>
-          <div className="flex flex-wrap gap-1.5">
-            {post.keywords.map((keyword) => (
-              <span
-                key={keyword}
-                className="bg-gray-700/30 text-gray-300 px-2 py-1 rounded text-xs flex items-center gap-1"
-              >
-                {keyword}
-                <button
-                  type="button"
-                  onClick={() => onRemoveKeyword(keyword)}
-                  className="text-gray-400 hover:text-gray-200"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-            {post.keywords.length === 0 && (
-              <span className="text-gray-500 text-xs">Cap paraula clau</span>
-            )}
-          </div>
-        </div>
+        {/* Keywords Search and Management */}
+        <KeywordSearch
+          currentKeywords={post.keywords}
+          language={post.language}
+          onAddKeyword={onAddKeyword}
+          onRemoveKeyword={onRemoveKeyword}
+        />
 
         {/* Status */}
         <div className="space-y-3">
