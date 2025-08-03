@@ -24,7 +24,6 @@ export const PostForm: React.FC<PostFormProps> = ({
   post: initialPost,
   categories,
   onSave,
-  isLoading = false,
 }) => {
   const router = useRouter();
   const {
@@ -165,6 +164,7 @@ export const PostForm: React.FC<PostFormProps> = ({
                 {activeTab === "meta" && (
                   <MetadataTab
                     keywords={post.keywords}
+                    language={post.language}
                     onAddKeyword={addKeyword}
                     onRemoveKeyword={removeKeyword}
                   />
