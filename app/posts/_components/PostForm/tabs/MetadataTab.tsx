@@ -18,7 +18,7 @@ export const MetadataTab: React.FC<MetadataTabProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-200 mb-4">
+        <h3 className="text-lg font-serif italic text-gray-200 mb-4">
           Paraules clau
         </h3>
         <KeywordSearch

@@ -25,7 +25,7 @@ export const PostFormHeader: React.FC<PostFormHeaderProps> = ({
 
   return (
     <header
-      className={`fixed top-0 right-0 bg-black/95 backdrop-blur-sm border-b border-gray-800/50 z-50 transition-all duration-300 ease-in-out ${
+      className={`fixed top-0 right-0 bg-black border-b border-white z-50 transition-all duration-300 ease-in-out ${
         sidebarVisible ? "left-80" : "left-0"
       }`}
     >

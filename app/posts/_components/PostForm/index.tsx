@@ -111,7 +111,6 @@ export const PostForm: React.FC<PostFormProps> = ({
           post={post}
           categories={categories}
           onUpdateField={updateField}
-          onAddKeyword={addKeyword}
           onRemoveKeyword={removeKeyword}
           onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
         />

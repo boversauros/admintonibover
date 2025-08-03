@@ -25,7 +25,7 @@ export const PostFormTabs: React.FC<PostFormTabsProps> = ({
   onTabChange,
 }) => {
   return (
-    <div className="flex space-x-1 mb-6 bg-gray-900/30 p-1 rounded-xl">
+    <div className="flex space-x-6 mb-6 border-b border-gray-700">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         return (
@@ -33,10 +33,10 @@ export const PostFormTabs: React.FC<PostFormTabsProps> = ({
             key={tab.id}
             type="button"
             onClick={() => onTabChange(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-1 py-3 text-sm font-normal transition-all border-b-2 ${
               activeTab === tab.id
-                ? "bg-gray-800 text-white shadow-lg"
-                : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
+                ? "text-white border-white"
+                : "text-gray-400 hover:text-gray-200 border-transparent"
             }`}
           >
             <Icon className="w-4 h-4" />

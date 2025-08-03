@@ -40,7 +40,7 @@ export const ReferencesTab: React.FC<ReferencesTabProps> = ({
     <div className="space-y-8">
       {/* Image References */}
       <div>
-        <label className="block text-lg font-medium text-gray-200 mb-3">
+        <label className="block text-lg font-serif italic text-gray-200 mb-3">
           Referències d'imatges
         </label>
         <div className="space-y-3 mb-4">
@@ -81,7 +81,7 @@ export const ReferencesTab: React.FC<ReferencesTabProps> = ({
 
       {/* Text References */}
       <div>
-        <label className="block text-lg font-medium text-gray-200 mb-3">
+        <label className="block text-lg font-serif italic text-gray-200 mb-3">
           Referències de text
         </label>
         <div className="space-y-3 mb-4">
