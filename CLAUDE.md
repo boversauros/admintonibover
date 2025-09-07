@@ -40,9 +40,88 @@ Posts support bilingual content (Catalan/English) and include:
 - Reference tracking for citations and media
 - Publishing workflow with draft/published states
 
+### Database Schema (Supabase)
+
+**Core Tables:**
+```sql
+-- Users (leverages Supabase Auth)
+users (
+  id uuid primary key references auth.users,
+  email text not null,
+  created_at timestamptz default now()
+)
+
+-- Categories
+categories (
+  id serial primary key,
+  name text not null,
+  created_at timestamptz default now()
+)
+
+-- Main posts table (language-agnostic metadata)
+posts (
+  id serial primary key,
+  user_id uuid references users(id),
+  category_id int references categories(id),
+  image_id int references images(id),
+  thumbnail_id int references images(id),
+  is_published boolean default false,
+  date timestamptz default now(),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+)
+
+-- Post translations (language-specific content)
+post_translations (
+  id serial primary key,
+  post_id int references posts(id) on delete cascade,
+  language text not null check (language in ('ca', 'en')),
+  title text not null,
+  content text not null,
+  slug text not null,
+  references_images text[], -- JSON array of image references
+  references_texts text[],  -- JSON array of text references
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(post_id, language)
+)
+
+-- Images
+images (
+  id serial primary key,
+  url text not null,
+  title text not null,
+  alt text,
+  created_at timestamptz default now()
+)
+
+-- Keywords (language-specific)
+keywords (
+  id serial primary key,
+  keyword text not null,
+  language text not null check (language in ('ca', 'en')),
+  created_at timestamptz default now(),
+  unique(keyword, language)
+)
+
+-- Post-keyword relationships
+post_keywords (
+  post_translation_id int references post_translations(id) on delete cascade,
+  keyword_id int references keywords(id) on delete cascade,
+  primary key (post_translation_id, keyword_id)
+)
+```
+
+**Key Benefits:**
+- Separation of concerns: Metadata in `posts`, content in `post_translations`
+- Language flexibility: Easy to add more languages
+- SEO friendly: Each translation gets its own slug and keywords
+- Efficient queries: Can fetch all translations or filter by language
+- Data integrity: Foreign key constraints ensure consistency
+
 ### Mock Data
 
-Currently uses in-memory mock services (`DEMO_POSTS`, `DEMO_IMAGES`, `MOCK_KEYWORDS`) that simulate database operations. Services include proper error handling and loading states.
+Currently uses in-memory mock services (`DEMO_POSTS`, `DEMO_IMAGES`, `MOCK_KEYWORDS`) that simulate database operations. Services include proper error handling and loading states. Will be replaced with Supabase integration following the schema above.
 
 ### Path Aliases
 
