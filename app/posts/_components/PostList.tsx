@@ -1,12 +1,13 @@
 "use client";
 import React from "react";
 import Link from "next/link";
-import { Post, Category } from "@/app/_lib/types";
+import Image from "next/image";
+import { PostListItemV2, CategoryV2 } from "@/app/_lib/types-v2";
 import { Eye, EyeOff, Edit, Trash, Image as ImageIcon } from "lucide-react";
 
 interface PostListProps {
-  posts: Post[];
-  categories: Category[];
+  posts: PostListItemV2[];
+  categories: CategoryV2[];
   onTogglePublish: (postId: number) => void;
   onDelete: (postId: number) => void;
 }
@@ -23,6 +24,36 @@ export const PostList: React.FC<PostListProps> = ({
 
   const getCategoryName = (categoryId: number) => {
     return categories.find((c) => c.id === categoryId)?.name || "Unknown";
+  };
+
+  const getLanguageIndicators = (post: PostListItemV2) => {
+    // Show both EN and CA badges, marking active languages
+    const primaryLanguage = post.default_translation?.language || "ca";
+    const hasTranslations = post.translation_count > 1;
+
+    const languages = ["en", "ca"] as const;
+    const indicators: React.ReactNode[] = [];
+
+    languages.forEach((lang) => {
+      const isActive =
+        lang === primaryLanguage ||
+        (hasTranslations && lang !== primaryLanguage);
+
+      indicators.push(
+        <span
+          key={lang}
+          className={`px-2 py-1 text-xs rounded font-medium ${
+            isActive
+              ? "bg-transparent text-gray-200 border border-gray-600"
+              : "bg-transparent text-gray-500 border border-gray-700/30"
+          }`}
+        >
+          {lang.toUpperCase()}
+        </span>
+      );
+    });
+
+    return indicators;
   };
 
   const handleDelete = (postId: number) => {
@@ -42,7 +73,7 @@ export const PostList: React.FC<PostListProps> = ({
             <th className="text-left p-4 text-gray-400 font-normal">
               Categoria
             </th>
-            <th className="text-left p-4 text-gray-400 font-normal">Data</th>
+            <th className="text-left p-4 text-gray-400 font-normal">Idiomes</th>
             <th className="text-left p-4 text-gray-400 font-normal">Estat</th>
             <th className="p-4 text-gray-400 font-normal"></th>
           </tr>
@@ -54,9 +85,11 @@ export const PostList: React.FC<PostListProps> = ({
                 <td className="p-2">
                   <div className="w-16 h-16 bg-gray-800 rounded overflow-hidden flex items-center justify-center">
                     {post.thumbnail ? (
-                      <img
+                      <Image
                         src={post.thumbnail.url}
                         alt={post.thumbnail.alt || post.thumbnail.title}
+                        width={64}
+                        height={64}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -72,18 +105,16 @@ export const PostList: React.FC<PostListProps> = ({
                     href={`/posts/${post.id}`}
                     className="text-gray-300 hover:text-white transition-colors"
                   >
-                    {post.title}
+                    {post.default_translation?.title || "Untitled"}
                   </Link>
                 </td>
                 <td className="p-4 text-gray-300">
                   {getCategoryName(post.category_id)}
                 </td>
-                <td className="p-4 text-gray-300">
-                  {new Date(post.updated_at).toLocaleDateString("ca-ES", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
+                <td className="p-4">
+                  <div className="flex items-center gap-2">
+                    {getLanguageIndicators(post)}
+                  </div>
                 </td>
                 <td className="p-4">
                   <span
@@ -129,11 +160,12 @@ export const PostList: React.FC<PostListProps> = ({
 
               {deleteConfirmId === post.id && (
                 <tr className="bg-gray-900">
-                  <td colSpan={6} className="p-4">
+                  <td colSpan={7} className="p-4">
                     <div className="flex justify-between items-center">
                       <p className="text-gray-300">
-                        Segur que vols eliminar "{post.title}"? Aquesta acció no
-                        es pot desfer.
+                        Segur que vols eliminar "
+                        {post.default_translation?.title || "Untitled"}"?
+                        Aquesta acció no es pot desfer.
                       </p>
                       <div className="flex gap-2">
                         <button

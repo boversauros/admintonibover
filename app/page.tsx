@@ -3,12 +3,12 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
 import { PostList } from "./posts/_components/PostList";
-import { postsService } from "./_lib/posts-service";
-import { CATEGORIES } from "./_lib/mock-data";
-import { Post } from "./_lib/types";
+import { postsServiceV2 } from "./_lib/posts-service-v2";
+import { CATEGORIES_V2 } from "./_lib/mock-data-v2";
+import { PostListItemV2 } from "./_lib/types-v2";
 
 export default function Home() {
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<PostListItemV2[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +18,7 @@ export default function Home() {
 
   const loadPosts = async () => {
     setLoading(true);
-    const response = await postsService.getAll();
+    const response = await postsServiceV2.getAll();
     if (response.error) {
       setError(response.error);
     } else {
@@ -28,7 +28,7 @@ export default function Home() {
   };
 
   const handleTogglePublish = async (postId: number) => {
-    const response = await postsService.togglePublish(postId);
+    const response = await postsServiceV2.togglePublish(postId);
     if (response.error) {
       alert(`Error: ${response.error}`);
     } else {
@@ -37,7 +37,7 @@ export default function Home() {
   };
 
   const handleDelete = async (postId: number) => {
-    const response = await postsService.delete(postId);
+    const response = await postsServiceV2.delete(postId);
     if (response.error) {
       alert(`Error: ${response.error}`);
     } else {
@@ -90,7 +90,7 @@ export default function Home() {
           ) : (
             <PostList
               posts={posts}
-              categories={CATEGORIES}
+              categories={CATEGORIES_V2}
               onTogglePublish={handleTogglePublish}
               onDelete={handleDelete}
             />
