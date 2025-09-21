@@ -1,8 +1,7 @@
-// app/posts/_components/PostFormV2/index.tsx
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CategoryV2, ImageDataV2 } from "@/app/_lib/types-v2";
+import { CategoryV2, ImageDataV2, Language } from "@/app/_lib/types-v2";
 import { usePostEditorV2 } from "@/app/_hooks/usePost-v2";
 import { PostFormHeaderV2 } from "./PostFormHeaderV2";
 import { PostFormSidebarV2 } from "./PostFormSidebarV2";
@@ -11,7 +10,6 @@ import { ContentTab } from "../PostForm/tabs/ContentTab";
 import { MediaTab } from "../PostForm/tabs/MediaTab";
 import { MetadataTab } from "../PostForm/tabs/MetadataTab";
 import { ReferencesTab } from "../PostForm/tabs/ReferencesTab";
-import { Language } from "@/app/_lib/types";
 import { Globe, Plus, AlertCircle } from "lucide-react";
 
 interface PostFormV2Props {

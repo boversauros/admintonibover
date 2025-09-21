@@ -2,8 +2,11 @@
 "use client";
 import React from "react";
 import { ChevronLeft, X, Globe, Check } from "lucide-react";
-import { PostWithTranslationsV2, CategoryV2 } from "@/app/_lib/types-v2";
-import { Language } from "@/app/_lib/types";
+import {
+  PostWithTranslationsV2,
+  CategoryV2,
+  Language,
+} from "@/app/_lib/types-v2";
 import { LANGUAGES } from "@/app/_lib/mock-data";
 
 interface PostFormSidebarV2Props {

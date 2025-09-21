@@ -1,8 +1,12 @@
 "use client";
 import React, { useState } from "react";
 import Link from "next/link";
-import { PostV2, PostTranslationV2, CategoryV2 } from "@/app/_lib/types-v2";
-import { Language } from "@/app/_lib/types";
+import {
+  PostV2,
+  PostTranslationV2,
+  CategoryV2,
+  Language,
+} from "@/app/_lib/types-v2";
 import { ArrowLeft, Edit, Calendar, Tag, Globe } from "lucide-react";
 
 interface PostViewProps {

@@ -1,8 +1,7 @@
-import { Language } from "./types";
-
 // ==========================================
 // V2 Types - Translation-based architecture
 // ==========================================
+export type Language = "ca" | "en";
 
 // Core entities that are language-agnostic
 export interface PostV2 {

@@ -3,10 +3,9 @@ import {
   PostWithTranslationsV2,
   PostFormDataV2,
   ImageDataV2,
-  PostDetailResponseV2,
   KeywordV2,
+  Language,
 } from "../_lib/types-v2";
-import { Language } from "../_lib/types";
 import { DEMO_USER_V2 } from "../_lib/mock-data-v2";
 import { postsServiceV2 } from "../_lib/posts-service-v2";
 

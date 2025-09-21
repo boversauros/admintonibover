@@ -7,15 +7,14 @@ import {
   PostListItemV2,
   PostsServiceV2Interface,
   KeywordV2,
+  Language,
 } from "./types-v2";
 import {
   DEMO_POSTS_V2,
   DEMO_POST_TRANSLATIONS_V2,
   DEMO_IMAGES_V2,
   KEYWORDS_V2,
-  getPostListItems,
 } from "./mock-data-v2";
-import { Language } from "./types";
 
 class PostsServiceV2 implements PostsServiceV2Interface {
   private posts: PostV2[] = [...DEMO_POSTS_V2];
