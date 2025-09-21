@@ -2,16 +2,17 @@
 import { useEffect, useState } from "react";
 import { useParams, notFound } from "next/navigation";
 import { PostView } from "../_components/PostView";
-import { postsService } from "@/app/_lib/posts-service";
-import { CATEGORIES } from "@/app/_lib/mock-data";
-import { Post, Category } from "@/app/_lib/types";
+import { postsServiceV2 } from "@/app/_lib/posts-service-v2";
+import { CATEGORIES_V2 } from "@/app/_lib/mock-data-v2";
+import { PostV2, PostTranslationV2, CategoryV2 } from "@/app/_lib/types-v2";
 
 export default function ViewPostPage() {
   const params = useParams();
   const postId = Number(params.id);
 
-  const [post, setPost] = useState<Post | null>(null);
-  const [category, setCategory] = useState<Category | undefined>();
+  const [post, setPost] = useState<PostV2 | null>(null);
+  const [translations, setTranslations] = useState<PostTranslationV2[]>([]);
+  const [category, setCategory] = useState<CategoryV2 | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +27,7 @@ export default function ViewPostPage() {
 
   const loadPost = async () => {
     setLoading(true);
-    const response = await postsService.getById(postId);
+    const response = await postsServiceV2.getById(postId);
 
     if (response.error || !response.data) {
       setError(response.error || "Post not found");
@@ -34,8 +35,11 @@ export default function ViewPostPage() {
       return;
     }
 
-    setPost(response.data);
-    setCategory(CATEGORIES.find((c) => c.id === response.data!.category_id));
+    setPost(response.data.post);
+    setTranslations(response.data.translations);
+    setCategory(
+      CATEGORIES_V2.find((c) => c.id === response.data!.post.category_id)
+    );
     setLoading(false);
   };
 
@@ -47,7 +51,7 @@ export default function ViewPostPage() {
     );
   }
 
-  if (error || !post) {
+  if (error || !post || translations.length === 0) {
     return (
       <div className="bg-black text-white min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -60,5 +64,7 @@ export default function ViewPostPage() {
     );
   }
 
-  return <PostView post={post} category={category} />;
+  return (
+    <PostView post={post} translations={translations} category={category} />
+  );
 }

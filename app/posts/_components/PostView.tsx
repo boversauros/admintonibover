@@ -1,15 +1,47 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { Post, Category } from "@/app/_lib/types";
+import { PostV2, PostTranslationV2, CategoryV2 } from "@/app/_lib/types-v2";
+import { Language } from "@/app/_lib/types";
 import { ArrowLeft, Edit, Calendar, Tag, Globe } from "lucide-react";
 
 interface PostViewProps {
-  post: Post;
-  category?: Category;
+  post: PostV2;
+  translations: PostTranslationV2[];
+  category?: CategoryV2;
 }
 
-export const PostView: React.FC<PostViewProps> = ({ post, category }) => {
+export const PostView: React.FC<PostViewProps> = ({
+  post,
+  translations,
+  category,
+}) => {
+  const [activeLanguage, setActiveLanguage] = useState<Language>("ca");
+
+  // Get available languages from translations
+  const availableLanguages = translations.map((t) => t.language);
+
+  // Get current translation based on active language
+  const currentTranslation = translations.find(
+    (t) => t.language === activeLanguage
+  );
+
+  // Fallback to first available translation if current language not found
+  const displayTranslation = currentTranslation || translations[0];
+
+  if (!displayTranslation) {
+    return (
+      <div className="bg-black text-white min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">No translations available</p>
+          <Link href="/" className="text-gray-300 hover:text-white underline">
+            Tornar a l'inici
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-black text-white min-h-screen">
       {/* Header */}
@@ -23,13 +55,37 @@ export const PostView: React.FC<PostViewProps> = ({ post, category }) => {
             <span>Tornar</span>
           </Link>
 
-          <Link
-            href={`/posts/${post.id}/edit`}
-            className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors"
-          >
-            <Edit className="w-4 h-4" />
-            <span>Editar</span>
-          </Link>
+          <div className="flex items-center gap-4">
+            {/* Language Switcher */}
+            {availableLanguages.length > 1 && (
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-gray-400" />
+                <div className="flex gap-1">
+                  {availableLanguages.map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => setActiveLanguage(lang)}
+                      className={`px-3 py-1 rounded text-sm transition-all ${
+                        lang === activeLanguage
+                          ? "bg-white text-black"
+                          : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                      }`}
+                    >
+                      {lang === "ca" ? "Català" : "English"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Link
+              href={`/posts/${post.id}/edit`}
+              className="flex items-center gap-1 text-gray-300 hover:text-white transition-colors"
+            >
+              <Edit className="w-4 h-4" />
+              <span>Editar</span>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -49,7 +105,7 @@ export const PostView: React.FC<PostViewProps> = ({ post, category }) => {
             {/* Title and metadata */}
             <header className="space-y-4">
               <h1 className="text-3xl md:text-4xl font-serif text-gray-100">
-                {post.title}
+                {displayTranslation.title}
               </h1>
 
               <div className="flex flex-wrap gap-4 text-sm text-gray-400">
@@ -66,7 +122,11 @@ export const PostView: React.FC<PostViewProps> = ({ post, category }) => {
 
                 <div className="flex items-center gap-1">
                   <Globe className="w-4 h-4" />
-                  <span>{post.language === "ca" ? "Català" : "English"}</span>
+                  <span>
+                    {displayTranslation.language === "ca"
+                      ? "Català"
+                      : "English"}
+                  </span>
                 </div>
 
                 {!post.is_published && (
@@ -96,53 +156,56 @@ export const PostView: React.FC<PostViewProps> = ({ post, category }) => {
             {/* Content */}
             <div
               className="prose prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: post.content }}
+              dangerouslySetInnerHTML={{ __html: displayTranslation.content }}
             />
 
             {/* Keywords */}
-            {post.keywords.length > 0 && (
-              <div className="pt-8 border-t border-gray-800">
-                <h3 className="text-sm text-gray-400 mb-3">Paraules clau</h3>
-                <div className="flex flex-wrap gap-2">
-                  {post.keywords.map((keyword) => (
-                    <span
-                      key={keyword}
-                      className="flex items-center gap-1 px-3 py-1 bg-gray-900 text-gray-300 rounded text-sm"
-                    >
-                      <Tag className="w-3 h-3" />
-                      {keyword}
-                    </span>
-                  ))}
+            {displayTranslation.keywords &&
+              displayTranslation.keywords.length > 0 && (
+                <div className="pt-8 border-t border-gray-800">
+                  <h3 className="text-sm text-gray-400 mb-3">Paraules clau</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {displayTranslation.keywords.map((keyword) => (
+                      <span
+                        key={keyword.id}
+                        className="flex items-center gap-1 px-3 py-1 bg-gray-900 text-gray-300 rounded text-sm"
+                      >
+                        <Tag className="w-3 h-3" />
+                        {keyword.keyword}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* References */}
-            {(post.references.images.length > 0 ||
-              post.references.texts.length > 0) && (
+            {(displayTranslation.references_images.length > 0 ||
+              displayTranslation.references_texts.length > 0) && (
               <div className="pt-8 border-t border-gray-800 space-y-6">
                 <h3 className="text-lg font-serif text-gray-200">
                   Referències
                 </h3>
 
-                {post.references.images.length > 0 && (
+                {displayTranslation.references_images.length > 0 && (
                   <div>
                     <h4 className="text-sm text-gray-400 mb-2">Imatges</h4>
                     <ul className="space-y-1">
-                      {post.references.images.map((ref, index) => (
-                        <li key={index} className="text-gray-300 text-sm">
-                          • {ref}
-                        </li>
-                      ))}
+                      {displayTranslation.references_images.map(
+                        (ref, index) => (
+                          <li key={index} className="text-gray-300 text-sm">
+                            • {ref}
+                          </li>
+                        )
+                      )}
                     </ul>
                   </div>
                 )}
 
-                {post.references.texts.length > 0 && (
+                {displayTranslation.references_texts.length > 0 && (
                   <div>
                     <h4 className="text-sm text-gray-400 mb-2">Textos</h4>
                     <ul className="space-y-1">
-                      {post.references.texts.map((ref, index) => (
+                      {displayTranslation.references_texts.map((ref, index) => (
                         <li key={index} className="text-gray-300 text-sm">
                           • {ref}
                         </li>
@@ -155,10 +218,12 @@ export const PostView: React.FC<PostViewProps> = ({ post, category }) => {
 
             {/* Footer metadata */}
             <footer className="pt-8 border-t border-gray-800 text-sm text-gray-400">
-              <p>Publicat per {post.author || "Anònim"}</p>
+              <p>Publicat per {post.author?.email || "Anònim"}</p>
               <p>
                 Última actualització:{" "}
-                {new Date(post.updated_at).toLocaleDateString("ca-ES")}
+                {new Date(displayTranslation.updated_at).toLocaleDateString(
+                  "ca-ES"
+                )}
               </p>
             </footer>
           </article>
