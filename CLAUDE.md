@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-- `npm run dev` - Start development server with Turbopack
-- `npm run build` - Build production version
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
+- `pnpm dev` - Start development server with Turbopack
+- `pnpm build` - Build production version
+- `pnpm start` - Start production server
+- `pnpm lint` - Run ESLint
 
 ## Architecture Overview
 
