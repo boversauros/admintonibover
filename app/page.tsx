@@ -1,51 +1,87 @@
 'use client';
 
-import { Link } from '@/components/ui';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Table, Link } from '@/components/ui';
+import { getPosts, savePosts } from '@/lib/utils/localStorage';
+import { StoredPost } from '@/lib/types/post';
+
+const categoryLabels: Record<string, string> = {
+  tech: 'Technology',
+  design: 'Design',
+  philosophy: 'Philosophy',
+  personal: 'Personal',
+};
 
 export default function Home() {
+  const [posts, setPosts] = useState<StoredPost[]>([]);
+  const router = useRouter();
+
+  useEffect(() => {
+    setPosts(getPosts());
+  }, []);
+
+  const refreshPosts = () => {
+    setPosts(getPosts());
+  };
+
+  const columns = [
+    {
+      key: 'created_at' as keyof StoredPost,
+      label: 'Title (CA)',
+      render: (_: any, row: StoredPost) => row.translations.ca.title,
+    },
+    {
+      key: 'updated_at' as keyof StoredPost,
+      label: 'Title (EN)',
+      render: (_: any, row: StoredPost) => row.translations.en.title,
+    },
+    {
+      key: 'category_id' as keyof StoredPost,
+      label: 'Category',
+      render: (value: any) => categoryLabels[value as string] || value,
+    },
+  ];
+
+  const actions = [
+    {
+      label: 'Edit',
+      onClick: (post: StoredPost) => {
+        router.push(`/reflexions/${post.id}/edit`);
+      },
+    },
+    {
+      label: 'Delete',
+      onClick: (post: StoredPost) => {
+        if (confirm(`Delete "${post.translations.ca.title}"?`)) {
+          const updatedPosts = posts.filter(p => p.id !== post.id);
+          savePosts(updatedPosts);
+          refreshPosts();
+        }
+      },
+    },
+  ];
+
   return (
     <div className="min-h-screen p-8">
-      <main className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8">Reflexions MVP</h1>
-
-        <section className="mb-8">
-          <div className="border border-accent p-6 rounded bg-surface">
-            <h2 className="text-2xl font-semibold mb-4">✅ MVP Ready!</h2>
-            <p className="text-muted mb-4">
-              The bilingual post creation form is ready to use. Create new reflexions with support for both Catalan and English content.
-            </p>
-            <Link href="/reflexions/new" variant="accent-border">
-              Go to /reflexions/new →
-            </Link>
-          </div>
-        </section>
+      <main className="max-w-6xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold">Reflexions</h1>
+          <Link href="/reflexions/new" variant="accent-border">
+            + New Reflexion
+          </Link>
+        </div>
 
         <section>
-          <div className="border border-default p-6 rounded">
-            <h2 className="text-xl font-semibold mb-4">Implementation Status</h2>
-            <ul className="space-y-2 text-muted">
-              <li>✅ Phase 1: Foundation (Types, Utils, Validation)</li>
-              <li>✅ Phase 2: Base Components (DatePicker, KeywordsInput, etc.)</li>
-              <li>✅ Phase 3: Form Sections (PostMetadata, Translation, etc.)</li>
-              <li>✅ Phase 4: Main PostForm Component</li>
-              <li>✅ Phase 5: /reflexions/new Route</li>
-              <li>✅ Phase 6: Edge Cases & Polish</li>
-            </ul>
-
-            <div className="mt-6 pt-6 border-t border-default">
-              <h3 className="text-lg font-medium mb-2">Features</h3>
-              <ul className="space-y-1 text-sm text-muted">
-                <li>• Bilingual content (CA/EN) with language tabs</li>
-                <li>• Auto-generated slugs from titles (editable)</li>
-                <li>• Keywords management with duplicate prevention</li>
-                <li>• Dynamic references with citations and blockquotes</li>
-                <li>• Image thumbnail support (URL-based)</li>
-                <li>• LocalStorage persistence</li>
-                <li>• Form validation with instant feedback</li>
-                <li>• Unique slug verification</li>
-              </ul>
-            </div>
-          </div>
+          <Table
+            data={posts}
+            columns={columns}
+            actions={actions}
+            rowKey={(post) => post.id}
+            emptyMessage="No posts yet. Create your first reflexion!"
+            striped
+            hoverable
+          />
         </section>
       </main>
     </div>
