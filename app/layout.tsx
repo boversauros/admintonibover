@@ -1,20 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "Next.js App",
-  description: "A Next.js application with Tailwind CSS",
+  title: "Toni Bover",
+  description: "Toni Bover - Admin",
 };
 
 export default function RootLayout({
@@ -22,12 +11,25 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const currentYear = new Date().getFullYear();
+
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <head>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+      </head>
+      <body className="min-h-screen bg-background text-primary font-sans antialiased flex flex-col">
         {children}
+
+        <footer className="border-t border-subtle mt-auto">
+          <div className="max-w-4xl mx-auto px-6 py-6">
+            <div className="flex justify-between items-center text-sm">
+              <p className="text-muted font-serif">
+                © Toni Bover, {currentYear}
+              </p>
+            </div>
+          </div>
+        </footer>
       </body>
     </html>
   );
