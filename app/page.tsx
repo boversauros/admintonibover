@@ -1,15 +1,49 @@
+'use client';
+
+import { useState } from "react";
 import {
+  Badge,
   Button,
   Card,
   Heading,
   Icon,
   Image,
+  Input,
   Link,
+  Modal,
   SectionTitle,
+  Select,
+  Table,
   Text,
+  Textarea,
+  Toast,
 } from "@/components/ui";
 
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  status: 'active' | 'inactive';
+}
+
 export default function Home() {
+  const [inputValue, setInputValue] = useState('');
+  const [textareaValue, setTextareaValue] = useState('');
+  const [selectValue, setSelectValue] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'info' | 'success' | 'error' | 'warning' }>>([]);
+
+  const showToast = (message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
+    const id = Date.now().toString();
+    setToasts(prev => [...prev, { id, message, type }]);
+  };
+
+  const tableData: User[] = [
+    { id: 1, name: 'John Doe', email: 'john@example.com', status: 'active' },
+    { id: 2, name: 'Jane Smith', email: 'jane@example.com', status: 'inactive' },
+    { id: 3, name: 'Bob Johnson', email: 'bob@example.com', status: 'active' },
+  ];
+
   return (
     <div className="min-h-screen p-8 pb-20 sm:p-20">
       <main className="max-w-4xl mx-auto">
@@ -179,7 +213,211 @@ export default function Home() {
             variant, and italic styling.
           </Text>
         </section>
+
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Badge Component</h2>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-medium mb-3">Badge Variants</h3>
+              <div className="flex gap-4 items-center flex-wrap">
+                <Badge variant="default">Default</Badge>
+                <Badge variant="accent">Accent</Badge>
+                <Badge variant="secondary">Secondary</Badge>
+                <Badge variant="error">Error</Badge>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-lg font-medium mb-3">Badge Sizes</h3>
+              <div className="flex gap-4 items-center flex-wrap">
+                <Badge size="sm">Small Badge</Badge>
+                <Badge size="md">Medium Badge</Badge>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Input Component</h2>
+          <div className="space-y-6 max-w-md">
+            <Input
+              label="Email"
+              type="email"
+              placeholder="john@example.com"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+            />
+            <Input
+              label="Password"
+              type="password"
+              placeholder="Enter your password"
+              helperText="Password must be at least 8 characters"
+            />
+            <Input
+              label="Username"
+              type="text"
+              error="This username is already taken"
+              isInvalid
+            />
+            <div>
+              <h3 className="text-lg font-medium mb-3">Input Sizes</h3>
+              <div className="space-y-3">
+                <Input size="sm" placeholder="Small input" />
+                <Input size="md" placeholder="Medium input" />
+                <Input size="lg" placeholder="Large input" />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Textarea Component</h2>
+          <div className="space-y-6 max-w-md">
+            <Textarea
+              label="Description"
+              placeholder="Enter a description..."
+              value={textareaValue}
+              onChange={(e) => setTextareaValue(e.target.value)}
+              showCharCount
+              maxChars={200}
+            />
+            <Textarea
+              label="Comments"
+              placeholder="Your comments"
+              error="This field is required"
+              isInvalid
+            />
+          </div>
+        </section>
+
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Select Component</h2>
+          <div className="space-y-6 max-w-md">
+            <Select
+              label="Category"
+              options={[
+                { value: 'tech', label: 'Technology' },
+                { value: 'design', label: 'Design' },
+                { value: 'business', label: 'Business' },
+                { value: 'other', label: 'Other' },
+              ]}
+              placeholder="Select a category..."
+              value={selectValue}
+              onChange={(e) => setSelectValue(e.target.value)}
+            />
+            <Select
+              label="Priority"
+              options={[
+                {
+                  group: 'High Priority',
+                  items: [
+                    { value: 'urgent', label: 'Urgent' },
+                    { value: 'high', label: 'High' },
+                  ],
+                },
+                {
+                  group: 'Low Priority',
+                  items: [
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'low', label: 'Low' },
+                  ],
+                },
+              ]}
+            />
+          </div>
+        </section>
+
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Toast Component</h2>
+          <div className="flex gap-4 flex-wrap">
+            <Button variant="ghost" onClick={() => showToast('This is an info message', 'info')}>
+              Show Info Toast
+            </Button>
+            <Button variant="ghost" onClick={() => showToast('Success! Action completed', 'success')}>
+              Show Success Toast
+            </Button>
+            <Button variant="ghost" onClick={() => showToast('Error occurred!', 'error')}>
+              Show Error Toast
+            </Button>
+            <Button variant="ghost" onClick={() => showToast('Warning: Check this', 'warning')}>
+              Show Warning Toast
+            </Button>
+          </div>
+        </section>
+
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Modal Component</h2>
+          <Button variant="ghost" onClick={() => setIsModalOpen(true)}>
+            Open Modal
+          </Button>
+          <Modal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            title="Confirm Action"
+            footer={
+              <div className="flex gap-4">
+                <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    showToast('Action confirmed!', 'success');
+                  }}
+                >
+                  Confirm
+                </Button>
+              </div>
+            }
+          >
+            <p>Are you sure you want to perform this action?</p>
+            <p className="mt-2 text-muted text-sm">This action cannot be undone.</p>
+          </Modal>
+        </section>
+
+        <section className="mb-12">
+          <h2 className="text-2xl font-semibold mb-4">Table Component</h2>
+          <Table
+            data={tableData}
+            columns={[
+              { key: 'name', label: 'Name' },
+              { key: 'email', label: 'Email' },
+              {
+                key: 'status',
+                label: 'Status',
+                render: (value) => (
+                  <Badge variant={value === 'active' ? 'accent' : 'default'}>
+                    {String(value)}
+                  </Badge>
+                ),
+              },
+            ]}
+            actions={[
+              {
+                label: 'Edit',
+                onClick: (row) => showToast(`Editing ${row.name}`, 'info'),
+              },
+              {
+                label: 'Delete',
+                onClick: (row) => showToast(`Deleted ${row.name}`, 'error'),
+              },
+            ]}
+            striped
+            hoverable
+          />
+        </section>
       </main>
+
+      {/* Toast Container */}
+      {toasts.map((toast) => (
+        <Toast
+          key={toast.id}
+          id={toast.id}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+        />
+      ))}
     </div>
   );
 }
