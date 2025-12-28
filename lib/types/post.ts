@@ -1,6 +1,15 @@
 export type Language = 'ca' | 'en';
 export type ReferenceType = 'image' | 'text';
 
+export interface Image {
+  id: string;
+  url: string;
+  title: string;
+  alt: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Reference {
   id: string;
   type: ReferenceType;
@@ -23,6 +32,9 @@ export interface PostFormData {
   date: string;
   author: string;
   thumbnail_url: string;
+  thumbnail_file?: File | null;
+  main_image_url?: string;
+  main_image_file?: File | null;
   is_published: boolean;
   translations: {
     ca: PostTranslation;
@@ -35,6 +47,8 @@ export interface StoredPost {
   user_id: string;
   category_id: string;
   thumbnail_url: string;
+  thumbnail_id: string | null;
+  image_id: string | null;
   is_published: boolean;
   date: string;
   author: string;

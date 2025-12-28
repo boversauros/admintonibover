@@ -92,7 +92,9 @@ export async function getPosts(): Promise<StoredPost[]> {
         id: post.id.toString(),
         user_id: post.user_id,
         category_id: post.category_id.toString(),
-        thumbnail_url: "", // TODO: Implement image handling
+        thumbnail_url: post.thumbnail_url || "",
+        thumbnail_id: post.thumbnail_id ? post.thumbnail_id.toString() : null,
+        image_id: post.image_id ? post.image_id.toString() : null,
         is_published: post.is_published,
         date: post.date,
         author: post.author,
@@ -163,6 +165,9 @@ async function createPost(post: StoredPost): Promise<void> {
       author: post.author,
       is_published: post.is_published,
       date: post.date,
+      thumbnail_url: post.thumbnail_url || "",
+      thumbnail_id: post.thumbnail_id ? parseInt(post.thumbnail_id) : null,
+      image_id: post.image_id ? parseInt(post.image_id) : null,
     })
     .select()
     .single();
@@ -190,6 +195,9 @@ async function updatePost(post: StoredPost): Promise<void> {
       author: post.author,
       is_published: post.is_published,
       date: post.date,
+      thumbnail_url: post.thumbnail_url || "",
+      thumbnail_id: post.thumbnail_id ? parseInt(post.thumbnail_id) : null,
+      image_id: post.image_id ? parseInt(post.image_id) : null,
     })
     .eq("id", postId);
 

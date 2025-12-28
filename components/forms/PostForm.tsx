@@ -6,6 +6,7 @@ import { Button, Heading } from "@/components/ui";
 import { PostFormData, StoredPost, Language } from "@/lib/types/post";
 import { slugify, generateUniqueSlug } from "@/lib/utils/slugify";
 import { savePost, getExistingSlugs } from "@/lib/api/posts";
+import { uploadAndCreateImage, deleteImageCompletely, getImageById } from "@/lib/api/images";
 import { LanguageTabs } from "./LanguageTabs";
 import { PostMetadataSection } from "./PostMetadataSection";
 import { TranslationSection } from "./TranslationSection";
@@ -21,6 +22,12 @@ interface PostFormProps {
 export function PostForm({ initialData, onSuccess }: PostFormProps) {
   const [activeLanguage, setActiveLanguage] = useState<Language>("ca");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingThumbnailId, setExistingThumbnailId] = useState<string | null>(
+    initialData?.thumbnail_id || null
+  );
+  const [existingMainImageId, setExistingMainImageId] = useState<string | null>(
+    initialData?.image_id || null
+  );
 
   const methods = useForm<PostFormData>({
     defaultValues: initialData
@@ -29,6 +36,9 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           date: initialData.date,
           author: initialData.author,
           thumbnail_url: initialData.thumbnail_url,
+          thumbnail_file: null,
+          main_image_url: "",
+          main_image_file: null,
           is_published: initialData.is_published,
           translations: {
             ca: {
@@ -54,6 +64,9 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           date: "",
           author: "",
           thumbnail_url: "",
+          thumbnail_file: null,
+          main_image_url: "",
+          main_image_file: null,
           is_published: false,
           translations: {
             ca: {
@@ -104,6 +117,19 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
     }
   }, [titleEN]);
 
+  // Load existing main image URL when editing
+  useEffect(() => {
+    async function loadExistingImages() {
+      if (initialData?.image_id) {
+        const mainImage = await getImageById(initialData.image_id);
+        if (mainImage) {
+          setValue('main_image_url', mainImage.url);
+        }
+      }
+    }
+    loadExistingImages();
+  }, [initialData?.image_id, setValue]);
+
   const onSubmit = async (data: PostFormData) => {
     if (isSubmitting) return; // Prevent multiple submissions
 
@@ -113,7 +139,59 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
       const now = new Date().toISOString();
       const isEditMode = !!initialData;
 
-      // Get existing slugs for uniqueness check (exclude current post if editing)
+      // 1. Handle thumbnail upload
+      let thumbnailId = existingThumbnailId;
+      let thumbnailUrl = data.thumbnail_url;
+
+      if (data.thumbnail_file) {
+        // Upload new thumbnail
+        const uploadedThumbnail = await uploadAndCreateImage(
+          data.thumbnail_file,
+          'post-thumbnails',
+          'Post Thumbnail',
+          `Thumbnail for ${data.translations.ca.title || 'post'}`
+        );
+
+        thumbnailId = uploadedThumbnail.id;
+        thumbnailUrl = uploadedThumbnail.url;
+
+        // Delete old thumbnail if exists
+        if (existingThumbnailId && data.thumbnail_url) {
+          await deleteImageCompletely(
+            existingThumbnailId,
+            data.thumbnail_url,
+            'post-thumbnails'
+          );
+        }
+      }
+
+      // 2. Handle main image upload
+      let mainImageId = existingMainImageId;
+      let mainImageUrl = data.main_image_url;
+
+      if (data.main_image_file) {
+        // Upload new main image
+        const uploadedMainImage = await uploadAndCreateImage(
+          data.main_image_file,
+          'post-images',
+          'Post Main Image',
+          `Main image for ${data.translations.ca.title || 'post'}`
+        );
+
+        mainImageId = uploadedMainImage.id;
+        mainImageUrl = uploadedMainImage.url;
+
+        // Delete old main image if exists
+        if (existingMainImageId && data.main_image_url) {
+          await deleteImageCompletely(
+            existingMainImageId,
+            data.main_image_url,
+            'post-images'
+          );
+        }
+      }
+
+      // 3. Get existing slugs for uniqueness check (exclude current post if editing)
       const [existingSlugsCA, existingSlugsEN] = await Promise.all([
         getExistingSlugs("ca", isEditMode ? initialData.id : undefined),
         getExistingSlugs("en", isEditMode ? initialData.id : undefined),
@@ -128,7 +206,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         existingSlugsEN
       );
 
-      // TODO: Get actual user from session
+      // 4. TODO: Get actual user from session
       const currentUser = "8e5c76dd-24ed-49b3-bf6f-2b835836b83b";
       const authorName = "Current User";
 
@@ -136,7 +214,9 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         id: isEditMode ? initialData.id : "", // Empty string for new posts (DB will auto-generate)
         user_id: isEditMode ? initialData.user_id : currentUser,
         category_id: data.category_id,
-        thumbnail_url: data.thumbnail_url,
+        thumbnail_url: thumbnailUrl,
+        thumbnail_id: thumbnailId,
+        image_id: mainImageId,
         is_published: data.is_published,
         date: isEditMode ? initialData.date : now.split("T")[0],
         author: isEditMode ? initialData.author : authorName,
@@ -156,8 +236,12 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         },
       };
 
-      // Save post (handles both create and update)
+      // 5. Save post (handles both create and update)
       await savePost(storedPost);
+
+      // 6. Update existing image IDs for next edit
+      setExistingThumbnailId(thumbnailId);
+      setExistingMainImageId(mainImageId);
 
       console.log(`Post ${isEditMode ? "updated" : "saved"} successfully`);
 

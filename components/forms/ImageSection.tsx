@@ -1,40 +1,45 @@
+"use client";
+
+import { useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Input, Heading, Text, Image } from '@/components/ui';
+import { Heading } from '@/components/ui';
+import { ImageUpload } from './ImageUpload';
 
 export function ImageSection() {
-  const { register, watch, formState: { errors } } = useFormContext();
+  const { setValue, watch, formState: { errors } } = useFormContext();
 
   const thumbnailUrl = watch('thumbnail_url');
+  const mainImageUrl = watch('main_image_url');
+
+  const handleThumbnailSelect = (file: File | null) => {
+    setValue('thumbnail_file', file);
+  };
+
+  const handleMainImageSelect = (file: File | null) => {
+    setValue('main_image_file', file);
+  };
 
   return (
-    <div className="space-y-4">
-      <Heading as="h3" size="xl">Thumbnail Image</Heading>
+    <div className="space-y-6">
+      <Heading as="h3" size="xl">Images</Heading>
 
-      <Input
-        label="Thumbnail URL"
-        {...register('thumbnail_url')}
-        placeholder="https://example.com/image.jpg"
-        helperText="Enter the URL of the thumbnail image"
-        error={errors.thumbnail_url?.message as string}
+      <ImageUpload
+        label="Thumbnail Image"
+        name="thumbnail_file"
+        currentImageUrl={thumbnailUrl}
+        onFileSelect={handleThumbnailSelect}
+        error={errors.thumbnail_file?.message as string}
+        helperText="Recommended size: 800x600px. Max 5MB. Supported: JPG, PNG, WebP, GIF"
       />
 
-      {thumbnailUrl && (
-        <div className="border border-default rounded p-4">
-          <Text variant="small" className="mb-2">Preview:</Text>
-          <Image
-            src={thumbnailUrl}
-            alt="Thumbnail preview"
-            width="w-auto"
-            height="h-auto"
-            aspect="auto"
-            hover="none"
-            className="max-w-xs rounded"
-            onError={(e: any) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-        </div>
-      )}
+      <ImageUpload
+        label="Main/Featured Image"
+        name="main_image_file"
+        currentImageUrl={mainImageUrl}
+        onFileSelect={handleMainImageSelect}
+        error={errors.main_image_file?.message as string}
+        helperText="Recommended size: 1200x800px. Max 5MB. Supported: JPG, PNG, WebP, GIF"
+      />
     </div>
   );
 }
