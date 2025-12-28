@@ -25,7 +25,7 @@ interface PostFormProps {
 
 export function PostForm({ initialData, onSuccess }: PostFormProps) {
   const [activeLanguage, setActiveLanguage] = useState<Language>("ca");
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const methods = useForm<PostFormData>({
     defaultValues: initialData
@@ -110,6 +110,10 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
   }, [titleEN]);
 
   const onSubmit = async (data: PostFormData) => {
+    if (isSubmitting) return; // Prevent multiple submissions
+
+    setIsSubmitting(true);
+
     try {
       const now = new Date().toISOString();
       const isEditMode = !!initialData;
@@ -177,41 +181,27 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         savePosts([...currentPosts, storedPost]);
       }
 
-      setSubmitSuccess(true);
-
-      if (!isEditMode) {
-        reset();
-      }
-
-      // Reset success message after 3 seconds
-      setTimeout(() => setSubmitSuccess(false), 3000);
-
-      // Call onSuccess callback if provided
-      if (onSuccess) {
-        setTimeout(() => onSuccess(), 1000);
-      }
-
       console.log(
         `Post ${isEditMode ? "updated" : "saved"} successfully:`,
         storedPost
       );
+
+      // Call onSuccess callback if provided (will redirect to home page)
+      if (onSuccess) {
+        onSuccess();
+      }
+
+      setIsSubmitting(false);
     } catch (error: any) {
       console.error("Error saving post:", error);
       alert(error.message || "Failed to save post");
+      setIsSubmitting(false);
     }
   };
 
   return (
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        {submitSuccess && (
-          <div className="bg-accent text-black p-4 rounded">
-            {initialData
-              ? "Post updated successfully!"
-              : "Post saved successfully!"}
-          </div>
-        )}
-
         <PostMetadataSection />
 
         <div className="border-t border-default pt-8">
@@ -235,11 +225,27 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         </div>
 
         <div className="flex gap-4">
-          <Button type="submit" variant="ghost">
-            {initialData ? "Update Post" : "Save Post"}
+          <Button
+            type="submit"
+            variant="primary"
+            loading={isSubmitting}
+            disabled={isSubmitting}
+          >
+            {isSubmitting
+              ? initialData
+                ? "Updating..."
+                : "Saving..."
+              : initialData
+              ? "Update Post"
+              : "Save Post"}
           </Button>
           {!initialData && (
-            <Button type="button" variant="ghost" onClick={() => reset()}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => reset()}
+              disabled={isSubmitting}
+            >
               Reset Form
             </Button>
           )}

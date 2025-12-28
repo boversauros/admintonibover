@@ -1,9 +1,16 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { PostForm } from '@/components/forms/PostForm';
 import { Container, Heading, Text } from '@/components/ui';
 
 export default function NewReflexionPage() {
+  const router = useRouter();
+
+  const handleSuccess = () => {
+    router.push('/');
+  };
+
   return (
     <div className="min-h-screen p-8">
       <Container size="default" spacing="none">
@@ -12,7 +19,7 @@ export default function NewReflexionPage() {
           <Text variant="muted">Create a new bilingual post with Catalan and English translations</Text>
         </div>
 
-        <PostForm />
+        <PostForm onSuccess={handleSuccess} />
       </Container>
     </div>
   );
