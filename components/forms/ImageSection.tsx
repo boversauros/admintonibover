@@ -1,5 +1,5 @@
 import { useFormContext } from 'react-hook-form';
-import { Input } from '@/components/ui';
+import { Input, Heading, Text, Image } from '@/components/ui';
 
 export function ImageSection() {
   const { register, watch, formState: { errors } } = useFormContext();
@@ -8,7 +8,7 @@ export function ImageSection() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-medium">Thumbnail Image</h3>
+      <Heading as="h3" size="xl">Thumbnail Image</Heading>
 
       <Input
         label="Thumbnail URL"
@@ -20,12 +20,16 @@ export function ImageSection() {
 
       {thumbnailUrl && (
         <div className="border border-default rounded p-4">
-          <p className="text-sm text-muted mb-2">Preview:</p>
-          <img
+          <Text variant="small" className="mb-2">Preview:</Text>
+          <Image
             src={thumbnailUrl}
             alt="Thumbnail preview"
+            width="w-auto"
+            height="h-auto"
+            aspect="auto"
+            hover="none"
             className="max-w-xs rounded"
-            onError={(e) => {
+            onError={(e: any) => {
               e.currentTarget.style.display = 'none';
             }}
           />

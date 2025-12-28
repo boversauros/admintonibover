@@ -1,5 +1,5 @@
 import { useFormContext } from 'react-hook-form';
-import { Select } from '@/components/ui';
+import { Select, Heading, Text } from '@/components/ui';
 
 const categoryOptions = [
   { value: 'tech', label: 'Technology' },
@@ -13,7 +13,7 @@ export function PostMetadataSection() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-medium">Post Metadata</h3>
+      <Heading as="h3" size="xl">Post Metadata</Heading>
 
       <Select
         label="Category"
@@ -23,9 +23,9 @@ export function PostMetadataSection() {
         error={errors.category_id?.message as string}
       />
 
-      <p className="text-sm text-muted">
+      <Text variant="small">
         Date and author will be set automatically when you save the post.
-      </p>
+      </Text>
     </div>
   );
 }

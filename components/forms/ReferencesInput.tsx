@@ -1,4 +1,4 @@
-import { Button, Select, Input, Textarea } from '@/components/ui';
+import { Button, Select, Input, Textarea, Heading } from '@/components/ui';
 import { Reference } from '@/lib/types/post';
 
 interface ReferencesInputProps {
@@ -37,7 +37,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
           {value.map((ref, index) => (
             <div key={ref.id} className="border border-default p-4 rounded">
               <div className="flex justify-between items-center mb-3">
-                <h4 className="font-medium text-primary">Reference {index + 1}</h4>
+                <Heading as="h4" size="xl">Reference {index + 1}</Heading>
                 <Button
                   variant="icon"
                   onClick={() => handleRemove(ref.id)}

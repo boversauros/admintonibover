@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Table, Link } from '@/components/ui';
+import { Table, Link, Container, Heading } from '@/components/ui';
 import { getPosts, savePosts } from '@/lib/utils/localStorage';
 import { StoredPost } from '@/lib/types/post';
 
@@ -64,9 +64,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen p-8">
-      <main className="max-w-6xl mx-auto">
+      <Container as="main" size="wide" spacing="none">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">Reflexions</h1>
+          <Heading as="h1" size="4xl">Reflexions</Heading>
           <Link href="/reflexions/new" variant="accent-border">
             + New Reflexion
           </Link>
@@ -83,7 +83,7 @@ export default function Home() {
             hoverable
           />
         </section>
-      </main>
+      </Container>
     </div>
   );
 }

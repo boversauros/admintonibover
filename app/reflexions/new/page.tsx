@@ -1,18 +1,19 @@
 'use client';
 
 import { PostForm } from '@/components/forms/PostForm';
+import { Container, Heading, Text } from '@/components/ui';
 
 export default function NewReflexionPage() {
   return (
     <div className="min-h-screen p-8">
-      <div className="max-w-4xl mx-auto">
+      <Container size="default" spacing="none">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">New Reflexion</h1>
-          <p className="text-muted">Create a new bilingual post with Catalan and English translations</p>
+          <Heading as="h1" size="4xl" className="mb-2">New Reflexion</Heading>
+          <Text variant="muted">Create a new bilingual post with Catalan and English translations</Text>
         </div>
 
         <PostForm />
-      </div>
+      </Container>
     </div>
   );
 }

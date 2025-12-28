@@ -1,6 +1,7 @@
 import { Controller, useFormContext } from 'react-hook-form';
 import { ReferencesInput } from './ReferencesInput';
 import { Language } from '@/lib/types/post';
+import { Heading, Text } from '@/components/ui';
 
 interface ReferencesSectionProps {
   language: Language;
@@ -14,7 +15,7 @@ export function ReferencesSection({ language }: ReferencesSectionProps) {
 
   return (
     <div>
-      <h3 className="text-lg font-medium mb-3">References ({langLabel})</h3>
+      <Heading as="h3" size="xl" className="mb-3">References ({langLabel})</Heading>
       <Controller
         name={fieldName}
         control={control}
@@ -25,9 +26,9 @@ export function ReferencesSection({ language }: ReferencesSectionProps) {
           />
         )}
       />
-      <p className="text-xs text-muted mt-1">
+      <Text as="p" variant="small" className="mt-1">
         Add citations, quotes, or image references
-      </p>
+      </Text>
     </div>
   );
 }

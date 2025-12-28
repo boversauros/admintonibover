@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { PostForm } from '@/components/forms/PostForm';
 import { getPosts } from '@/lib/utils/localStorage';
 import { StoredPost } from '@/lib/types/post';
+import { Container, Heading, Text, Link } from '@/components/ui';
 
 export default function EditReflexionPage() {
   const params = useParams();
@@ -31,16 +32,13 @@ export default function EditReflexionPage() {
   if (notFound) {
     return (
       <div className="min-h-screen p-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl font-bold mb-4">Post Not Found</h1>
-          <p className="text-muted mb-4">The post you're trying to edit doesn't exist.</p>
-          <button
-            onClick={() => router.push('/')}
-            className="text-accent hover:underline"
-          >
+        <Container size="default" spacing="none">
+          <Heading as="h1" size="4xl" className="mb-4">Post Not Found</Heading>
+          <Text variant="muted" className="mb-4">The post you're trying to edit doesn't exist.</Text>
+          <Link href="/" variant="accent-border">
             ← Back to posts
-          </button>
-        </div>
+          </Link>
+        </Container>
       </div>
     );
   }
@@ -48,29 +46,26 @@ export default function EditReflexionPage() {
   if (!post) {
     return (
       <div className="min-h-screen p-8">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-muted">Loading...</p>
-        </div>
+        <Container size="default" spacing="none">
+          <Text variant="muted">Loading...</Text>
+        </Container>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen p-8">
-      <div className="max-w-4xl mx-auto">
+      <Container size="default" spacing="none">
         <div className="mb-8">
-          <button
-            onClick={() => router.push('/')}
-            className="text-muted hover:text-primary mb-4 transition-colors-default"
-          >
+          <Link href="/" variant="muted" className="mb-4 inline-block">
             ← Back to posts
-          </button>
-          <h1 className="text-4xl font-bold mb-2">Edit Reflexion</h1>
-          <p className="text-muted">Update your bilingual post</p>
+          </Link>
+          <Heading as="h1" size="4xl" className="mb-2">Edit Reflexion</Heading>
+          <Text variant="muted">Update your bilingual post</Text>
         </div>
 
         <PostForm initialData={post} onSuccess={handleSuccess} />
-      </div>
+      </Container>
     </div>
   );
 }

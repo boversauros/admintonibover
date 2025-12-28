@@ -1,6 +1,7 @@
 import { Controller, useFormContext } from 'react-hook-form';
 import { KeywordsInput } from './KeywordsInput';
 import { Language } from '@/lib/types/post';
+import { Text } from '@/components/ui';
 
 interface KeywordsSectionProps {
   language: Language;
@@ -26,9 +27,9 @@ export function KeywordsSection({ language }: KeywordsSectionProps) {
           />
         )}
       />
-      <p className="text-xs text-muted mt-1">
+      <Text as="p" variant="small" className="mt-1">
         Add keywords for SEO and categorization
-      </p>
+      </Text>
     </div>
   );
 }
