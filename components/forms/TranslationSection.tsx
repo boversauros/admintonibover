@@ -11,13 +11,11 @@ export function TranslationSection({ language }: TranslationSectionProps) {
 
   const langLabel = language === 'ca' ? 'Catalan' : 'English';
   const titleField = `translations.${language}.title` as const;
-  const slugField = `translations.${language}.slug` as const;
   const contentField = `translations.${language}.content` as const;
 
   // Safely extract error messages
   const translationErrors = errors.translations as any;
   const titleError = translationErrors?.[language]?.title?.message as string | undefined;
-  const slugError = translationErrors?.[language]?.slug?.message as string | undefined;
   const contentError = translationErrors?.[language]?.content?.message as string | undefined;
 
   return (
@@ -27,14 +25,6 @@ export function TranslationSection({ language }: TranslationSectionProps) {
         {...register(titleField)}
         placeholder={`Enter ${langLabel.toLowerCase()} title...`}
         error={titleError}
-      />
-
-      <Input
-        label={`Slug (${langLabel})`}
-        {...register(slugField)}
-        placeholder="Auto-generated from title (editable)"
-        helperText="URL-friendly version of the title"
-        error={slugError}
       />
 
       <Textarea
