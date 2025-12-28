@@ -3,14 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Table, Link, Container, Heading } from '@/components/ui';
-import { getPosts, savePosts } from '@/lib/utils/localStorage';
+import { getPosts, deletePost } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
 
 const categoryLabels: Record<string, string> = {
-  tech: 'Technology',
-  design: 'Design',
-  philosophy: 'Philosophy',
-  personal: 'Personal',
+  '1': 'Vivències',
+  '2': 'Influències',
+  '3': 'Perspectives',
 };
 
 export default function Home() {
@@ -18,11 +17,24 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    setPosts(getPosts());
+    const fetchPosts = async () => {
+      try {
+        const data = await getPosts();
+        setPosts(data);
+      } catch (error) {
+        console.error('Error loading posts:', error);
+      }
+    };
+    fetchPosts();
   }, []);
 
-  const refreshPosts = () => {
-    setPosts(getPosts());
+  const refreshPosts = async () => {
+    try {
+      const data = await getPosts();
+      setPosts(data);
+    } catch (error) {
+      console.error('Error refreshing posts:', error);
+    }
   };
 
   const columns = [
@@ -52,11 +64,15 @@ export default function Home() {
     },
     {
       label: 'Delete',
-      onClick: (post: StoredPost) => {
+      onClick: async (post: StoredPost) => {
         if (confirm(`Delete "${post.translations.ca.title}"?`)) {
-          const updatedPosts = posts.filter(p => p.id !== post.id);
-          savePosts(updatedPosts);
-          refreshPosts();
+          try {
+            await deletePost(post.id);
+            await refreshPosts();
+          } catch (error) {
+            console.error('Error deleting post:', error);
+            alert('Failed to delete post');
+          }
         }
       },
     },

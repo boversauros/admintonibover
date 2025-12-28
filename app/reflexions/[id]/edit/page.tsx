@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PostForm } from '@/components/forms/PostForm';
-import { getPosts } from '@/lib/utils/localStorage';
+import { getPosts } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
 import { Container, Heading, Text, Link } from '@/components/ui';
 
@@ -14,15 +14,23 @@ export default function EditReflexionPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const postId = params.id as string;
-    const posts = getPosts();
-    const foundPost = posts.find(p => p.id === postId);
+    const fetchPost = async () => {
+      try {
+        const postId = params.id as string;
+        const posts = await getPosts();
+        const foundPost = posts.find(p => p.id === postId);
 
-    if (foundPost) {
-      setPost(foundPost);
-    } else {
-      setNotFound(true);
-    }
+        if (foundPost) {
+          setPost(foundPost);
+        } else {
+          setNotFound(true);
+        }
+      } catch (error) {
+        console.error('Error loading post:', error);
+        setNotFound(true);
+      }
+    };
+    fetchPost();
   }, [params.id]);
 
   const handleSuccess = () => {

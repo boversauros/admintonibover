@@ -5,12 +5,7 @@ import { useForm, FormProvider } from "react-hook-form";
 import { Button, Heading } from "@/components/ui";
 import { PostFormData, StoredPost, Language } from "@/lib/types/post";
 import { slugify, generateUniqueSlug } from "@/lib/utils/slugify";
-import {
-  getPosts,
-  savePosts,
-  generatePostId,
-  getExistingSlugs,
-} from "@/lib/utils/localStorage";
+import { savePost, getExistingSlugs } from "@/lib/api/posts";
 import { LanguageTabs } from "./LanguageTabs";
 import { PostMetadataSection } from "./PostMetadataSection";
 import { TranslationSection } from "./TranslationSection";
@@ -118,20 +113,11 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
       const now = new Date().toISOString();
       const isEditMode = !!initialData;
 
-      // Get existing posts
-      const currentPosts = getPosts();
-
-      // For edit mode, exclude current post from slug uniqueness check
-      const existingSlugsCA = isEditMode
-        ? currentPosts
-            .filter((p) => p.id !== initialData.id)
-            .map((p) => p.translations.ca.slug)
-        : getExistingSlugs("ca");
-      const existingSlugsEN = isEditMode
-        ? currentPosts
-            .filter((p) => p.id !== initialData.id)
-            .map((p) => p.translations.en.slug)
-        : getExistingSlugs("en");
+      // Get existing slugs for uniqueness check (exclude current post if editing)
+      const [existingSlugsCA, existingSlugsEN] = await Promise.all([
+        getExistingSlugs("ca", isEditMode ? initialData.id : undefined),
+        getExistingSlugs("en", isEditMode ? initialData.id : undefined),
+      ]);
 
       const uniqueSlugCA = generateUniqueSlug(
         data.translations.ca.slug,
@@ -143,11 +129,11 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
       );
 
       // TODO: Get actual user from session
-      const currentUser = "temp-user-id";
+      const currentUser = "8e5c76dd-24ed-49b3-bf6f-2b835836b83b";
       const authorName = "Current User";
 
       const storedPost: StoredPost = {
-        id: isEditMode ? initialData.id : generatePostId(),
+        id: isEditMode ? initialData.id : "", // Empty string for new posts (DB will auto-generate)
         user_id: isEditMode ? initialData.user_id : currentUser,
         category_id: data.category_id,
         thumbnail_url: data.thumbnail_url,
@@ -160,31 +146,20 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           ca: {
             ...data.translations.ca,
             slug: uniqueSlugCA,
-            post_id: isEditMode ? initialData.id : generatePostId(),
+            post_id: isEditMode ? initialData.id : "",
           },
           en: {
             ...data.translations.en,
             slug: uniqueSlugEN,
-            post_id: isEditMode ? initialData.id : generatePostId(),
+            post_id: isEditMode ? initialData.id : "",
           },
         },
       };
 
-      if (isEditMode) {
-        // Update existing post
-        const updatedPosts = currentPosts.map((p) =>
-          p.id === initialData.id ? storedPost : p
-        );
-        savePosts(updatedPosts);
-      } else {
-        // Create new post
-        savePosts([...currentPosts, storedPost]);
-      }
+      // Save post (handles both create and update)
+      await savePost(storedPost);
 
-      console.log(
-        `Post ${isEditMode ? "updated" : "saved"} successfully:`,
-        storedPost
-      );
+      console.log(`Post ${isEditMode ? "updated" : "saved"} successfully`);
 
       // Call onSuccess callback if provided (will redirect to home page)
       if (onSuccess) {
