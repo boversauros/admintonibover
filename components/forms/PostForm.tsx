@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useForm, FormProvider } from "react-hook-form";
-import { Button } from "@/components/ui";
+import { Button, Heading } from "@/components/ui";
 import { PostFormData, StoredPost, Language } from "@/lib/types/post";
 import { slugify, generateUniqueSlug } from "@/lib/utils/slugify";
 import {
@@ -215,7 +215,9 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         <PostMetadataSection />
 
         <div className="border-t border-default pt-8">
-          <h3 className="text-lg font-medium mb-4">Content</h3>
+          <Heading as="h3" size="xl">
+            Content
+          </Heading>
           <LanguageTabs active={activeLanguage} onChange={setActiveLanguage} />
           <TranslationSection language={activeLanguage} />
         </div>

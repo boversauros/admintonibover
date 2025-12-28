@@ -1,4 +1,5 @@
-import { Language } from '@/lib/types/post';
+import { Language } from "@/lib/types/post";
+import { Button } from "@/components/ui";
 
 interface LanguageTabsProps {
   active: Language;
@@ -7,32 +8,31 @@ interface LanguageTabsProps {
 
 export function LanguageTabs({ active, onChange }: LanguageTabsProps) {
   const tabs: { value: Language; label: string }[] = [
-    { value: 'ca', label: 'CA' },
-    { value: 'en', label: 'EN' },
+    { value: "ca", label: "CA" },
+    { value: "en", label: "EN" },
   ];
 
   return (
     <div className="flex gap-2 mb-6">
-      {tabs.map(tab => (
-        <button
-          key={tab.value}
-          onClick={() => onChange(tab.value)}
-          type="button"
-          className={`
-            px-6
-            py-2
-            rounded
-            font-medium
-            transition-colors-default
-            ${active === tab.value
-              ? 'bg-accent text-black'
-              : 'bg-surface text-muted hover:text-primary hover:bg-hover-surface border border-default'
+      {tabs.map((tab) => {
+        const isActive = active === tab.value;
+
+        return (
+          <Button
+            key={tab.value}
+            onClick={() => onChange(tab.value)}
+            variant={isActive ? 'secondary' : 'ghost'}
+            size="sm"
+            className={
+              isActive
+                ? 'bg-accent text-black hover:bg-accent border-accent'
+                : 'bg-surface text-muted'
             }
-          `.trim().replace(/\s+/g, ' ')}
-        >
-          {tab.label}
-        </button>
-      ))}
+          >
+            {tab.label}
+          </Button>
+        );
+      })}
     </div>
   );
 }
