@@ -292,7 +292,7 @@ async function insertKeywords(
   languageId: number,
   keywords: string[]
 ): Promise<void> {
-  if (keywords.length === 0) return;
+  if (!keywords || keywords.length === 0) return;
 
   // Insert or get existing keywords
   const keywordRecords = await Promise.all(
@@ -329,7 +329,7 @@ async function insertReferences(
   translationId: number,
   references: Reference[]
 ): Promise<void> {
-  if (references.length === 0) return;
+  if (!references || references.length === 0) return;
 
   const { error } = await supabase.from("post_references").insert(
     references.map((ref, index) => ({
