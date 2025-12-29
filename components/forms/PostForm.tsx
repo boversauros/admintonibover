@@ -206,13 +206,13 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         existingSlugsEN
       );
 
-      // 4. TODO: Get actual user from session
-      const currentUser = "8e5c76dd-24ed-49b3-bf6f-2b835836b83b";
-      const authorName = "Current User";
+      // Note: user_id is handled automatically by the API layer for new posts
+      // It gets the authenticated user from the session
+      const authorName = data.author || "Admin";
 
       const storedPost: StoredPost = {
         id: isEditMode ? initialData.id : "", // Empty string for new posts (DB will auto-generate)
-        user_id: isEditMode ? initialData.user_id : currentUser,
+        user_id: isEditMode ? initialData.user_id : "", // API will set this for new posts
         category_id: data.category_id,
         thumbnail_url: thumbnailUrl,
         thumbnail_id: thumbnailId,

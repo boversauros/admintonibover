@@ -1,5 +1,6 @@
 import { supabase } from "../supabase";
 import { StoredPost, Language, Reference } from "../types/post";
+import { getUserId } from "../auth/utils";
 
 // Language ID mapping (based on seed data)
 const LANGUAGE_IDS = {
@@ -153,8 +154,11 @@ export async function savePost(post: StoredPost): Promise<void> {
  * Creates a new post with translations, keywords, and references
  */
 async function createPost(post: StoredPost): Promise<void> {
-  // TODO: Get actual user ID from session
-  const userId = "8e5c76dd-24ed-49b3-bf6f-2b835836b83b";
+  const userId = await getUserId();
+
+  if (!userId) {
+    throw new Error('You must be authenticated to create posts');
+  }
 
   // Insert post
   const { data: newPost, error: postError } = await supabase

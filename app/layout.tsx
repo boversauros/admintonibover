@@ -1,10 +1,7 @@
-import type { Metadata } from "next";
-import "./globals.css";
+'use client';
 
-export const metadata: Metadata = {
-  title: "Toni Bover",
-  description: "Toni Bover - Admin",
-};
+import { AuthProvider } from '@/lib/auth/AuthContext';
+import "./globals.css";
 
 export default function RootLayout({
   children,
@@ -16,10 +13,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <title>Toni Bover - Admin</title>
+        <meta name="description" content="Toni Bover - Admin" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
       </head>
       <body className="min-h-screen bg-background text-primary font-sans antialiased flex flex-col">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
 
         <footer className="border-t border-subtle mt-auto">
           <div className="max-w-4xl mx-auto px-6 py-6">

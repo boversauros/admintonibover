@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthGuard } from '@/components/auth/AuthGuard';
+import { LoginForm } from '@/components/auth/LoginForm';
+import { Header } from '@/components/layout/Header';
 import { Table, Link, Container, Heading } from '@/components/ui';
 import { getPosts, deletePost } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
@@ -12,7 +15,7 @@ const categoryLabels: Record<string, string> = {
   '3': 'Perspectives',
 };
 
-export default function Home() {
+function PostsContent() {
   const [posts, setPosts] = useState<StoredPost[]>([]);
   const router = useRouter();
 
@@ -79,27 +82,46 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen p-8">
-      <Container as="main" size="wide" spacing="none">
-        <div className="flex justify-between items-center mb-8">
-          <Heading as="h1" size="4xl">Reflexions</Heading>
-          <Link href="/reflexions/new" variant="accent-border">
-            + New Reflexion
-          </Link>
-        </div>
+    <>
+      <Header />
+      <div className="min-h-screen p-8">
+        <Container as="main" size="wide" spacing="none">
+          <div className="flex justify-between items-center mb-8">
+            <Heading as="h1" size="4xl">
+              Reflexions
+            </Heading>
+            <Link href="/reflexions/new" variant="accent-border">
+              + New Reflexion
+            </Link>
+          </div>
 
-        <section>
-          <Table
-            data={posts}
-            columns={columns}
-            actions={actions}
-            rowKey={(post) => post.id}
-            emptyMessage="No posts yet. Create your first reflexion!"
-            striped
-            hoverable
-          />
-        </section>
-      </Container>
-    </div>
+          <section>
+            <Table
+              data={posts}
+              columns={columns}
+              actions={actions}
+              rowKey={(post) => post.id}
+              emptyMessage="No posts yet. Create your first reflexion!"
+              striped
+              hoverable
+            />
+          </section>
+        </Container>
+      </div>
+    </>
+  );
+}
+
+export default function Home() {
+  return (
+    <AuthGuard
+      fallback={
+        <div className="min-h-screen flex items-center justify-center p-8">
+          <LoginForm />
+        </div>
+      }
+    >
+      <PostsContent />
+    </AuthGuard>
   );
 }
