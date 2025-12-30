@@ -31,9 +31,7 @@ export interface PostFormData {
   category_id: string;
   date: string;
   author: string;
-  thumbnail_url: string;
   thumbnail_file?: File | null;
-  main_image_url?: string;
   main_image_file?: File | null;
   is_published: boolean;
   translations: {
@@ -46,9 +44,10 @@ export interface StoredPost {
   id: string;
   user_id: string;
   category_id: string;
-  thumbnail_url: string;
   thumbnail_id: string | null;
+  thumbnail?: Image | null;
   image_id: string | null;
+  image?: Image | null;
   is_published: boolean;
   date: string;
   author: string;

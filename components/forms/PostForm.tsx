@@ -6,7 +6,7 @@ import { Button, Heading } from "@/components/ui";
 import { PostFormData, StoredPost, Language } from "@/lib/types/post";
 import { slugify, generateUniqueSlug } from "@/lib/utils/slugify";
 import { savePost, getExistingSlugs } from "@/lib/api/posts";
-import { uploadAndCreateImage, deleteImageCompletely, getImageById } from "@/lib/api/images";
+import { uploadAndCreateImage, deleteImageCompletely } from "@/lib/api/images";
 import { LanguageTabs } from "./LanguageTabs";
 import { PostMetadataSection } from "./PostMetadataSection";
 import { TranslationSection } from "./TranslationSection";
@@ -25,8 +25,14 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
   const [existingThumbnailId, setExistingThumbnailId] = useState<string | null>(
     initialData?.thumbnail_id || null
   );
+  const [existingThumbnailUrl, setExistingThumbnailUrl] = useState<string>(
+    initialData?.thumbnail?.url || ""
+  );
   const [existingMainImageId, setExistingMainImageId] = useState<string | null>(
     initialData?.image_id || null
+  );
+  const [existingMainImageUrl, setExistingMainImageUrl] = useState<string>(
+    initialData?.image?.url || ""
   );
 
   const methods = useForm<PostFormData>({
@@ -35,9 +41,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           category_id: initialData.category_id,
           date: initialData.date,
           author: initialData.author,
-          thumbnail_url: initialData.thumbnail_url,
           thumbnail_file: null,
-          main_image_url: "",
           main_image_file: null,
           is_published: initialData.is_published,
           translations: {
@@ -63,9 +67,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           category_id: "",
           date: "",
           author: "",
-          thumbnail_url: "",
           thumbnail_file: null,
-          main_image_url: "",
           main_image_file: null,
           is_published: false,
           translations: {
@@ -117,19 +119,6 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
     }
   }, [titleEN]);
 
-  // Load existing main image URL when editing
-  useEffect(() => {
-    async function loadExistingImages() {
-      if (initialData?.image_id) {
-        const mainImage = await getImageById(initialData.image_id);
-        if (mainImage) {
-          setValue('main_image_url', mainImage.url);
-        }
-      }
-    }
-    loadExistingImages();
-  }, [initialData?.image_id, setValue]);
-
   const onSubmit = async (data: PostFormData) => {
     if (isSubmitting) return; // Prevent multiple submissions
 
@@ -141,52 +130,52 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
 
       // 1. Handle thumbnail upload
       let thumbnailId = existingThumbnailId;
-      let thumbnailUrl = data.thumbnail_url;
+      let newThumbnailUrl = existingThumbnailUrl;
 
       if (data.thumbnail_file) {
         // Upload new thumbnail
         const uploadedThumbnail = await uploadAndCreateImage(
           data.thumbnail_file,
-          'post-thumbnails',
-          'Post Thumbnail',
-          `Thumbnail for ${data.translations.ca.title || 'post'}`
+          "post-thumbnails",
+          "Post Thumbnail",
+          `Thumbnail for ${data.translations.ca.title || "post"}`
         );
 
         thumbnailId = uploadedThumbnail.id;
-        thumbnailUrl = uploadedThumbnail.url;
+        newThumbnailUrl = uploadedThumbnail.url;
 
         // Delete old thumbnail if exists
-        if (existingThumbnailId && data.thumbnail_url) {
+        if (existingThumbnailId && existingThumbnailUrl) {
           await deleteImageCompletely(
             existingThumbnailId,
-            data.thumbnail_url,
-            'post-thumbnails'
+            existingThumbnailUrl,
+            "post-thumbnails"
           );
         }
       }
 
       // 2. Handle main image upload
       let mainImageId = existingMainImageId;
-      let mainImageUrl = data.main_image_url;
+      let newMainImageUrl = existingMainImageUrl;
 
       if (data.main_image_file) {
         // Upload new main image
         const uploadedMainImage = await uploadAndCreateImage(
           data.main_image_file,
-          'post-images',
-          'Post Main Image',
-          `Main image for ${data.translations.ca.title || 'post'}`
+          "post-images",
+          "Post Main Image",
+          `Main image for ${data.translations.ca.title || "post"}`
         );
 
         mainImageId = uploadedMainImage.id;
-        mainImageUrl = uploadedMainImage.url;
+        newMainImageUrl = uploadedMainImage.url;
 
         // Delete old main image if exists
-        if (existingMainImageId && data.main_image_url) {
+        if (existingMainImageId && existingMainImageUrl) {
           await deleteImageCompletely(
             existingMainImageId,
-            data.main_image_url,
-            'post-images'
+            existingMainImageUrl,
+            "post-images"
           );
         }
       }
@@ -214,7 +203,6 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         id: isEditMode ? initialData.id : "", // Empty string for new posts (DB will auto-generate)
         user_id: isEditMode ? initialData.user_id : "", // API will set this for new posts
         category_id: data.category_id,
-        thumbnail_url: thumbnailUrl,
         thumbnail_id: thumbnailId,
         image_id: mainImageId,
         is_published: data.is_published,
@@ -239,9 +227,11 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
       // 5. Save post (handles both create and update)
       await savePost(storedPost);
 
-      // 6. Update existing image IDs for next edit
+      // 6. Update existing image IDs and URLs for next edit
       setExistingThumbnailId(thumbnailId);
+      setExistingThumbnailUrl(newThumbnailUrl);
       setExistingMainImageId(mainImageId);
+      setExistingMainImageUrl(newMainImageUrl);
 
       console.log(`Post ${isEditMode ? "updated" : "saved"} successfully`);
 
@@ -280,7 +270,10 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         </div>
 
         <div className="border-t border-default pt-8">
-          <ImageSection />
+          <ImageSection
+            thumbnailUrl={existingThumbnailUrl}
+            mainImageUrl={existingMainImageUrl}
+          />
         </div>
 
         <div className="flex gap-4">

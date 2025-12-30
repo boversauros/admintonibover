@@ -1,5 +1,5 @@
 import { supabase } from "../supabase";
-import { StoredPost, Language, Reference } from "../types/post";
+import { StoredPost, Language, Reference, Image } from "../types/post";
 import { getUserId } from "../auth/utils";
 
 // Language ID mapping (based on seed data)
@@ -14,7 +14,7 @@ const LANGUAGE_IDS = {
  */
 export async function getPosts(): Promise<StoredPost[]> {
   try {
-    // Fetch posts with translations
+    // Fetch posts with translations and images
     const { data: posts, error: postsError } = await supabase
       .from("posts")
       .select(
@@ -26,6 +26,22 @@ export async function getPosts(): Promise<StoredPost[]> {
           title,
           content,
           slug
+        ),
+        thumbnail:images!posts_thumbnail_id_fkey (
+          id,
+          url,
+          title,
+          alt,
+          created_at,
+          updated_at
+        ),
+        image:images!posts_image_id_fkey (
+          id,
+          url,
+          title,
+          alt,
+          created_at,
+          updated_at
         )
       `
       )
@@ -79,6 +95,19 @@ export async function getPosts(): Promise<StoredPost[]> {
       });
     });
 
+    // Helper to transform image data
+    const transformImage = (img: any): Image | null => {
+      if (!img) return null;
+      return {
+        id: img.id.toString(),
+        url: img.url,
+        title: img.title || "",
+        alt: img.alt || "",
+        created_at: img.created_at,
+        updated_at: img.updated_at,
+      };
+    };
+
     // Transform to StoredPost format
     const storedPosts: StoredPost[] = posts.map((post: any) => {
       const translations = post.post_translations || [];
@@ -93,9 +122,10 @@ export async function getPosts(): Promise<StoredPost[]> {
         id: post.id.toString(),
         user_id: post.user_id,
         category_id: post.category_id.toString(),
-        thumbnail_url: post.thumbnail_url || "",
         thumbnail_id: post.thumbnail_id ? post.thumbnail_id.toString() : null,
+        thumbnail: transformImage(post.thumbnail),
         image_id: post.image_id ? post.image_id.toString() : null,
+        image: transformImage(post.image),
         is_published: post.is_published,
         date: post.date,
         author: post.author,
@@ -169,7 +199,6 @@ async function createPost(post: StoredPost): Promise<void> {
       author: post.author,
       is_published: post.is_published,
       date: post.date,
-      thumbnail_url: post.thumbnail_url || "",
       thumbnail_id: post.thumbnail_id ? parseInt(post.thumbnail_id) : null,
       image_id: post.image_id ? parseInt(post.image_id) : null,
     })
@@ -199,7 +228,6 @@ async function updatePost(post: StoredPost): Promise<void> {
       author: post.author,
       is_published: post.is_published,
       date: post.date,
-      thumbnail_url: post.thumbnail_url || "",
       thumbnail_id: post.thumbnail_id ? parseInt(post.thumbnail_id) : null,
       image_id: post.image_id ? parseInt(post.image_id) : null,
     })

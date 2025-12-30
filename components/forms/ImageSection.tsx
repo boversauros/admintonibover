@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Heading } from '@/components/ui';
 import { ImageUpload } from './ImageUpload';
 
-export function ImageSection() {
-  const { setValue, watch, formState: { errors } } = useFormContext();
+interface ImageSectionProps {
+  thumbnailUrl: string;
+  mainImageUrl: string;
+}
 
-  const thumbnailUrl = watch('thumbnail_url');
-  const mainImageUrl = watch('main_image_url');
+export function ImageSection({ thumbnailUrl, mainImageUrl }: ImageSectionProps) {
+  const { setValue, formState: { errors } } = useFormContext();
 
   const handleThumbnailSelect = (file: File | null) => {
     setValue('thumbnail_file', file);
