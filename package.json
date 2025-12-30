@@ -6,8 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "types:generate": "npx supabase gen types typescript --project-id \"$NEXT_PUBLIC_SUPABASE_URL\" --schema public > lib/types/database.ts"
+    "lint": "next lint"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.89.0",
