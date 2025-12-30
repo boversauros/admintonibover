@@ -21,6 +21,7 @@ export function TranslationSection({ language }: TranslationSectionProps) {
   return (
     <div className="space-y-4">
       <Input
+        key={`title-${language}`}
         label={`Title (${langLabel})`}
         {...register(titleField)}
         placeholder={`Enter ${langLabel.toLowerCase()} title...`}
@@ -28,6 +29,7 @@ export function TranslationSection({ language }: TranslationSectionProps) {
       />
 
       <Textarea
+        key={`content-${language}`}
         label={`Content (${langLabel})`}
         {...register(contentField)}
         placeholder={`Enter ${langLabel.toLowerCase()} content in markdown...`}

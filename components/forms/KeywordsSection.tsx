@@ -16,6 +16,7 @@ export function KeywordsSection({ language }: KeywordsSectionProps) {
   return (
     <div>
       <Controller
+        key={`keywords-${language}`}
         name={fieldName}
         control={control}
         render={({ field }) => (

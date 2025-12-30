@@ -17,6 +17,7 @@ export function ReferencesSection({ language }: ReferencesSectionProps) {
     <div>
       <Heading as="h3" size="xl" className="mb-3">References ({langLabel})</Heading>
       <Controller
+        key={`references-${language}`}
         name={fieldName}
         control={control}
         render={({ field }) => (
