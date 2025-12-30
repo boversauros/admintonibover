@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       '@supabase/supabase-js':
-        specifier: ^2.89.0
+        specifier: 2.89.0
         version: 2.89.0
       next:
         specifier: 16.1.1
@@ -18,13 +18,13 @@ importers:
         specifier: 19.2.3
         version: 19.2.3
       react-datepicker:
-        specifier: ^9.1.0
+        specifier: 9.1.0
         version: 9.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-dom:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
       react-hook-form:
-        specifier: ^7.69.0
+        specifier: 7.69.0
         version: 7.69.0(react@19.2.3)
     devDependencies:
       '@eslint/eslintrc':
@@ -40,7 +40,7 @@ importers:
         specifier: 19.2.7
         version: 19.2.7
       '@types/react-datepicker':
-        specifier: ^7.0.0
+        specifier: 7.0.0
         version: 7.0.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@types/react-dom':
         specifier: 19.2.3
