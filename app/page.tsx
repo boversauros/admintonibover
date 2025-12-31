@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/layout/Header';
-import { Table, Link, Container, Heading } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { PostCard, PostsFilters, FilterStatus } from '@/components/posts';
 import { getPosts, deletePost } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
 
@@ -15,8 +16,23 @@ const categoryLabels: Record<string, string> = {
   '3': 'Perspectives',
 };
 
+const PlusIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+  >
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
+
 function PostsContent() {
   const [posts, setPosts] = useState<StoredPost[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const router = useRouter();
 
   useEffect(() => {
@@ -40,75 +56,92 @@ function PostsContent() {
     }
   };
 
-  const columns = [
-    {
-      key: 'created_at' as keyof StoredPost,
-      label: 'Title (CA)',
-      render: (_: any, row: StoredPost) => row.translations.ca.title,
-    },
-    {
-      key: 'updated_at' as keyof StoredPost,
-      label: 'Title (EN)',
-      render: (_: any, row: StoredPost) => row.translations.en.title,
-    },
-    {
-      key: 'category_id' as keyof StoredPost,
-      label: 'Category',
-      render: (value: any) => categoryLabels[value as string] || value,
-    },
-  ];
+  const handleEdit = (post: StoredPost) => {
+    router.push(`/reflexions/${post.id}/edit`);
+  };
 
-  const actions = [
-    {
-      label: 'Edit',
-      onClick: (post: StoredPost) => {
-        router.push(`/reflexions/${post.id}/edit`);
-      },
-    },
-    {
-      label: 'Delete',
-      onClick: async (post: StoredPost) => {
-        if (confirm(`Delete "${post.translations.ca.title}"?`)) {
-          try {
-            await deletePost(post.id);
-            await refreshPosts();
-          } catch (error) {
-            console.error('Error deleting post:', error);
-            alert('Failed to delete post');
-          }
-        }
-      },
-    },
-  ];
+  const handleDelete = async (post: StoredPost) => {
+    if (confirm(`Eliminar "${post.translations.ca.title}"?`)) {
+      try {
+        await deletePost(post.id);
+        await refreshPosts();
+      } catch (error) {
+        console.error('Error deleting post:', error);
+        alert('Failed to delete post');
+      }
+    }
+  };
+
+  const handleCreate = () => {
+    router.push('/reflexions/new');
+  };
+
+  const filteredPosts = useMemo(() => {
+    return posts.filter((post) => {
+      const matchesSearch =
+        post.translations.ca?.title
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        post.translations.en?.title
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase());
+      const matchesStatus =
+        filterStatus === 'all' ||
+        (filterStatus === 'published' && post.is_published) ||
+        (filterStatus === 'draft' && !post.is_published);
+      return matchesSearch && matchesStatus;
+    });
+  }, [posts, searchQuery, filterStatus]);
 
   return (
-    <>
-      <Header />
-      <div className="min-h-screen p-8">
-        <Container as="main" size="wide" spacing="none">
-          <div className="flex justify-between items-center mb-8">
-            <Heading as="h1" size="4xl">
-              Reflexions
-            </Heading>
-            <Link href="/reflexions/new" variant="accent-border">
-              + New Reflexion
-            </Link>
+    <div className="min-h-screen bg-background text-primary">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-nav backdrop-blur-sm border-b border-default">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-serif text-primary">Toni Bover</h1>
+            <p className="text-xs text-muted tracking-wider uppercase mt-0.5">
+              Administració del blog
+            </p>
           </div>
+          <Button onClick={handleCreate} variant="primary">
+            <span className="flex items-center gap-2">
+              <PlusIcon /> Nou article
+            </span>
+          </Button>
+        </div>
+      </header>
 
-          <section>
-            <Table
-              data={posts}
-              columns={columns}
-              actions={actions}
-              rowKey={(post) => post.id}
-              emptyMessage="No posts yet. Create your first reflexion!"
-              striped
-              hoverable
-            />
-          </section>
-        </Container>
+      {/* Filters */}
+      <div className="max-w-6xl mx-auto px-6 py-6">
+        <PostsFilters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          filterStatus={filterStatus}
+          onFilterChange={setFilterStatus}
+        />
       </div>
-    </>
+
+      {/* Posts Grid */}
+      <main className="max-w-6xl mx-auto px-6 pb-12">
+        <div className="space-y-4">
+          {filteredPosts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              categoryLabel={categoryLabels[post.category_id] || post.category_id}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          ))}
+          {filteredPosts.length === 0 && (
+            <div className="text-center py-16">
+              <p className="text-muted">No s'han trobat articles</p>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
   );
 }
 

@@ -1,18 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm, FormProvider } from "react-hook-form";
-import { Button, Heading } from "@/components/ui";
+import { useForm, FormProvider, Controller } from "react-hook-form";
+import { Select } from "@/components/ui";
 import { PostFormData, StoredPost, Language } from "@/lib/types/post";
 import { slugify, generateUniqueSlug } from "@/lib/utils/slugify";
 import { savePost, getExistingSlugs } from "@/lib/api/posts";
 import { uploadAndCreateImage, deleteImageCompletely } from "@/lib/api/images";
+import { getCategories, type Category } from "@/lib/api/categories";
 import { LanguageTabs } from "./LanguageTabs";
-import { PostMetadataSection } from "./PostMetadataSection";
 import { TranslationSection } from "./TranslationSection";
-import { ImageSection } from "./ImageSection";
 import { KeywordsSection } from "./KeywordsSection";
 import { ReferencesSection } from "./ReferencesSection";
+import { FormHeader } from "./FormHeader";
+import { ImageSelector } from "./ImageSelector";
+import { TranslationStatusPanel } from "./TranslationStatusPanel";
+import { CollapsibleSection } from "./CollapsibleSection";
 
 interface PostFormProps {
   initialData?: StoredPost;
@@ -22,6 +25,7 @@ interface PostFormProps {
 export function PostForm({ initialData, onSuccess }: PostFormProps) {
   const [activeLanguage, setActiveLanguage] = useState<Language>("ca");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [existingThumbnailId, setExistingThumbnailId] = useState<string | null>(
     initialData?.thumbnail_id || null
   );
@@ -34,6 +38,19 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
   const [existingMainImageUrl, setExistingMainImageUrl] = useState<string>(
     initialData?.image?.url || ""
   );
+
+  // Load categories on mount
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const fetchedCategories = await getCategories();
+        setCategories(fetchedCategories);
+      } catch (error) {
+        console.error("Failed to load categories:", error);
+      }
+    }
+    loadCategories();
+  }, []);
 
   const methods = useForm<PostFormData>({
     defaultValues: initialData
@@ -92,7 +109,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
     mode: "onChange",
   });
 
-  const { watch, setValue, handleSubmit, reset } = methods;
+  const { watch, setValue, handleSubmit, reset, register, formState: { errors } } = methods;
 
   // Auto-generate slugs from titles
   const titleCA = watch("translations.ca.title");
@@ -248,60 +265,103 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
     }
   };
 
+  const categoryOptions = categories.map((cat) => ({
+    value: cat.id.toString(),
+    label: cat.name_ca,
+  }));
+
+  const handlePublishToggle = () => {
+    setValue("is_published", !watch("is_published"));
+  };
+
+  const handleThumbnailSelect = (file: File | null) => {
+    setValue("thumbnail_file", file);
+  };
+
+  const handleMainImageSelect = (file: File | null) => {
+    setValue("main_image_file", file);
+  };
+
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        <PostMetadataSection />
+      <form onSubmit={handleSubmit(onSubmit)} className="min-h-screen bg-background">
+        {/* Sticky Header */}
+        <FormHeader
+          isPublished={watch("is_published")}
+          onPublishToggle={handlePublishToggle}
+          isSubmitting={isSubmitting}
+          isEditMode={!!initialData}
+        />
 
-        <div className="border-t border-default pt-8">
-          <Heading as="h3" size="xl">
-            Content
-          </Heading>
-          <LanguageTabs active={activeLanguage} onChange={setActiveLanguage} />
-          <TranslationSection language={activeLanguage} />
-        </div>
-
-        <div className="border-t border-default pt-8">
-          <KeywordsSection language={activeLanguage} />
-        </div>
-
-        <div className="border-t border-default pt-8">
-          <ReferencesSection language={activeLanguage} />
-        </div>
-
-        <div className="border-t border-default pt-8">
-          <ImageSection
-            thumbnailUrl={existingThumbnailUrl}
-            mainImageUrl={existingMainImageUrl}
+        {/* Form Content */}
+        <main className="max-w-5xl mx-auto px-6 py-8">
+          {/* Language Tabs */}
+          <LanguageTabs
+            active={activeLanguage}
+            onChange={setActiveLanguage}
+            hasCAContent={!!titleCA}
+            hasENContent={!!titleEN}
           />
-        </div>
 
-        <div className="flex gap-4">
-          <Button
-            type="submit"
-            variant="primary"
-            loading={isSubmitting}
-            disabled={isSubmitting}
-          >
-            {isSubmitting
-              ? initialData
-                ? "Updating..."
-                : "Saving..."
-              : initialData
-              ? "Update Post"
-              : "Save Post"}
-          </Button>
-          {!initialData && (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => reset()}
-              disabled={isSubmitting}
-            >
-              Reset Form
-            </Button>
-          )}
-        </div>
+          {/* 2+1 Grid Layout */}
+          <div className="grid grid-cols-3 gap-8">
+            {/* Main Content - 2 columns */}
+            <div className="col-span-2 space-y-6">
+              {/* Translation Section (Title + Content) */}
+              <TranslationSection language={activeLanguage} />
+
+              {/* Keywords Section */}
+              <KeywordsSection language={activeLanguage} />
+
+              {/* References Section - Collapsible */}
+              <CollapsibleSection title="Referències i cites">
+                <ReferencesSection language={activeLanguage} />
+              </CollapsibleSection>
+            </div>
+
+            {/* Sidebar - 1 column */}
+            <div className="space-y-6">
+              {/* Featured Image */}
+              <ImageSelector
+                label="Imatge destacada"
+                aspectRatio="video"
+                hint="16:9"
+                value={existingMainImageUrl || null}
+                onFileSelect={handleMainImageSelect}
+                error={errors.main_image_file?.message as string}
+              />
+
+              {/* Thumbnail */}
+              <ImageSelector
+                label="Miniatura"
+                aspectRatio="thumbnail"
+                hint="4:3 · Per llistats"
+                value={existingThumbnailUrl || null}
+                onFileSelect={handleThumbnailSelect}
+                error={errors.thumbnail_file?.message as string}
+              />
+
+              {/* Category */}
+              <div className="space-y-2">
+                <label className="block text-xs text-muted uppercase tracking-wider">
+                  Categoria
+                </label>
+                <Select
+                  {...register("category_id")}
+                  options={categoryOptions}
+                  placeholder="Selecciona..."
+                  error={errors.category_id?.message as string}
+                />
+              </div>
+
+              {/* Translation Status Panel */}
+              <TranslationStatusPanel
+                hasCATitle={!!titleCA}
+                hasENTitle={!!titleEN}
+              />
+            </div>
+          </div>
+        </main>
       </form>
     </FormProvider>
   );

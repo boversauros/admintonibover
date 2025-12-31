@@ -1,78 +1,178 @@
-import { useState, KeyboardEvent } from 'react';
-import { Input, Badge, Button } from '@/components/ui';
+"use client";
+
+import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { Language } from "@/lib/types/post";
 
 interface KeywordsInputProps {
   value: string[];
   onChange: (keywords: string[]) => void;
   label?: string;
   placeholder?: string;
+  language?: Language;
+  suggestions?: string[];
 }
+
+const XIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+  >
+    <path d="M18 6L6 18M6 6l12 12" />
+  </svg>
+);
 
 export function KeywordsInput({
   value,
   onChange,
-  label = 'Keywords',
-  placeholder = 'Add keyword...',
+  label = "Paraules clau",
+  placeholder,
+  language = "ca",
+  suggestions = [],
 }: KeywordsInputProps) {
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleAdd = () => {
-    const trimmed = inputValue.trim();
+  const langLabel = language === "ca" ? "Català" : "English";
+  const defaultPlaceholder =
+    value.length === 0
+      ? language === "ca"
+        ? "Escriu o selecciona paraules clau..."
+        : "Type or select keywords..."
+      : language === "ca"
+      ? "Afegeix més..."
+      : "Add more...";
+
+  // Filter suggestions based on input and already selected keywords
+  const filteredSuggestions = suggestions
+    .filter((kw) => !value.includes(kw))
+    .filter(
+      (kw) =>
+        inputValue === "" ||
+        kw.toLowerCase().includes(inputValue.toLowerCase())
+    )
+    .slice(0, 12);
+
+  const addKeyword = (keyword: string) => {
+    const trimmed = keyword.trim();
     const lowercaseTrimmed = trimmed.toLowerCase();
 
-    if (trimmed && !value.map(k => k.toLowerCase()).includes(lowercaseTrimmed)) {
+    if (
+      trimmed &&
+      !value.map((k) => k.toLowerCase()).includes(lowercaseTrimmed)
+    ) {
       onChange([...value, trimmed]);
-      setInputValue('');
+      setInputValue("");
     }
   };
 
   const handleRemove = (keyword: string) => {
-    onChange(value.filter(k => k !== keyword));
+    onChange(value.filter((k) => k !== keyword));
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
-      handleAdd();
+      if (filteredSuggestions.length > 0 && inputValue) {
+        addKeyword(filteredSuggestions[0]);
+      } else if (inputValue) {
+        addKeyword(inputValue);
+      }
     }
   };
 
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
-    <div className="w-full">
+    <div className="space-y-2" ref={containerRef}>
       {label && (
-        <label className="block text-sm text-muted font-medium tracking-wide mb-2">
+        <label className="block text-xs text-muted uppercase tracking-wider">
           {label}
+          <span className="text-subtle normal-case ml-1">({langLabel})</span>
         </label>
       )}
 
-      <div className="flex gap-2 mb-3">
-        <Input
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-        />
-        <Button variant="ghost" onClick={handleAdd} type="button">
-          Add
-        </Button>
-      </div>
-
-      {value.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {value.map((keyword, index) => (
-            <Badge key={index} variant="default">
-              <span className="mr-2">{keyword}</span>
-              <button
-                onClick={() => handleRemove(keyword)}
-                className="text-primary hover:text-accent transition-colors-default"
-                type="button"
+      <div className="border border-default focus-within:border-accent transition-colors">
+        {/* Selected keywords */}
+        {value.length > 0 && (
+          <div className="flex flex-wrap gap-2 p-3 pb-0">
+            {value.map((kw, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-yellow-500/10 border border-yellow-500/20 text-sm text-yellow-200"
               >
-                ×
-              </button>
-            </Badge>
-          ))}
+                #{kw}
+                <button
+                  type="button"
+                  onClick={() => handleRemove(kw)}
+                  className="text-yellow-400/60 hover:text-red-400 transition-colors"
+                >
+                  <XIcon />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Input */}
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onFocus={() => setShowSuggestions(true)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder || defaultPlaceholder}
+            className="w-full bg-transparent text-sm text-primary placeholder:text-muted focus:outline-none p-3"
+          />
         </div>
-      )}
+
+        {/* Suggestions dropdown */}
+        {showSuggestions && filteredSuggestions.length > 0 && (
+          <div className="border-t border-default">
+            <div className="p-2">
+              <span className="text-[10px] text-muted uppercase tracking-wider px-2">
+                Suggeriments
+              </span>
+            </div>
+            <div className="max-h-32 overflow-y-auto pb-2">
+              <div className="flex flex-wrap gap-1.5 px-3">
+                {filteredSuggestions.map((kw, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      addKeyword(kw);
+                      inputRef.current?.focus();
+                    }}
+                    className="px-2.5 py-1 text-xs text-body bg-white/5 hover:bg-white/10 hover:text-primary transition-colors"
+                  >
+                    #{kw}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

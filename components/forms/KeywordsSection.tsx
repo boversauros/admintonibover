@@ -1,7 +1,46 @@
-import { Controller, useFormContext } from 'react-hook-form';
-import { KeywordsInput } from './KeywordsInput';
-import { Language } from '@/lib/types/post';
-import { Text } from '@/components/ui';
+import { Controller, useFormContext } from "react-hook-form";
+import { KeywordsInput } from "./KeywordsInput";
+import { Language } from "@/lib/types/post";
+
+// Existing keywords for suggestions (would ideally come from database)
+const existingKeywords = {
+  ca: [
+    "filosofia",
+    "vida",
+    "reflexió",
+    "viatges",
+    "natura",
+    "muntanya",
+    "cultura",
+    "tradició",
+    "història",
+    "família",
+    "records",
+    "poesia",
+    "art",
+    "música",
+    "mar",
+    "mediterrani",
+  ],
+  en: [
+    "philosophy",
+    "life",
+    "reflection",
+    "travel",
+    "nature",
+    "mountain",
+    "culture",
+    "tradition",
+    "history",
+    "family",
+    "memories",
+    "poetry",
+    "art",
+    "music",
+    "sea",
+    "mediterranean",
+  ],
+};
 
 interface KeywordsSectionProps {
   language: Language;
@@ -10,27 +49,21 @@ interface KeywordsSectionProps {
 export function KeywordsSection({ language }: KeywordsSectionProps) {
   const { control } = useFormContext();
 
-  const langLabel = language === 'ca' ? 'CA' : 'EN';
   const fieldName = `translations.${language}.keywords` as const;
 
   return (
-    <div>
-      <Controller
-        key={`keywords-${language}`}
-        name={fieldName}
-        control={control}
-        render={({ field }) => (
-          <KeywordsInput
-            label={`Keywords (${langLabel})`}
-            value={field.value || []}
-            onChange={field.onChange}
-            placeholder="Type keyword and press Enter..."
-          />
-        )}
-      />
-      <Text as="p" variant="small" className="mt-1">
-        Add keywords for SEO and categorization
-      </Text>
-    </div>
+    <Controller
+      key={`keywords-${language}`}
+      name={fieldName}
+      control={control}
+      render={({ field }) => (
+        <KeywordsInput
+          value={field.value || []}
+          onChange={field.onChange}
+          language={language}
+          suggestions={existingKeywords[language]}
+        />
+      )}
+    />
   );
 }

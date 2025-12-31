@@ -21,6 +21,14 @@
   /* Accent Colors */
   --color-yellow-500: #eab308;
 
+  /* Status Colors */
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+
   /* ===== Colors - Semantic Tokens ===== */
   --color-background: var(--color-black);
   --color-surface: var(--color-gray-900);
@@ -176,6 +184,82 @@
   /* Hover Border States */
   .hover\:border-primary:hover {
     border-color: var(--color-text-primary);
+  }
+
+  /* Status Colors - Emerald (Published) */
+  .text-emerald-400 {
+    color: var(--color-emerald-400);
+  }
+  .bg-emerald-500\/10 {
+    background-color: rgba(16, 185, 129, 0.1);
+  }
+  .border-emerald-500\/20 {
+    border-color: rgba(16, 185, 129, 0.2);
+  }
+
+  /* Status Colors - Amber (Draft) */
+  .text-amber-400 {
+    color: var(--color-amber-400);
+  }
+  .bg-amber-500\/10 {
+    background-color: rgba(245, 158, 11, 0.1);
+  }
+  .border-amber-500\/20 {
+    border-color: rgba(245, 158, 11, 0.2);
+  }
+  .bg-amber-500\/50 {
+    background-color: rgba(245, 158, 11, 0.5);
+  }
+
+  /* Status Colors - Red (Destructive) */
+  .text-red-400 {
+    color: var(--color-red-400);
+  }
+  .hover\:text-red-400:hover {
+    color: var(--color-red-400);
+  }
+  .hover\:bg-red-500\/10:hover {
+    background-color: rgba(239, 68, 68, 0.1);
+  }
+
+  /* Transparency utilities */
+  .bg-white\/5 {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  .bg-white\/10 {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  .hover\:bg-white\/5:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  .hover\:bg-white\/10:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  .hover\:bg-white\/20:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+  .text-white\/80 {
+    color: rgba(255, 255, 255, 0.8);
+  }
+  .text-white\/30 {
+    color: rgba(255, 255, 255, 0.3);
+  }
+
+  /* Yellow accent variations */
+  .bg-yellow-500\/10 {
+    background-color: rgba(234, 179, 8, 0.1);
+  }
+  .border-yellow-500\/20 {
+    border-color: rgba(234, 179, 8, 0.2);
+  }
+  .text-yellow-200 {
+    color: #fef08a;
+  }
+  .text-yellow-400 {
+    color: #facc15;
+  }
+  .text-yellow-400\/60 {
+    color: rgba(250, 204, 21, 0.6);
   }
 
   /* Transitions */

@@ -1,42 +1,72 @@
-import { useFormContext } from 'react-hook-form';
-import { Input, Textarea } from '@/components/ui';
-import { Language } from '@/lib/types/post';
+import { useFormContext } from "react-hook-form";
+import { Language } from "@/lib/types/post";
 
 interface TranslationSectionProps {
   language: Language;
 }
 
 export function TranslationSection({ language }: TranslationSectionProps) {
-  const { register, formState: { errors } } = useFormContext();
+  const {
+    register,
+    formState: { errors },
+  } = useFormContext();
 
-  const langLabel = language === 'ca' ? 'Catalan' : 'English';
   const titleField = `translations.${language}.title` as const;
   const contentField = `translations.${language}.content` as const;
 
   // Safely extract error messages
   const translationErrors = errors.translations as any;
-  const titleError = translationErrors?.[language]?.title?.message as string | undefined;
-  const contentError = translationErrors?.[language]?.content?.message as string | undefined;
+  const titleError = translationErrors?.[language]?.title?.message as
+    | string
+    | undefined;
+  const contentError = translationErrors?.[language]?.content?.message as
+    | string
+    | undefined;
+
+  const titlePlaceholder =
+    language === "ca"
+      ? "Escriu el títol de l'article..."
+      : "Write the article title...";
+  const contentPlaceholder =
+    language === "ca"
+      ? "Comença a escriure el contingut..."
+      : "Start writing the content...";
 
   return (
-    <div className="space-y-4">
-      <Input
-        key={`title-${language}`}
-        label={`Title (${langLabel})`}
-        {...register(titleField)}
-        placeholder={`Enter ${langLabel.toLowerCase()} title...`}
-        error={titleError}
-      />
+    <div className="space-y-6">
+      {/* Title Input */}
+      <div className="space-y-2">
+        <label className="block text-xs text-muted uppercase tracking-wider">
+          Títol
+        </label>
+        <input
+          key={`title-${language}`}
+          type="text"
+          {...register(titleField)}
+          placeholder={titlePlaceholder}
+          className={`w-full bg-transparent border px-4 py-3 font-serif text-lg text-primary placeholder:text-muted focus:outline-none focus:border-accent transition-colors ${
+            titleError ? "border-accent" : "border-default"
+          }`}
+        />
+        {titleError && <p className="text-sm text-accent">{titleError}</p>}
+      </div>
 
-      <Textarea
-        key={`content-${language}`}
-        label={`Content (${langLabel})`}
-        {...register(contentField)}
-        placeholder={`Enter ${langLabel.toLowerCase()} content in markdown...`}
-        error={contentError}
-        showCharCount
-        maxChars={5000}
-      />
+      {/* Content Textarea */}
+      <div className="space-y-2">
+        <label className="block text-xs text-muted uppercase tracking-wider">
+          Contingut
+        </label>
+        <textarea
+          key={`content-${language}`}
+          {...register(contentField)}
+          placeholder={contentPlaceholder}
+          rows={16}
+          className={`w-full bg-transparent border px-4 py-3 text-body placeholder:text-muted focus:outline-none focus:border-accent transition-colors resize-none leading-relaxed ${
+            contentError ? "border-accent" : "border-default"
+          }`}
+        />
+        {contentError && <p className="text-sm text-accent">{contentError}</p>}
+      </div>
     </div>
   );
 }
