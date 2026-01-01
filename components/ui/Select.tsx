@@ -19,6 +19,7 @@ interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'siz
   isInvalid?: boolean;
   options: SelectOption[] | SelectGroup[];
   placeholder?: string;
+  wrapperClassName?: string;
 }
 
 function isSelectGroup(
@@ -41,6 +42,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       isInvalid = false,
       options,
       placeholder,
+      wrapperClassName = 'w-full',
       className = '',
       id,
       ...rest
@@ -77,7 +79,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const chevronSvg = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E`;
 
     return (
-      <div className="w-full">
+      <div className={wrapperClassName}>
         {label && (
           <label
             htmlFor={selectId}
@@ -86,7 +88,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             {label}
           </label>
         )}
-        <div className="relative">
+        <div className="relative w-full">
           <select
             ref={ref}
             id={selectId}

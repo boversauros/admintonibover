@@ -8,6 +8,8 @@ interface TextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>
   isInvalid?: boolean;
   showCharCount?: boolean;
   maxChars?: number;
+  wrapperClassName?: string;
+  labelClassName?: string;
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
@@ -20,6 +22,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       isInvalid = false,
       showCharCount = false,
       maxChars,
+      wrapperClassName = 'w-full',
+      labelClassName = 'block text-xs text-muted uppercase tracking-wider mb-2',
       className = '',
       id,
       value,
@@ -56,12 +60,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     `.trim().replace(/\s+/g, ' ');
 
     return (
-      <div className="w-full">
+      <div className={wrapperClassName}>
         {label && (
-          <label
-            htmlFor={textareaId}
-            className="block text-sm text-muted font-medium tracking-wide mb-2"
-          >
+          <label htmlFor={textareaId} className={labelClassName}>
             {label}
           </label>
         )}

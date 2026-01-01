@@ -1,5 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import { Language } from "@/lib/types/post";
+import { Input, Textarea } from "@/components/ui";
 
 interface TranslationSectionProps {
   language: Language;
@@ -35,38 +36,27 @@ export function TranslationSection({ language }: TranslationSectionProps) {
   return (
     <div className="space-y-6">
       {/* Title Input */}
-      <div className="space-y-2">
-        <label className="block text-xs text-muted uppercase tracking-wider">
-          Títol
-        </label>
-        <input
-          key={`title-${language}`}
-          type="text"
-          {...register(titleField)}
-          placeholder={titlePlaceholder}
-          className={`w-full bg-transparent border px-4 py-3 font-serif text-lg text-primary placeholder:text-muted focus:outline-none focus:border-focus transition-colors ${
-            titleError ? "border-red-400" : "border-default"
-          }`}
-        />
-        {titleError && <p className="text-sm text-red-400">{titleError}</p>}
-      </div>
+      <Input
+        key={`title-${language}`}
+        label="Títol"
+        placeholder={titlePlaceholder}
+        error={titleError}
+        size="lg"
+        className="bg-transparent font-serif"
+        {...register(titleField)}
+      />
 
       {/* Content Textarea */}
-      <div className="space-y-2">
-        <label className="block text-xs text-muted uppercase tracking-wider">
-          Contingut
-        </label>
-        <textarea
-          key={`content-${language}`}
-          {...register(contentField)}
-          placeholder={contentPlaceholder}
-          rows={16}
-          className={`w-full bg-transparent border px-4 py-3 text-body placeholder:text-muted focus:outline-none focus:border-focus transition-colors resize-none leading-relaxed ${
-            contentError ? "border-red-400" : "border-default"
-          }`}
-        />
-        {contentError && <p className="text-sm text-red-400">{contentError}</p>}
-      </div>
+      <Textarea
+        key={`content-${language}`}
+        label="Contingut"
+        placeholder={contentPlaceholder}
+        error={contentError}
+        size="md"
+        rows={16}
+        className="bg-transparent min-h-96"
+        {...register(contentField)}
+      />
     </div>
   );
 }

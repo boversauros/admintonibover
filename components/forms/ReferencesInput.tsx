@@ -1,12 +1,17 @@
 "use client";
 
 import { Reference } from "@/lib/types/post";
-import { Icon } from "@/components/ui";
+import { Icon, Input, Select, Textarea } from "@/components/ui";
 
 interface ReferencesInputProps {
   value: Reference[];
   onChange: (references: Reference[]) => void;
 }
+
+const referenceTypeOptions = [
+  { value: "text", label: "Text" },
+  { value: "image", label: "Imatge" },
+];
 
 export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
   const handleAdd = () => {
@@ -47,7 +52,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
             <div className="flex-1 space-y-3">
               <div className="flex gap-3">
                 {/* Type Select */}
-                <select
+                <Select
                   value={ref.type}
                   onChange={(e) =>
                     handleUpdate(
@@ -56,33 +61,34 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
                       e.target.value as "image" | "text"
                     )
                   }
-                  className="bg-surface border border-default px-3 py-2 text-sm text-primary focus:outline-none focus:border-focus"
-                >
-                  <option value="text">Text</option>
-                  <option value="image">Imatge</option>
-                </select>
+                  options={referenceTypeOptions}
+                  size="sm"
+                  wrapperClassName="w-auto"
+                />
 
                 {/* Reference Input */}
-                <input
+                <Input
                   type="text"
                   value={ref.reference}
                   onChange={(e) =>
                     handleUpdate(ref.id, "reference", e.target.value)
                   }
                   placeholder="Font o autor..."
-                  className="flex-1 bg-transparent border border-default px-3 py-2 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-focus"
+                  size="sm"
+                  wrapperClassName="flex-1"
+                  className="bg-transparent"
                 />
               </div>
 
               {/* Blockquote Textarea */}
-              <textarea
+              <Textarea
                 value={ref.blockquote || ""}
                 onChange={(e) =>
                   handleUpdate(ref.id, "blockquote", e.target.value)
                 }
                 placeholder="Cita o extracte (opcional)..."
-                rows={2}
-                className="w-full bg-transparent border border-default px-3 py-2 text-sm text-body placeholder:text-muted focus:outline-none focus:border-focus resize-none font-serif italic"
+                size="sm"
+                className="bg-transparent font-serif italic text-body min-h-16"
               />
             </div>
 

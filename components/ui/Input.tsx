@@ -6,6 +6,8 @@ interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>
   helperText?: string;
   size?: 'sm' | 'md' | 'lg';
   isInvalid?: boolean;
+  wrapperClassName?: string;
+  labelClassName?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
@@ -16,6 +18,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       helperText,
       size = 'md',
       isInvalid = false,
+      wrapperClassName = 'w-full',
+      labelClassName = 'block text-xs text-muted uppercase tracking-wider mb-2',
       className = '',
       id,
       ...rest
@@ -48,12 +52,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     `.trim().replace(/\s+/g, ' ');
 
     return (
-      <div className="w-full">
+      <div className={wrapperClassName}>
         {label && (
-          <label
-            htmlFor={inputId}
-            className="block text-sm text-muted font-medium tracking-wide mb-2"
-          >
+          <label htmlFor={inputId} className={labelClassName}>
             {label}
           </label>
         )}
