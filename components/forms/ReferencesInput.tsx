@@ -72,7 +72,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
       {value.map((ref) => (
         <div
           key={ref.id}
-          className="group border border-default p-4 bg-white/[0.02]"
+          className="group border border-default p-4 bg-white/2"
         >
           <div className="flex items-start gap-3">
             {/* Drag Handle */}
@@ -87,11 +87,15 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
                 <select
                   value={ref.type}
                   onChange={(e) =>
-                    handleUpdate(ref.id, "type", e.target.value as "image" | "text")
+                    handleUpdate(
+                      ref.id,
+                      "type",
+                      e.target.value as "image" | "text"
+                    )
                   }
                   className="bg-surface border border-default px-3 py-2 text-sm text-primary focus:outline-none focus:border-slate-500"
                 >
-                  <option value="text">Cita</option>
+                  <option value="text">Text</option>
                   <option value="image">Imatge</option>
                 </select>
 
