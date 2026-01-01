@@ -75,8 +75,11 @@ export function PostCard({
   onDelete,
 }: PostCardProps) {
   const title = post.translations.ca?.title || post.translations.en?.title;
-  const content = post.translations.ca?.content || post.translations.en?.content;
-  const excerpt = content ? content.slice(0, 120).trim() + (content.length > 120 ? '...' : '') : '';
+  const content =
+    post.translations.ca?.content || post.translations.en?.content;
+  const excerpt = content
+    ? content.slice(0, 120).trim() + (content.length > 120 ? "..." : "")
+    : "";
   const keywords = [
     ...(post.translations.ca?.keywords || []),
     ...(post.translations.en?.keywords || []),
@@ -85,14 +88,18 @@ export function PostCard({
     .slice(0, 3);
 
   const thumbnailUrl = post.thumbnail?.url;
-  const formattedDate = post.date ? new Date(post.date).toLocaleDateString('ca-ES', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  }).toUpperCase() : '';
+  const formattedDate = post.date
+    ? new Date(post.date)
+        .toLocaleDateString("ca-ES", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+        .toUpperCase()
+    : "";
 
   return (
-    <article className="group relative border-b border-white/[0.06] hover:bg-white/[0.02] transition-colors duration-500">
+    <article className="group relative border-b border-white/6 hover:bg-white/2 transition-colors duration-500">
       <div className="flex gap-8 py-8">
         {/* Left: Content */}
         <div className="flex-1 flex flex-col justify-between min-h-[140px]">
@@ -174,7 +181,7 @@ export function PostCard({
         {/* Right: Thumbnail */}
         <div
           onClick={() => onEdit(post)}
-          className="relative w-52 h-36 shrink-0 overflow-hidden bg-white/[0.02] cursor-pointer group/thumb"
+          className="relative w-52 h-36 shrink-0 overflow-hidden bg-white/2 cursor-pointer group/thumb"
         >
           {thumbnailUrl ? (
             <>
@@ -183,7 +190,7 @@ export function PostCard({
                 alt=""
                 className="w-full h-full object-cover opacity-70 group-hover/thumb:opacity-90 group-hover/thumb:scale-[1.02] transition-all duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-500" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-500" />
             </>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
