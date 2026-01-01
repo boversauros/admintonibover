@@ -3,7 +3,10 @@ import { ImgHTMLAttributes, ReactNode } from 'react';
 type AspectRatio = 'square' | '4/3' | 'video' | 'auto';
 type HoverEffect = 'opacity' | 'scale' | 'none';
 
-interface ImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'width' | 'height'> {
+interface ImageProps extends Omit<
+  ImgHTMLAttributes<HTMLImageElement>,
+  'width' | 'height'
+> {
   src: string;
   alt: string;
   aspect?: AspectRatio;
@@ -28,19 +31,20 @@ export function Image({
   ...rest
 }: ImageProps) {
   const aspectClasses = {
-    'square': 'aspect-square',
+    square: 'aspect-square',
     '4/3': 'aspect-4/3',
-    'video': 'aspect-video',
-    'auto': '',
+    video: 'aspect-video',
+    auto: '',
   };
 
   const hoverClasses = {
-    'opacity': 'group-hover:opacity-90 transition-opacity duration-700',
-    'scale': 'group-hover:scale-105 transition-transform duration-300',
-    'none': '',
+    opacity: 'group-hover:opacity-90 transition-opacity duration-700',
+    scale: 'group-hover:scale-105 transition-transform duration-300',
+    none: '',
   };
 
-  const imageClasses = `${width} ${height} ${aspectClasses[aspect]} object-cover ${hoverClasses[hover]} ${className}`.trim();
+  const imageClasses =
+    `${width} ${height} ${aspectClasses[aspect]} object-cover ${hoverClasses[hover]} ${className}`.trim();
   const overflowClass = hover === 'scale' ? 'overflow-hidden' : '';
 
   const imageElement = (

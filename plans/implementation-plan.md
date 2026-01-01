@@ -1,15 +1,18 @@
 # Implementation Plan: Bilingual Post Creation Form
 
 ## Overview
+
 Create a bilingual post creation form at `/reflexions/new` with React Hook Form, localStorage persistence, and auto-slug generation. The form matches the database schema design for future Supabase integration.
 
 ## User Preferences (MVP)
+
 - **Storage**: localStorage (JSON)
 - **Images**: URL input only
 - **Slug**: Auto-generate from title, allow manual editing
 - **Forms**: React Hook Form
 
 ## Database Schema Reference
+
 ```
 posts (metadata)
   ├── id, user_id, category_id, image_id, thumbnail_id
@@ -54,12 +57,14 @@ lib/
 ### Phase 1: Foundation (30 min)
 
 1. **Install Dependencies**
+
    ```bash
    pnpm add react-hook-form react-datepicker
    pnpm add -D @types/react-datepicker
    ```
 
 2. **Create Type Definitions** (`lib/types/post.ts`)
+
    ```typescript
    export type Language = 'ca' | 'en';
    export type ReferenceType = 'image' | 'text';
@@ -111,6 +116,7 @@ lib/
    ```
 
 3. **Create Slug Utilities** (`lib/utils/slugify.ts`)
+
    ```typescript
    export function slugify(text: string): string {
      return text
@@ -138,6 +144,7 @@ lib/
    ```
 
 4. **Create LocalStorage Utilities** (`lib/utils/localStorage.ts`)
+
    ```typescript
    const POSTS_KEY = 'posts';
 
@@ -173,7 +180,7 @@ lib/
      date: { required: 'Date is required' },
      author: {
        required: 'Author is required',
-       minLength: { value: 2, message: 'Min 2 characters' }
+       minLength: { value: 2, message: 'Min 2 characters' },
      },
      'translations.ca.title': { required: 'Catalan title required' },
      'translations.en.title': { required: 'English title required' },

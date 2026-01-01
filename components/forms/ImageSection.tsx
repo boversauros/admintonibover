@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useFormContext } from 'react-hook-form';
 import { Heading } from '@/components/ui';
@@ -9,8 +9,14 @@ interface ImageSectionProps {
   mainImageUrl: string;
 }
 
-export function ImageSection({ thumbnailUrl, mainImageUrl }: ImageSectionProps) {
-  const { setValue, formState: { errors } } = useFormContext();
+export function ImageSection({
+  thumbnailUrl,
+  mainImageUrl,
+}: ImageSectionProps) {
+  const {
+    setValue,
+    formState: { errors },
+  } = useFormContext();
 
   const handleThumbnailSelect = (file: File | null) => {
     setValue('thumbnail_file', file);
@@ -22,7 +28,9 @@ export function ImageSection({ thumbnailUrl, mainImageUrl }: ImageSectionProps) 
 
   return (
     <div className="space-y-6">
-      <Heading as="h3" size="xl">Images</Heading>
+      <Heading as="h3" size="xl">
+        Images
+      </Heading>
 
       <ImageUpload
         label="Thumbnail Image"

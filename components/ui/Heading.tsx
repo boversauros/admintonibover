@@ -45,7 +45,8 @@ export function Heading({
   };
 
   const italicClass = italic ? 'italic' : '';
-  const finalClasses = `font-serif ${sizeClasses[size]} ${variantClasses[variant]} ${marginClasses[size]} ${italicClass} ${className}`.trim();
+  const finalClasses =
+    `font-serif ${sizeClasses[size]} ${variantClasses[variant]} ${marginClasses[size]} ${italicClass} ${className}`.trim();
 
   const HeadingElement = Element as ElementType;
 

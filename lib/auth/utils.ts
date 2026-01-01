@@ -6,7 +6,9 @@ import { supabase } from '../supabase';
  * Returns null if not authenticated
  */
 export async function getCurrentUser(): Promise<User | null> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   return user;
 }
 

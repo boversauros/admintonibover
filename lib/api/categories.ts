@@ -1,4 +1,4 @@
-import { supabase } from "../supabase";
+import { supabase } from '../supabase';
 
 export interface Category {
   id: number;
@@ -13,7 +13,7 @@ export interface Category {
 export async function getCategories(): Promise<Category[]> {
   try {
     const { data: categories, error: categoriesError } = await supabase
-      .from("categories")
+      .from('categories')
       .select(
         `
         id,
@@ -24,7 +24,7 @@ export async function getCategories(): Promise<Category[]> {
         )
       `
       )
-      .order("id", { ascending: true });
+      .order('id', { ascending: true });
 
     if (categoriesError) throw categoriesError;
     if (!categories || categories.length === 0) return [];
@@ -45,7 +45,7 @@ export async function getCategories(): Promise<Category[]> {
 
     return formattedCategories;
   } catch (error) {
-    console.error("Error fetching categories:", error);
-    throw new Error("Failed to fetch categories from database");
+    console.error('Error fetching categories:', error);
+    throw new Error('Failed to fetch categories from database');
   }
 }

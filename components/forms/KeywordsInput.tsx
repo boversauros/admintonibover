@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect, KeyboardEvent } from "react";
-import { Language } from "@/lib/types/post";
-import { Icon } from "@/components/ui";
+import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { Language } from '@/lib/types/post';
+import { Icon } from '@/components/ui';
 
 interface KeywordsInputProps {
   value: string[];
@@ -16,33 +16,32 @@ interface KeywordsInputProps {
 export function KeywordsInput({
   value,
   onChange,
-  label = "Paraules clau",
+  label = 'Paraules clau',
   placeholder,
-  language = "ca",
+  language = 'ca',
   suggestions = [],
 }: KeywordsInputProps) {
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const langLabel = language === "ca" ? "Català" : "English";
+  const langLabel = language === 'ca' ? 'Català' : 'English';
   const defaultPlaceholder =
     value.length === 0
-      ? language === "ca"
-        ? "Escriu o selecciona paraules clau..."
-        : "Type or select keywords..."
-      : language === "ca"
-      ? "Afegeix més..."
-      : "Add more...";
+      ? language === 'ca'
+        ? 'Escriu o selecciona paraules clau...'
+        : 'Type or select keywords...'
+      : language === 'ca'
+        ? 'Afegeix més...'
+        : 'Add more...';
 
   // Filter suggestions based on input and already selected keywords
   const filteredSuggestions = suggestions
-    .filter((kw) => !value.includes(kw))
+    .filter(kw => !value.includes(kw))
     .filter(
-      (kw) =>
-        inputValue === "" ||
-        kw.toLowerCase().includes(inputValue.toLowerCase())
+      kw =>
+        inputValue === '' || kw.toLowerCase().includes(inputValue.toLowerCase())
     )
     .slice(0, 12);
 
@@ -52,19 +51,19 @@ export function KeywordsInput({
 
     if (
       trimmed &&
-      !value.map((k) => k.toLowerCase()).includes(lowercaseTrimmed)
+      !value.map(k => k.toLowerCase()).includes(lowercaseTrimmed)
     ) {
       onChange([...value, trimmed]);
-      setInputValue("");
+      setInputValue('');
     }
   };
 
   const handleRemove = (keyword: string) => {
-    onChange(value.filter((k) => k !== keyword));
+    onChange(value.filter(k => k !== keyword));
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       e.preventDefault();
       if (filteredSuggestions.length > 0 && inputValue) {
         addKeyword(filteredSuggestions[0]);
@@ -84,8 +83,8 @@ export function KeywordsInput({
         setShowSuggestions(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   return (
@@ -125,7 +124,7 @@ export function KeywordsInput({
             ref={inputRef}
             type="text"
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={e => setInputValue(e.target.value)}
             onFocus={() => setShowSuggestions(true)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder || defaultPlaceholder}

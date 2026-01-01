@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Icon } from "@/components/ui";
+import { Icon } from '@/components/ui';
 
 interface TranslationStatusPanelProps {
   hasCATitle: boolean;

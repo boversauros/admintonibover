@@ -48,7 +48,9 @@ export function DatePicker({
           focus:border-focus
           hover:border-subtle
           transition-colors-default
-        `.trim().replace(/\s+/g, ' ')}
+        `
+          .trim()
+          .replace(/\s+/g, ' ')}
       />
       {(error || helperText) && (
         <p className={`text-sm mt-1 ${error ? 'text-red-400' : 'text-muted'}`}>

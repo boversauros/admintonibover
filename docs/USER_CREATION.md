@@ -29,6 +29,7 @@ Since sign-up functionality is disabled in this admin panel, users must be creat
 The user is automatically created in `auth.users` and ready to login immediately.
 
 **Verify in SQL Editor:**
+
 ```sql
 SELECT id, email, created_at, email_confirmed_at
 FROM auth.users
@@ -38,6 +39,7 @@ WHERE email = 'admin@tonibover.com';
 ## User Permissions
 
 All authenticated users have the same permissions in this admin panel:
+
 - ✓ Create new posts
 - ✓ Edit any post
 - ✓ Delete any post
@@ -70,12 +72,14 @@ Now users can login immediately without email verification.
 If a user forgets their password:
 
 **Option 1: Reset via Dashboard**
+
 1. Supabase Dashboard → **Authentication → Users**
 2. Find the user by email
 3. Click the **"..."** menu → **"Send password recovery"**
 4. User receives email with reset link
 
 **Option 2: Manually Set New Password**
+
 1. Supabase Dashboard → **Authentication → Users**
 2. Find the user by email
 3. Click the **"..."** menu → **"Update user"**
@@ -121,6 +125,7 @@ If you're getting foreign key errors:
 
 1. Verify migration 005 was run (posts references auth.users)
 2. Check constraint exists:
+
 ```sql
 SELECT conname
 FROM pg_constraint

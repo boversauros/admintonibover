@@ -1,6 +1,9 @@
 import { InputHTMLAttributes, forwardRef } from 'react';
 
-interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
+interface InputProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  'size'
+> {
   label?: string;
   error?: string;
   helperText?: string;
@@ -19,7 +22,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       size = 'md',
       isInvalid = false,
       wrapperClassName = 'w-full',
-      labelClassName = 'block text-xs text-muted uppercase tracking-wider mb-2',
+      labelClassName = 'font-serif block text-xs text-muted uppercase tracking-wider mb-2',
       className = '',
       id,
       ...rest
@@ -49,7 +52,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       transition-colors-default
       ${sizeClasses[size]}
       ${className}
-    `.trim().replace(/\s+/g, ' ');
+    `
+      .trim()
+      .replace(/\s+/g, ' ');
 
     return (
       <div className={wrapperClassName}>
@@ -60,7 +65,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <input ref={ref} id={inputId} className={inputClasses} {...rest} />
         {(error || helperText) && (
-          <p className={`text-sm mt-1 ${error ? 'text-red-400' : 'text-muted'}`}>
+          <p
+            className={`text-sm mt-1 ${error ? 'text-red-400' : 'text-muted'}`}
+          >
             {error || helperText}
           </p>
         )}

@@ -80,7 +80,9 @@ export function Modal({
             w-full
             ${sizeClasses[size]}
             overflow-hidden
-          `.trim().replace(/\s+/g, ' ')}
+          `
+            .trim()
+            .replace(/\s+/g, ' ')}
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-title"

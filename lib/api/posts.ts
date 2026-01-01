@@ -1,6 +1,6 @@
-import { supabase } from "../supabase";
-import { StoredPost, Language, Reference, Image } from "../types/post";
-import { getUserId } from "../auth/utils";
+import { supabase } from '../supabase';
+import { StoredPost, Language, Reference, Image } from '../types/post';
+import { getUserId } from '../auth/utils';
 
 // Language ID mapping (based on seed data)
 const LANGUAGE_IDS = {
@@ -16,7 +16,7 @@ export async function getPosts(): Promise<StoredPost[]> {
   try {
     // Fetch posts with translations and images
     const { data: posts, error: postsError } = await supabase
-      .from("posts")
+      .from('posts')
       .select(
         `
         *,
@@ -45,26 +45,26 @@ export async function getPosts(): Promise<StoredPost[]> {
         )
       `
       )
-      .order("created_at", { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (postsError) throw postsError;
     if (!posts || posts.length === 0) return [];
 
     // Fetch keywords and references for all post translations
     const translationIds = posts.flatMap(
-      (p) => p.post_translations?.map((t: any) => t.id) || []
+      p => p.post_translations?.map((t: any) => t.id) || []
     );
 
     const [keywordsResult, referencesResult] = await Promise.all([
       supabase
-        .from("post_keywords")
-        .select("post_translation_id, keywords(keyword)")
-        .in("post_translation_id", translationIds),
+        .from('post_keywords')
+        .select('post_translation_id, keywords(keyword)')
+        .in('post_translation_id', translationIds),
       supabase
-        .from("post_references")
-        .select("*")
-        .in("post_translation_id", translationIds)
-        .order("sort_order", { ascending: true }),
+        .from('post_references')
+        .select('*')
+        .in('post_translation_id', translationIds)
+        .order('sort_order', { ascending: true }),
     ]);
 
     if (keywordsResult.error) throw keywordsResult.error;
@@ -90,7 +90,7 @@ export async function getPosts(): Promise<StoredPost[]> {
         id: ref.id.toString(),
         type: ref.type,
         reference: ref.reference,
-        blockquote: ref.blockquote || "",
+        blockquote: ref.blockquote || '',
         sort_order: ref.sort_order,
       });
     });
@@ -101,8 +101,8 @@ export async function getPosts(): Promise<StoredPost[]> {
       return {
         id: img.id.toString(),
         url: img.url,
-        title: img.title || "",
-        alt: img.alt || "",
+        title: img.title || '',
+        alt: img.alt || '',
         created_at: img.created_at,
         updated_at: img.updated_at,
       };
@@ -133,20 +133,20 @@ export async function getPosts(): Promise<StoredPost[]> {
         updated_at: post.updated_at,
         translations: {
           ca: {
-            language: "ca",
+            language: 'ca',
             post_id: post.id.toString(),
-            title: caTranslation?.title || "",
-            content: caTranslation?.content || "",
-            slug: caTranslation?.slug || "",
+            title: caTranslation?.title || '',
+            content: caTranslation?.content || '',
+            slug: caTranslation?.slug || '',
             keywords: keywordsByTranslation.get(caTranslation?.id) || [],
             references: referencesByTranslation.get(caTranslation?.id) || [],
           },
           en: {
-            language: "en",
+            language: 'en',
             post_id: post.id.toString(),
-            title: enTranslation?.title || "",
-            content: enTranslation?.content || "",
-            slug: enTranslation?.slug || "",
+            title: enTranslation?.title || '',
+            content: enTranslation?.content || '',
+            slug: enTranslation?.slug || '',
             keywords: keywordsByTranslation.get(enTranslation?.id) || [],
             references: referencesByTranslation.get(enTranslation?.id) || [],
           },
@@ -156,8 +156,8 @@ export async function getPosts(): Promise<StoredPost[]> {
 
     return storedPosts;
   } catch (error) {
-    console.error("Error fetching posts:", error);
-    throw new Error("Failed to fetch posts from database");
+    console.error('Error fetching posts:', error);
+    throw new Error('Failed to fetch posts from database');
   }
 }
 
@@ -167,7 +167,7 @@ export async function getPosts(): Promise<StoredPost[]> {
  */
 export async function savePost(post: StoredPost): Promise<void> {
   try {
-    const isUpdate = post.id && !post.id.startsWith("post-"); // Check if it's a real DB ID
+    const isUpdate = post.id && !post.id.startsWith('post-'); // Check if it's a real DB ID
 
     if (isUpdate) {
       await updatePost(post);
@@ -175,7 +175,7 @@ export async function savePost(post: StoredPost): Promise<void> {
       await createPost(post);
     }
   } catch (error) {
-    console.error("Error saving post:", error);
+    console.error('Error saving post:', error);
     throw error;
   }
 }
@@ -192,7 +192,7 @@ async function createPost(post: StoredPost): Promise<void> {
 
   // Insert post
   const { data: newPost, error: postError } = await supabase
-    .from("posts")
+    .from('posts')
     .insert({
       category_id: parseInt(post.category_id),
       user_id: userId,
@@ -209,8 +209,8 @@ async function createPost(post: StoredPost): Promise<void> {
 
   // Insert translations
   await Promise.all([
-    insertTranslation(newPost.id, "ca", post.translations.ca),
-    insertTranslation(newPost.id, "en", post.translations.en),
+    insertTranslation(newPost.id, 'ca', post.translations.ca),
+    insertTranslation(newPost.id, 'en', post.translations.en),
   ]);
 }
 
@@ -222,7 +222,7 @@ async function updatePost(post: StoredPost): Promise<void> {
 
   // Update post
   const { error: postError } = await supabase
-    .from("posts")
+    .from('posts')
     .update({
       category_id: parseInt(post.category_id),
       author: post.author,
@@ -231,14 +231,14 @@ async function updatePost(post: StoredPost): Promise<void> {
       thumbnail_id: post.thumbnail_id ? parseInt(post.thumbnail_id) : null,
       image_id: post.image_id ? parseInt(post.image_id) : null,
     })
-    .eq("id", postId);
+    .eq('id', postId);
 
   if (postError) throw postError;
 
   // Update translations
   await Promise.all([
-    updateTranslation(postId, "ca", post.translations.ca),
-    updateTranslation(postId, "en", post.translations.en),
+    updateTranslation(postId, 'ca', post.translations.ca),
+    updateTranslation(postId, 'en', post.translations.en),
   ]);
 }
 
@@ -248,13 +248,13 @@ async function updatePost(post: StoredPost): Promise<void> {
 async function insertTranslation(
   postId: number,
   language: Language,
-  translation: StoredPost["translations"]["ca"]
+  translation: StoredPost['translations']['ca']
 ): Promise<void> {
   const languageId = LANGUAGE_IDS[language];
 
   // Insert translation
   const { data: newTranslation, error: translationError } = await supabase
-    .from("post_translations")
+    .from('post_translations')
     .insert({
       post_id: postId,
       language_id: languageId,
@@ -280,42 +280,42 @@ async function insertTranslation(
 async function updateTranslation(
   postId: number,
   language: Language,
-  translation: StoredPost["translations"]["ca"]
+  translation: StoredPost['translations']['ca']
 ): Promise<void> {
   const languageId = LANGUAGE_IDS[language];
 
   // Get existing translation
   const { data: existingTranslation, error: fetchError } = await supabase
-    .from("post_translations")
-    .select("id")
-    .eq("post_id", postId)
-    .eq("language_id", languageId)
+    .from('post_translations')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('language_id', languageId)
     .single();
 
   if (fetchError) throw fetchError;
 
   // Update translation
   const { error: updateError } = await supabase
-    .from("post_translations")
+    .from('post_translations')
     .update({
       title: translation.title,
       content: translation.content,
       slug: translation.slug,
     })
-    .eq("id", existingTranslation.id);
+    .eq('id', existingTranslation.id);
 
   if (updateError) throw updateError;
 
   // Delete old keywords and references, then insert new ones
   await Promise.all([
     supabase
-      .from("post_keywords")
+      .from('post_keywords')
       .delete()
-      .eq("post_translation_id", existingTranslation.id),
+      .eq('post_translation_id', existingTranslation.id),
     supabase
-      .from("post_references")
+      .from('post_references')
       .delete()
-      .eq("post_translation_id", existingTranslation.id),
+      .eq('post_translation_id', existingTranslation.id),
   ]);
 
   await Promise.all([
@@ -336,12 +336,12 @@ async function insertKeywords(
 
   // Insert or get existing keywords
   const keywordRecords = await Promise.all(
-    keywords.map(async (keyword) => {
+    keywords.map(async keyword => {
       const { data, error } = await supabase
-        .from("keywords")
+        .from('keywords')
         .upsert(
           { keyword, language_id: languageId },
-          { onConflict: "keyword,language_id" }
+          { onConflict: 'keyword,language_id' }
         )
         .select()
         .single();
@@ -352,8 +352,8 @@ async function insertKeywords(
   );
 
   // Link keywords to translation
-  const { error: linkError } = await supabase.from("post_keywords").insert(
-    keywordRecords.map((kw) => ({
+  const { error: linkError } = await supabase.from('post_keywords').insert(
+    keywordRecords.map(kw => ({
       post_translation_id: translationId,
       keyword_id: kw.id,
     }))
@@ -371,7 +371,7 @@ async function insertReferences(
 ): Promise<void> {
   if (!references || references.length === 0) return;
 
-  const { error } = await supabase.from("post_references").insert(
+  const { error } = await supabase.from('post_references').insert(
     references.map((ref, index) => ({
       post_translation_id: translationId,
       type: ref.type,
@@ -390,12 +390,12 @@ async function insertReferences(
 export async function deletePost(id: string): Promise<void> {
   try {
     const postId = parseInt(id);
-    const { error } = await supabase.from("posts").delete().eq("id", postId);
+    const { error } = await supabase.from('posts').delete().eq('id', postId);
 
     if (error) throw error;
   } catch (error) {
-    console.error("Error deleting post:", error);
-    throw new Error("Failed to delete post");
+    console.error('Error deleting post:', error);
+    throw new Error('Failed to delete post');
   }
 }
 
@@ -409,20 +409,20 @@ export async function getExistingSlugs(
   try {
     const languageId = LANGUAGE_IDS[language];
     let query = supabase
-      .from("post_translations")
-      .select("slug")
-      .eq("language_id", languageId);
+      .from('post_translations')
+      .select('slug')
+      .eq('language_id', languageId);
 
-    if (excludePostId && !excludePostId.startsWith("post-")) {
-      query = query.neq("post_id", parseInt(excludePostId));
+    if (excludePostId && !excludePostId.startsWith('post-')) {
+      query = query.neq('post_id', parseInt(excludePostId));
     }
 
     const { data, error } = await query;
 
     if (error) throw error;
-    return data?.map((t) => t.slug) || [];
+    return data?.map(t => t.slug) || [];
   } catch (error) {
-    console.error("Error fetching slugs:", error);
+    console.error('Error fetching slugs:', error);
     return [];
   }
 }
@@ -440,6 +440,6 @@ export function generatePostId(): string {
  */
 export async function savePosts(posts: StoredPost[]): Promise<void> {
   throw new Error(
-    "savePosts() is deprecated with Supabase. Use savePost() for individual operations."
+    'savePosts() is deprecated with Supabase. Use savePost() for individual operations.'
   );
 }

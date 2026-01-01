@@ -56,7 +56,7 @@ export function Table<T>({
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-surface">
-            {columns.map((column) => (
+            {columns.map(column => (
               <th
                 key={String(column.key)}
                 className={`
@@ -71,7 +71,9 @@ export function Table<T>({
                   border-default
                   ${column.width || ''}
                   ${column.className || ''}
-                `.trim().replace(/\s+/g, ' ')}
+                `
+                  .trim()
+                  .replace(/\s+/g, ' ')}
               >
                 {column.label}
               </th>
@@ -93,10 +95,12 @@ export function Table<T>({
                 ${striped && rowIndex % 2 === 1 ? 'bg-surface/50' : ''}
                 ${hoverable ? 'hover:bg-surface transition-colors-default' : ''}
                 ${onRowClick ? 'cursor-pointer' : ''}
-              `.trim().replace(/\s+/g, ' ')}
+              `
+                .trim()
+                .replace(/\s+/g, ' ')}
               onClick={onRowClick ? () => onRowClick(row, rowIndex) : undefined}
             >
-              {columns.map((column) => {
+              {columns.map(column => {
                 const value = row[column.key];
                 return (
                   <td
@@ -107,7 +111,9 @@ export function Table<T>({
                       px-4
                       py-3
                       ${column.className || ''}
-                    `.trim().replace(/\s+/g, ' ')}
+                    `
+                      .trim()
+                      .replace(/\s+/g, ' ')}
                   >
                     {column.render
                       ? column.render(value, row, rowIndex)
@@ -123,7 +129,7 @@ export function Table<T>({
                         key={actionIndex}
                         variant={action.variant || 'ghost'}
                         size={action.size || 'sm'}
-                        onClick={(e) => {
+                        onClick={e => {
                           e.stopPropagation();
                           action.onClick(row, rowIndex);
                         }}

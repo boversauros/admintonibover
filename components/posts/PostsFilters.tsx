@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { Icon } from "@/components/ui";
+import { Icon } from '@/components/ui';
 
-export type FilterStatus = "all" | "published" | "draft";
+export type FilterStatus = 'all' | 'published' | 'draft';
 
 interface PostsFiltersProps {
   searchQuery: string;
@@ -12,9 +12,9 @@ interface PostsFiltersProps {
 }
 
 const filterOptions: { value: FilterStatus; label: string }[] = [
-  { value: "all", label: "Tots" },
-  { value: "published", label: "Publicats" },
-  { value: "draft", label: "Esborranys" },
+  { value: 'all', label: 'Tots' },
+  { value: 'published', label: 'Publicats' },
+  { value: 'draft', label: 'Esborranys' },
 ];
 
 export function PostsFilters({
@@ -33,7 +33,7 @@ export function PostsFilters({
         <input
           type="text"
           value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={e => onSearchChange(e.target.value)}
           placeholder="Cerca articles..."
           className="w-full bg-transparent border border-default pl-12 pr-4 py-2.5 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-focus transition-colors"
         />
@@ -41,14 +41,14 @@ export function PostsFilters({
 
       {/* Status Filter Buttons */}
       <div className="flex border border-default">
-        {filterOptions.map((option) => (
+        {filterOptions.map(option => (
           <button
             key={option.value}
             onClick={() => onFilterChange(option.value)}
             className={`px-4 py-2 text-sm transition-colors ${
               filterStatus === option.value
-                ? "bg-overlay-10 text-primary"
-                : "text-muted hover:text-secondary"
+                ? 'bg-overlay-10 text-primary'
+                : 'text-muted hover:text-secondary'
             }`}
           >
             {option.label}

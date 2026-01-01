@@ -57,7 +57,9 @@ export function Toast({
     max-w-md
     transition-opacity-default
     ${isVisible ? 'opacity-100' : 'opacity-0'}
-  `.trim().replace(/\s+/g, ' ');
+  `
+    .trim()
+    .replace(/\s+/g, ' ');
 
   return (
     <div className={toastClasses}>

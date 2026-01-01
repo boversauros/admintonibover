@@ -64,7 +64,7 @@ function PostsContent() {
   };
 
   const filteredPosts = useMemo(() => {
-    return posts.filter((post) => {
+    return posts.filter(post => {
       const matchesSearch =
         post.translations.ca?.title
           ?.toLowerCase()
@@ -112,11 +112,13 @@ function PostsContent() {
       {/* Posts Grid */}
       <main className="max-w-6xl mx-auto px-6 pb-12">
         <div className="space-y-4">
-          {filteredPosts.map((post) => (
+          {filteredPosts.map(post => (
             <PostCard
               key={post.id}
               post={post}
-              categoryLabel={categoryLabels[post.category_id] || post.category_id}
+              categoryLabel={
+                categoryLabels[post.category_id] || post.category_id
+              }
               onEdit={handleEdit}
               onDelete={handleDelete}
             />

@@ -1,6 +1,9 @@
 import { TextareaHTMLAttributes, forwardRef } from 'react';
 
-interface TextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'size'> {
+interface TextareaProps extends Omit<
+  TextareaHTMLAttributes<HTMLTextAreaElement>,
+  'size'
+> {
   label?: string;
   error?: string;
   helperText?: string;
@@ -57,7 +60,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       leading-relaxed
       ${sizeClasses[size]}
       ${className}
-    `.trim().replace(/\s+/g, ' ');
+    `
+      .trim()
+      .replace(/\s+/g, ' ');
 
     return (
       <div className={wrapperClassName}>

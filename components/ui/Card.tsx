@@ -1,20 +1,20 @@
-import { ReactNode } from "react";
-import { Link } from "./Link";
+import { ReactNode } from 'react';
+import { Link } from './Link';
 
 interface CardProps {
   href: string;
-  as?: "article" | "div";
+  as?: 'article' | 'div';
   className?: string;
-  "aria-label"?: string;
+  'aria-label'?: string;
   image?: ReactNode;
   children: ReactNode;
 }
 
 export function Card({
   href,
-  as: Wrapper = "div",
-  className = "",
-  "aria-label": ariaLabel,
+  as: Wrapper = 'div',
+  className = '',
+  'aria-label': ariaLabel,
   image,
   children,
 }: CardProps) {

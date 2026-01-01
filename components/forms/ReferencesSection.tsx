@@ -1,6 +1,6 @@
-import { Controller, useFormContext } from "react-hook-form";
-import { ReferencesInput } from "./ReferencesInput";
-import { Language } from "@/lib/types/post";
+import { Controller, useFormContext } from 'react-hook-form';
+import { ReferencesInput } from './ReferencesInput';
+import { Language } from '@/lib/types/post';
 
 interface ReferencesSectionProps {
   language: Language;

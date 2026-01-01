@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { StoredPost } from "@/lib/types/post";
-import { StatusBadge, LanguageIndicator, Icon, Button } from "@/components/ui";
+import { StoredPost } from '@/lib/types/post';
+import { StatusBadge, LanguageIndicator, Icon, Button } from '@/components/ui';
 
 interface PostCardProps {
   post: StoredPost;
@@ -20,8 +20,8 @@ export function PostCard({
   const content =
     post.translations.ca?.content || post.translations.en?.content;
   const excerpt = content
-    ? content.slice(0, 120).trim() + (content.length > 120 ? "…" : "")
-    : "";
+    ? content.slice(0, 120).trim() + (content.length > 120 ? '…' : '')
+    : '';
   const keywords = [
     ...(post.translations.ca?.keywords || []),
     ...(post.translations.en?.keywords || []),
@@ -40,7 +40,7 @@ export function PostCard({
           onClick={() => onEdit(post)}
           role="button"
           tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && onEdit(post)}
+          onKeyDown={e => e.key === 'Enter' && onEdit(post)}
           aria-label={`Edit ${title}`}
         >
           {thumbnailUrl ? (
@@ -100,10 +100,7 @@ export function PostCard({
           {keywords.length > 0 && (
             <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-3">
               {keywords.map((kw, i) => (
-                <span
-                  key={i}
-                  className="text-sm text-primary-50 tracking-wide"
-                >
+                <span key={i} className="text-sm text-primary-50 tracking-wide">
                   #{kw}
                 </span>
               ))}
@@ -115,7 +112,7 @@ export function PostCard({
         <div className="flex flex-col justify-center gap-0 shrink-0">
           <Button
             variant="icon"
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation();
               onEdit(post);
             }}
@@ -125,7 +122,7 @@ export function PostCard({
           </Button>
           <Button
             variant="icon"
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation();
               onDelete(post);
             }}

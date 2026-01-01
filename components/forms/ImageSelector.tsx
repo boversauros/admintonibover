@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from "react";
-import { Icon, Button } from "@/components/ui";
+import { useState, useRef, useEffect } from 'react';
+import { Icon, Button } from '@/components/ui';
 
 interface ImageSelectorProps {
   label: string;
-  aspectRatio?: "video" | "square" | "thumbnail";
+  aspectRatio?: 'video' | 'square' | 'thumbnail';
   hint?: string;
   value: string | null;
   onFileSelect: (file: File | null) => void;
@@ -14,7 +14,7 @@ interface ImageSelectorProps {
 
 export function ImageSelector({
   label,
-  aspectRatio = "video",
+  aspectRatio = 'video',
   hint,
   value,
   onFileSelect,
@@ -24,15 +24,15 @@ export function ImageSelector({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const aspectClasses = {
-    video: "aspect-video",
-    square: "aspect-square",
-    thumbnail: "aspect-[4/3]",
+    video: 'aspect-video',
+    square: 'aspect-square',
+    thumbnail: 'aspect-[4/3]',
   };
 
   // Cleanup blob URLs on unmount
   useEffect(() => {
     return () => {
-      if (previewUrl && previewUrl.startsWith("blob:")) {
+      if (previewUrl && previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(previewUrl);
       }
     };
@@ -52,7 +52,7 @@ export function ImageSelector({
     setPreviewUrl(null);
     onFileSelect(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      fileInputRef.current.value = '';
     }
   };
 
@@ -94,7 +94,7 @@ export function ImageSelector({
               <Button
                 variant="icon"
                 className="bg-overlay-10 hover:bg-overlay-20"
-                onClick={(e) => {
+                onClick={e => {
                   e.stopPropagation();
                   handleClick();
                 }}

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { Button, Icon } from "@/components/ui";
+import { useRouter } from 'next/navigation';
+import { Button, Icon } from '@/components/ui';
 
 interface FormHeaderProps {
   isPublished: boolean;
@@ -19,16 +19,13 @@ export function FormHeader({
   const router = useRouter();
 
   const handleBack = () => {
-    router.push("/");
+    router.push('/');
   };
 
   return (
     <header className="sticky top-0 z-50 bg-nav backdrop-blur-sm border-b border-default">
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <Button
-          variant="ghost"
-          onClick={handleBack}
-        >
+        <Button variant="ghost" onClick={handleBack}>
           <Icon name="chevron-left" size="5" />
           <span className="text-sm">Tornar</span>
         </Button>
@@ -40,8 +37,8 @@ export function FormHeader({
             onClick={onPublishToggle}
             className={`px-4 py-2 text-sm border transition-all ${
               isPublished
-                ? "border-emerald-500/50 text-emerald-400 bg-emerald-500/10"
-                : "border-default text-muted hover:border-subtle"
+                ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10'
+                : 'border-default text-muted hover:border-subtle'
             }`}
           >
             {isPublished ? (
@@ -49,7 +46,7 @@ export function FormHeader({
                 <Icon name="check" size="4" /> Publicat
               </span>
             ) : (
-              "Esborrany"
+              'Esborrany'
             )}
           </button>
 
@@ -60,11 +57,7 @@ export function FormHeader({
             loading={isSubmitting}
             disabled={isSubmitting}
           >
-            {isSubmitting
-              ? isEditMode
-                ? "Desant..."
-                : "Creant..."
-              : "Desar"}
+            {isSubmitting ? (isEditMode ? 'Desant...' : 'Creant...') : 'Desar'}
           </Button>
         </div>
       </div>

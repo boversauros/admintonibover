@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Language } from "@/lib/types/post";
+import { Language } from '@/lib/types/post';
 
 interface LanguageTabsProps {
   active: Language;
@@ -29,7 +29,7 @@ function LanguageTab({
       type="button"
       onClick={onClick}
       className={`relative px-6 py-3 text-sm font-medium transition-all duration-300 ${
-        active ? "text-primary" : "text-muted hover:text-secondary"
+        active ? 'text-primary' : 'text-muted hover:text-secondary'
       }`}
     >
       <span className="flex items-center gap-2">
@@ -60,16 +60,16 @@ export function LanguageTabs({
         <LanguageTab
           code="ca"
           name="Català"
-          active={active === "ca"}
+          active={active === 'ca'}
           hasContent={hasCAContent}
-          onClick={() => onChange("ca")}
+          onClick={() => onChange('ca')}
         />
         <LanguageTab
           code="en"
           name="English"
-          active={active === "en"}
+          active={active === 'en'}
           hasContent={hasENContent}
-          onClick={() => onChange("en")}
+          onClick={() => onChange('en')}
         />
       </div>
     </div>

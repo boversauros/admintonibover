@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { Button, Icon } from '@/components/ui';
@@ -41,7 +41,13 @@ export function ImageUpload({
 
   const validateFile = (file: File): string | null => {
     // Check file type
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    const validTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+    ];
     if (!validTypes.includes(file.type)) {
       return 'Only JPG, PNG, WebP, and GIF images are allowed';
     }
@@ -191,9 +197,10 @@ export function ImageUpload({
             className={`
               border-2 border-dashed p-8
               transition-colors duration-200
-              ${isDragging
-                ? 'border-focus bg-surface'
-                : 'border-default hover:border-subtle'
+              ${
+                isDragging
+                  ? 'border-focus bg-surface'
+                  : 'border-default hover:border-subtle'
               }
             `}
           >
@@ -216,9 +223,7 @@ export function ImageUpload({
               </div>
 
               {helperText && (
-                <p className="text-xs text-muted text-center">
-                  {helperText}
-                </p>
+                <p className="text-xs text-muted text-center">{helperText}</p>
               )}
             </div>
           </div>
@@ -227,9 +232,7 @@ export function ImageUpload({
 
       {/* Error Message */}
       {displayError && (
-        <p className="text-sm mt-2 text-red-400">
-          {displayError}
-        </p>
+        <p className="text-sm mt-2 text-red-400">{displayError}</p>
       )}
     </div>
   );

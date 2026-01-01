@@ -60,9 +60,9 @@ export async function uploadImageToStorage(
     }
 
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(data.path);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(bucket).getPublicUrl(data.path);
 
     return publicUrl;
   } catch (error: any) {
@@ -122,9 +122,7 @@ export async function deleteImageFromStorage(
   try {
     const filePath = extractPathFromUrl(url, bucket);
 
-    const { error } = await supabase.storage
-      .from(bucket)
-      .remove([filePath]);
+    const { error } = await supabase.storage.from(bucket).remove([filePath]);
 
     if (error) {
       throw new Error(`Failed to delete image from storage: ${error.message}`);

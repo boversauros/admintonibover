@@ -36,40 +36,66 @@ interface IconDefinition {
 }
 
 const icons: Record<IconName, IconDefinition> = {
-  'menu': {
+  menu: {
     viewBox: '0 0 24 24',
     strokeWidth: '2',
-    render: () => <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />,
+    render: () => (
+      <path
+        d="M4 6h16M4 12h16M4 18h16"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
   },
-  'close': {
+  close: {
     viewBox: '0 0 24 24',
     strokeWidth: '2',
-    render: () => <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />,
+    render: () => (
+      <path
+        d="M6 18L18 6M6 6l12 12"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
   },
-  'x': {
+  x: {
     viewBox: '0 0 24 24',
     strokeWidth: '1.5',
-    render: () => <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />,
+    render: () => (
+      <path
+        d="M18 6L6 18M6 6l12 12"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
   },
   'chevron-left': {
     viewBox: '0 0 24 24',
     strokeWidth: '1.5',
-    render: () => <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />,
+    render: () => (
+      <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    ),
   },
   'chevron-right': {
     viewBox: '0 0 24 24',
     strokeWidth: '2',
-    render: () => <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />,
+    render: () => (
+      <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
+    ),
   },
   'chevron-down': {
     viewBox: '0 0 24 24',
     strokeWidth: '1.5',
-    render: () => <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />,
+    render: () => (
+      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    ),
   },
   'chevron-up': {
     viewBox: '0 0 24 24',
     strokeWidth: '1.5',
-    render: () => <path d="M18 15l-6-6-6 6" strokeLinecap="round" strokeLinejoin="round" />,
+    render: () => (
+      <path d="M18 15l-6-6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+    ),
   },
   'arrow-left': {
     viewBox: '0 0 20 20',
@@ -96,49 +122,83 @@ const icons: Record<IconName, IconDefinition> = {
   'arrow-right-line': {
     viewBox: '0 0 24 24',
     strokeWidth: '2',
-    render: () => <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />,
+    render: () => (
+      <path
+        d="M5 12h14M12 5l7 7-7 7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
   },
-  'edit': {
+  edit: {
     viewBox: '0 0 24 24',
     strokeWidth: '1.5',
     render: () => (
       <>
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </>
     ),
   },
-  'trash': {
+  trash: {
     viewBox: '0 0 24 24',
     strokeWidth: '1.5',
     render: () => (
       <>
-        <polyline points="3,6 5,6 21,6" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline
+          points="3,6 5,6 21,6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </>
     ),
   },
-  'plus': {
+  plus: {
     viewBox: '0 0 24 24',
     strokeWidth: '1.5',
-    render: () => <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />,
+    render: () => (
+      <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+    ),
   },
-  'check': {
+  check: {
     viewBox: '0 0 24 24',
     strokeWidth: '2',
-    render: () => <polyline points="20,6 9,17 4,12" strokeLinecap="round" strokeLinejoin="round" />,
+    render: () => (
+      <polyline
+        points="20,6 9,17 4,12"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
   },
-  'search': {
+  search: {
     viewBox: '0 0 24 24',
     strokeWidth: '1.5',
     render: () => (
       <>
         <circle cx="11" cy="11" r="8" />
-        <path d="M21 21l-4.35-4.35" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M21 21l-4.35-4.35"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </>
     ),
   },
-  'image': {
+  image: {
     viewBox: '0 0 24 24',
     strokeWidth: '1.5',
     render: () => (
@@ -173,11 +233,15 @@ const icons: Record<IconName, IconDefinition> = {
       </>
     ),
   },
-  'upload': {
+  upload: {
     viewBox: '0 0 24 24',
     strokeWidth: '2',
     render: () => (
-      <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     ),
   },
 };

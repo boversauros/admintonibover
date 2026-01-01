@@ -1,15 +1,18 @@
 # Implementation Plan: Posts Table on Home Page
 
 ## Overview
+
 Add a table to the home page (`app/page.tsx`) that displays all saved posts from localStorage with Edit and Delete actions.
 
 ## User Requirements
+
 - **Display**: Both CA and EN titles in separate columns
 - **Columns**: Title (CA), Title (EN), Category
 - **Actions**: Edit, Delete
 - **Navigation**: Link to create new post at /reflexions/new
 
 ## Current State
+
 - ✅ Table component exists (`components/ui/Table.tsx`)
 - ✅ getPosts() function exists (`lib/utils/localStorage.ts`)
 - ✅ Link to /reflexions/new already on home page
@@ -20,6 +23,7 @@ Add a table to the home page (`app/page.tsx`) that displays all saved posts from
 ### 1. Update Home Page (`app/page.tsx`)
 
 **Add State Management:**
+
 ```typescript
 'use client';
 
@@ -46,6 +50,7 @@ export default function Home() {
 ```
 
 **Define Table Columns:**
+
 ```typescript
 const columns = [
   {
@@ -61,7 +66,7 @@ const columns = [
   {
     key: 'category_id' as keyof StoredPost,
     label: 'Category',
-    render: (value) => {
+    render: value => {
       // Convert category_id to readable label
       const labels = {
         tech: 'Technology',
@@ -76,6 +81,7 @@ const columns = [
 ```
 
 **Define Table Actions:**
+
 ```typescript
 const actions = [
   {
@@ -99,6 +105,7 @@ const actions = [
 ```
 
 **Update JSX:**
+
 ```typescript
 return (
   <div className="min-h-screen p-8">
@@ -131,6 +138,7 @@ return (
 The Table component expects `key` to be `keyof T`, but nested properties like `translations.ca.title` won't work directly. Two solutions:
 
 **Option A: Use render function (Recommended)**
+
 ```typescript
 {
   key: 'id' as keyof StoredPost, // Use any valid key
@@ -140,11 +148,13 @@ The Table component expects `key` to be `keyof T`, but nested properties like `t
 ```
 
 **Option B: Create a flattened type**
+
 ```typescript
 // Not recommended - too complex for this use case
 ```
 
 ### 3. Future Enhancements (Not in this implementation)
+
 - Edit route: `/reflexions/[id]/edit` - Will need to be created
 - View route: `/reflexions/[id]` - For viewing full post
 - Search/filter functionality
@@ -154,17 +164,19 @@ The Table component expects `key` to be `keyof T`, but nested properties like `t
 ## Files to Modify
 
 **1. `/Users/oriolbovervila/Dev/projects/admintonibover/app/page.tsx`**
-   - Convert to client component ('use client')
-   - Add state management for posts
-   - Import Table, Button, Link components
-   - Import getPosts, savePosts utilities
-   - Define columns and actions
-   - Render Table with posts data
-   - Add "New Reflexion" button in header
+
+- Convert to client component ('use client')
+- Add state management for posts
+- Import Table, Button, Link components
+- Import getPosts, savePosts utilities
+- Define columns and actions
+- Render Table with posts data
+- Add "New Reflexion" button in header
 
 ## Implementation Details
 
 ### Delete Action Flow
+
 1. User clicks "Delete" button
 2. Confirmation dialog appears
 3. If confirmed:
@@ -174,12 +186,14 @@ The Table component expects `key` to be `keyof T`, but nested properties like `t
    - Table re-renders without deleted post
 
 ### Edit Action Flow
+
 1. User clicks "Edit" button
 2. Navigate to `/reflexions/[id]/edit`
 3. Note: Edit page doesn't exist yet - will show 404 for now
 4. This is intentional - can be implemented in next phase
 
 ### Empty State
+
 - If no posts exist, show friendly message
 - Include call-to-action to create first post
 - Message: "No posts yet. Create your first reflexion!"
@@ -187,6 +201,7 @@ The Table component expects `key` to be `keyof T`, but nested properties like `t
 ## Layout Changes
 
 **Before:**
+
 ```
 ┌─────────────────────────────────┐
 │ Reflexions MVP                  │
@@ -200,6 +215,7 @@ The Table component expects `key` to be `keyof T`, but nested properties like `t
 ```
 
 **After:**
+
 ```
 ┌─────────────────────────────────┐
 │ Reflexions      [+ New Reflexion]│
@@ -224,6 +240,7 @@ The Table component expects `key` to be `keyof T`, but nested properties like `t
 ## Testing Checklist
 
 After implementation, verify:
+
 - [ ] Table displays all posts from localStorage
 - [ ] CA titles display correctly
 - [ ] EN titles display correctly
@@ -236,6 +253,7 @@ After implementation, verify:
 - [ ] Table is responsive
 
 ## Time Estimate
+
 - Implementation: ~15 minutes
 - Testing: ~5 minutes
 - Total: ~20 minutes
@@ -243,9 +261,11 @@ After implementation, verify:
 ---
 
 **Critical File:**
+
 - `/Users/oriolbovervila/Dev/projects/admintonibover/app/page.tsx` - Main implementation
 
 **Dependencies:**
+
 - Table component (already exists)
 - getPosts/savePosts utilities (already exist)
 - Next.js useRouter for navigation

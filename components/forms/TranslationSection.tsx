@@ -1,6 +1,6 @@
-import { useFormContext } from "react-hook-form";
-import { Language } from "@/lib/types/post";
-import { Input, Textarea } from "@/components/ui";
+import { useFormContext } from 'react-hook-form';
+import { Language } from '@/lib/types/post';
+import { Input, Textarea } from '@/components/ui';
 
 interface TranslationSectionProps {
   language: Language;
@@ -25,13 +25,13 @@ export function TranslationSection({ language }: TranslationSectionProps) {
     | undefined;
 
   const titlePlaceholder =
-    language === "ca"
+    language === 'ca'
       ? "Escriu el títol de l'article..."
-      : "Write the article title...";
+      : 'Write the article title...';
   const contentPlaceholder =
-    language === "ca"
-      ? "Comença a escriure el contingut..."
-      : "Start writing the content...";
+    language === 'ca'
+      ? 'Comença a escriure el contingut...'
+      : 'Start writing the content...';
 
   return (
     <div className="space-y-6">

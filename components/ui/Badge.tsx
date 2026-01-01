@@ -25,7 +25,8 @@ export function Badge({
     md: 'px-3 py-1.5 text-base',
   };
 
-  const finalClasses = `inline-flex items-center bg-surface border ${variantClasses[variant]} ${sizeClasses[size]} ${className}`.trim();
+  const finalClasses =
+    `inline-flex items-center bg-surface border ${variantClasses[variant]} ${sizeClasses[size]} ${className}`.trim();
 
   return (
     <span className={finalClasses} {...rest}>

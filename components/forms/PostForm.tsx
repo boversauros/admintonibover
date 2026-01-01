@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useForm, FormProvider, Controller } from "react-hook-form";
-import { Select } from "@/components/ui";
-import { PostFormData, StoredPost, Language } from "@/lib/types/post";
-import { slugify, generateUniqueSlug } from "@/lib/utils/slugify";
-import { savePost, getExistingSlugs } from "@/lib/api/posts";
-import { uploadAndCreateImage, deleteImageCompletely } from "@/lib/api/images";
-import { getCategories, type Category } from "@/lib/api/categories";
-import { LanguageTabs } from "./LanguageTabs";
-import { TranslationSection } from "./TranslationSection";
-import { KeywordsSection } from "./KeywordsSection";
-import { ReferencesSection } from "./ReferencesSection";
-import { FormHeader } from "./FormHeader";
-import { ImageSelector } from "./ImageSelector";
-import { TranslationStatusPanel } from "./TranslationStatusPanel";
-import { CollapsibleSection } from "./CollapsibleSection";
+import { useState, useEffect } from 'react';
+import { useForm, FormProvider, Controller } from 'react-hook-form';
+import { Select } from '@/components/ui';
+import { PostFormData, StoredPost, Language } from '@/lib/types/post';
+import { slugify, generateUniqueSlug } from '@/lib/utils/slugify';
+import { savePost, getExistingSlugs } from '@/lib/api/posts';
+import { uploadAndCreateImage, deleteImageCompletely } from '@/lib/api/images';
+import { getCategories, type Category } from '@/lib/api/categories';
+import { LanguageTabs } from './LanguageTabs';
+import { TranslationSection } from './TranslationSection';
+import { KeywordsSection } from './KeywordsSection';
+import { ReferencesSection } from './ReferencesSection';
+import { FormHeader } from './FormHeader';
+import { ImageSelector } from './ImageSelector';
+import { TranslationStatusPanel } from './TranslationStatusPanel';
+import { CollapsibleSection } from './CollapsibleSection';
 
 interface PostFormProps {
   initialData?: StoredPost;
@@ -23,20 +23,20 @@ interface PostFormProps {
 }
 
 export function PostForm({ initialData, onSuccess }: PostFormProps) {
-  const [activeLanguage, setActiveLanguage] = useState<Language>("ca");
+  const [activeLanguage, setActiveLanguage] = useState<Language>('ca');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [existingThumbnailId, setExistingThumbnailId] = useState<string | null>(
     initialData?.thumbnail_id || null
   );
   const [existingThumbnailUrl, setExistingThumbnailUrl] = useState<string>(
-    initialData?.thumbnail?.url || ""
+    initialData?.thumbnail?.url || ''
   );
   const [existingMainImageId, setExistingMainImageId] = useState<string | null>(
     initialData?.image_id || null
   );
   const [existingMainImageUrl, setExistingMainImageUrl] = useState<string>(
-    initialData?.image?.url || ""
+    initialData?.image?.url || ''
   );
 
   // Load categories on mount
@@ -46,7 +46,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         const fetchedCategories = await getCategories();
         setCategories(fetchedCategories);
       } catch (error) {
-        console.error("Failed to load categories:", error);
+        console.error('Failed to load categories:', error);
       }
     }
     loadCategories();
@@ -63,7 +63,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           is_published: initialData.is_published,
           translations: {
             ca: {
-              language: "ca",
+              language: 'ca',
               title: initialData.translations.ca.title,
               content: initialData.translations.ca.content,
               slug: initialData.translations.ca.slug,
@@ -71,7 +71,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
               references: initialData.translations.ca.references,
             },
             en: {
-              language: "en",
+              language: 'en',
               title: initialData.translations.en.title,
               content: initialData.translations.en.content,
               slug: initialData.translations.en.slug,
@@ -81,48 +81,55 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           },
         }
       : {
-          category_id: "",
-          date: "",
-          author: "",
+          category_id: '',
+          date: '',
+          author: '',
           thumbnail_file: null,
           main_image_file: null,
           is_published: false,
           translations: {
             ca: {
-              language: "ca",
-              title: "",
-              content: "",
-              slug: "",
+              language: 'ca',
+              title: '',
+              content: '',
+              slug: '',
               keywords: [],
               references: [],
             },
             en: {
-              language: "en",
-              title: "",
-              content: "",
-              slug: "",
+              language: 'en',
+              title: '',
+              content: '',
+              slug: '',
               keywords: [],
               references: [],
             },
           },
         },
-    mode: "onChange",
+    mode: 'onChange',
   });
 
-  const { watch, setValue, handleSubmit, reset, register, formState: { errors } } = methods;
+  const {
+    watch,
+    setValue,
+    handleSubmit,
+    reset,
+    register,
+    formState: { errors },
+  } = methods;
 
   // Auto-generate slugs from titles
-  const titleCA = watch("translations.ca.title");
-  const titleEN = watch("translations.en.title");
-  const slugCA = watch("translations.ca.slug");
-  const slugEN = watch("translations.en.slug");
+  const titleCA = watch('translations.ca.title');
+  const titleEN = watch('translations.en.title');
+  const slugCA = watch('translations.ca.slug');
+  const slugEN = watch('translations.en.slug');
 
   useEffect(() => {
     if (titleCA) {
       const generatedSlug = slugify(titleCA);
       // Only update if slug is empty or matches the previously generated slug
-      if (!slugCA || slugCA === slugify(watch("translations.ca.title"))) {
-        setValue("translations.ca.slug", generatedSlug);
+      if (!slugCA || slugCA === slugify(watch('translations.ca.title'))) {
+        setValue('translations.ca.slug', generatedSlug);
       }
     }
   }, [titleCA]);
@@ -130,8 +137,8 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
   useEffect(() => {
     if (titleEN) {
       const generatedSlug = slugify(titleEN);
-      if (!slugEN || slugEN === slugify(watch("translations.en.title"))) {
-        setValue("translations.en.slug", generatedSlug);
+      if (!slugEN || slugEN === slugify(watch('translations.en.title'))) {
+        setValue('translations.en.slug', generatedSlug);
       }
     }
   }, [titleEN]);
@@ -153,9 +160,9 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         // Upload new thumbnail
         const uploadedThumbnail = await uploadAndCreateImage(
           data.thumbnail_file,
-          "post-thumbnails",
-          "Post Thumbnail",
-          `Thumbnail for ${data.translations.ca.title || "post"}`
+          'post-thumbnails',
+          'Post Thumbnail',
+          `Thumbnail for ${data.translations.ca.title || 'post'}`
         );
 
         thumbnailId = uploadedThumbnail.id;
@@ -166,7 +173,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           await deleteImageCompletely(
             existingThumbnailId,
             existingThumbnailUrl,
-            "post-thumbnails"
+            'post-thumbnails'
           );
         }
       }
@@ -179,9 +186,9 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         // Upload new main image
         const uploadedMainImage = await uploadAndCreateImage(
           data.main_image_file,
-          "post-images",
-          "Post Main Image",
-          `Main image for ${data.translations.ca.title || "post"}`
+          'post-images',
+          'Post Main Image',
+          `Main image for ${data.translations.ca.title || 'post'}`
         );
 
         mainImageId = uploadedMainImage.id;
@@ -192,15 +199,15 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           await deleteImageCompletely(
             existingMainImageId,
             existingMainImageUrl,
-            "post-images"
+            'post-images'
           );
         }
       }
 
       // 3. Get existing slugs for uniqueness check (exclude current post if editing)
       const [existingSlugsCA, existingSlugsEN] = await Promise.all([
-        getExistingSlugs("ca", isEditMode ? initialData.id : undefined),
-        getExistingSlugs("en", isEditMode ? initialData.id : undefined),
+        getExistingSlugs('ca', isEditMode ? initialData.id : undefined),
+        getExistingSlugs('en', isEditMode ? initialData.id : undefined),
       ]);
 
       const uniqueSlugCA = generateUniqueSlug(
@@ -214,16 +221,16 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
 
       // Note: user_id is handled automatically by the API layer for new posts
       // It gets the authenticated user from the session
-      const authorName = data.author || "Admin";
+      const authorName = data.author || 'Admin';
 
       const storedPost: StoredPost = {
-        id: isEditMode ? initialData.id : "", // Empty string for new posts (DB will auto-generate)
-        user_id: isEditMode ? initialData.user_id : "", // API will set this for new posts
+        id: isEditMode ? initialData.id : '', // Empty string for new posts (DB will auto-generate)
+        user_id: isEditMode ? initialData.user_id : '', // API will set this for new posts
         category_id: data.category_id,
         thumbnail_id: thumbnailId,
         image_id: mainImageId,
         is_published: data.is_published,
-        date: isEditMode ? initialData.date : now.split("T")[0],
+        date: isEditMode ? initialData.date : now.split('T')[0],
         author: isEditMode ? initialData.author : authorName,
         created_at: isEditMode ? initialData.created_at : now,
         updated_at: now,
@@ -231,12 +238,12 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           ca: {
             ...data.translations.ca,
             slug: uniqueSlugCA,
-            post_id: isEditMode ? initialData.id : "",
+            post_id: isEditMode ? initialData.id : '',
           },
           en: {
             ...data.translations.en,
             slug: uniqueSlugEN,
-            post_id: isEditMode ? initialData.id : "",
+            post_id: isEditMode ? initialData.id : '',
           },
         },
       };
@@ -250,7 +257,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
       setExistingMainImageId(mainImageId);
       setExistingMainImageUrl(newMainImageUrl);
 
-      console.log(`Post ${isEditMode ? "updated" : "saved"} successfully`);
+      console.log(`Post ${isEditMode ? 'updated' : 'saved'} successfully`);
 
       // Call onSuccess callback if provided (will redirect to home page)
       if (onSuccess) {
@@ -259,35 +266,38 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
 
       setIsSubmitting(false);
     } catch (error: any) {
-      console.error("Error saving post:", error);
-      alert(error.message || "Failed to save post");
+      console.error('Error saving post:', error);
+      alert(error.message || 'Failed to save post');
       setIsSubmitting(false);
     }
   };
 
-  const categoryOptions = categories.map((cat) => ({
+  const categoryOptions = categories.map(cat => ({
     value: cat.id.toString(),
     label: cat.name_ca,
   }));
 
   const handlePublishToggle = () => {
-    setValue("is_published", !watch("is_published"));
+    setValue('is_published', !watch('is_published'));
   };
 
   const handleThumbnailSelect = (file: File | null) => {
-    setValue("thumbnail_file", file);
+    setValue('thumbnail_file', file);
   };
 
   const handleMainImageSelect = (file: File | null) => {
-    setValue("main_image_file", file);
+    setValue('main_image_file', file);
   };
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmit)} className="min-h-screen bg-background">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="min-h-screen bg-background"
+      >
         {/* Sticky Header */}
         <FormHeader
-          isPublished={watch("is_published")}
+          isPublished={watch('is_published')}
           onPublishToggle={handlePublishToggle}
           isSubmitting={isSubmitting}
           isEditMode={!!initialData}
@@ -347,7 +357,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
                   Categoria
                 </label>
                 <Select
-                  {...register("category_id")}
+                  {...register('category_id')}
                   options={categoryOptions}
                   placeholder="Selecciona..."
                   error={errors.category_id?.message as string}

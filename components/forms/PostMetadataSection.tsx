@@ -6,7 +6,10 @@ import { Select, Heading, Text } from '@/components/ui';
 import { getCategories, type Category } from '@/lib/api/categories';
 
 export function PostMetadataSection() {
-  const { register, formState: { errors } } = useFormContext();
+  const {
+    register,
+    formState: { errors },
+  } = useFormContext();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -25,20 +28,24 @@ export function PostMetadataSection() {
     loadCategories();
   }, []);
 
-  const categoryOptions = categories.map((cat) => ({
+  const categoryOptions = categories.map(cat => ({
     value: cat.id.toString(),
     label: `${cat.name_ca} / ${cat.name_en}`,
   }));
 
   return (
     <div className="space-y-4">
-      <Heading as="h3" size="xl">Post Metadata</Heading>
+      <Heading as="h3" size="xl">
+        Post Metadata
+      </Heading>
 
       <Select
         label="Category"
         {...register('category_id')}
         options={categoryOptions}
-        placeholder={isLoading ? "Loading categories..." : "Select a category..."}
+        placeholder={
+          isLoading ? 'Loading categories...' : 'Select a category...'
+        }
         error={errors.category_id?.message as string}
         disabled={isLoading}
       />

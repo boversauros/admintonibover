@@ -30,7 +30,8 @@ export function Text({
 
   const italicClass = italic && variant !== 'caption' ? 'italic' : '';
   const serifClass = serif && variant !== 'caption' ? 'font-serif' : '';
-  const finalClasses = `${variantClasses[variant]} ${italicClass} ${serifClass} ${className}`.trim();
+  const finalClasses =
+    `${variantClasses[variant]} ${italicClass} ${serifClass} ${className}`.trim();
 
   const TextElement = Element as ElementType;
 

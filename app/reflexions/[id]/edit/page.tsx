@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { AuthGuard } from "@/components/auth/AuthGuard";
-import { PostForm } from "@/components/forms/PostForm";
-import { getPosts } from "@/lib/api/posts";
-import { StoredPost } from "@/lib/types/post";
-import { Container, Heading, Text, Link } from "@/components/ui";
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { AuthGuard } from '@/components/auth/AuthGuard';
+import { PostForm } from '@/components/forms/PostForm';
+import { getPosts } from '@/lib/api/posts';
+import { StoredPost } from '@/lib/types/post';
+import { Container, Heading, Text, Link } from '@/components/ui';
 
 function EditReflexionContent() {
   const params = useParams();
@@ -19,7 +19,7 @@ function EditReflexionContent() {
       try {
         const postId = params.id as string;
         const posts = await getPosts();
-        const foundPost = posts.find((p) => p.id === postId);
+        const foundPost = posts.find(p => p.id === postId);
 
         if (foundPost) {
           setPost(foundPost);
@@ -27,7 +27,7 @@ function EditReflexionContent() {
           setNotFound(true);
         }
       } catch (error) {
-        console.error("Error loading post:", error);
+        console.error('Error loading post:', error);
         setNotFound(true);
       }
     };
@@ -35,7 +35,7 @@ function EditReflexionContent() {
   }, [params.id]);
 
   const handleSuccess = () => {
-    router.push("/");
+    router.push('/');
   };
 
   if (notFound) {

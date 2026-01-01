@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useState, ReactNode } from "react";
-import { Icon } from "@/components/ui";
+import { useState, ReactNode } from 'react';
+import { Icon } from '@/components/ui';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -28,7 +28,7 @@ export function CollapsibleSection({
         </span>
         <span
           className={`transform transition-transform duration-300 ${
-            isOpen ? "rotate-180" : ""
+            isOpen ? 'rotate-180' : ''
           }`}
         >
           <Icon name="chevron-down" />

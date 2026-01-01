@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* ============================================
    DESIGN TOKENS
@@ -104,9 +104,10 @@
 
   /* ===== Typography ===== */
   /* Font Families */
-  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-serif: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-sans:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
 
   /* Font Sizes */
   --text-8xl: 6rem; /* 96px */
@@ -192,8 +193,9 @@
   /* ===== Transitions ===== */
   --duration-fast: 300ms;
   --duration-slow: 700ms;
-  --transition-colors: color var(--duration-fast),
-    background-color var(--duration-fast), border-color var(--duration-fast);
+  --transition-colors:
+    color var(--duration-fast), background-color var(--duration-fast),
+    border-color var(--duration-fast);
   --transition-opacity: opacity var(--duration-slow);
   --transition-transform: transform var(--duration-fast);
 
@@ -209,9 +211,12 @@
 
   /* ===== Shadows ===== */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-xl:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
   --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
 
   /* ===== Focus Ring ===== */
@@ -462,12 +467,16 @@
     outline: none;
   }
   .focus-ring:focus {
-    box-shadow: 0 0 0 var(--focus-ring-offset) var(--focus-ring-offset-color),
-                0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width)) var(--focus-ring-color);
+    box-shadow:
+      0 0 0 var(--focus-ring-offset) var(--focus-ring-offset-color),
+      0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width))
+        var(--focus-ring-color);
   }
   .focus\:ring-focus:focus {
-    box-shadow: 0 0 0 var(--focus-ring-offset) var(--focus-ring-offset-color),
-                0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width)) var(--focus-ring-color);
+    box-shadow:
+      0 0 0 var(--focus-ring-offset) var(--focus-ring-offset-color),
+      0 0 0 calc(var(--focus-ring-offset) + var(--focus-ring-width))
+        var(--focus-ring-color);
   }
 
   /* ===== Shadows ===== */

@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { AuthGuard } from "@/components/auth/AuthGuard";
-import { PostForm } from "@/components/forms/PostForm";
+import { useRouter } from 'next/navigation';
+import { AuthGuard } from '@/components/auth/AuthGuard';
+import { PostForm } from '@/components/forms/PostForm';
 
 function NewReflexionContent() {
   const router = useRouter();
 
   const handleSuccess = () => {
-    router.push("/");
+    router.push('/');
   };
 
   return <PostForm onSuccess={handleSuccess} />;

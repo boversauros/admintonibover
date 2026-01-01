@@ -11,7 +11,10 @@ export interface SelectGroup {
   items: SelectOption[];
 }
 
-interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
+interface SelectProps extends Omit<
+  SelectHTMLAttributes<HTMLSelectElement>,
+  'size'
+> {
   label?: string;
   error?: string;
   helperText?: string;
@@ -25,11 +28,7 @@ interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'siz
 function isSelectGroup(
   options: SelectOption[] | SelectGroup[]
 ): options is SelectGroup[] {
-  return (
-    options.length > 0 &&
-    'group' in options[0] &&
-    'items' in options[0]
-  );
+  return options.length > 0 && 'group' in options[0] && 'items' in options[0];
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
@@ -73,7 +72,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       transition-colors-default
       ${sizeClasses[size]}
       ${className}
-    `.trim().replace(/\s+/g, ' ');
+    `
+      .trim()
+      .replace(/\s+/g, ' ');
 
     // Uses --color-text-muted (#9ca3af) for chevron color
     const chevronSvg = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E`;
@@ -107,9 +108,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
               </option>
             )}
             {isSelectGroup(options)
-              ? options.map((group) => (
+              ? options.map(group => (
                   <optgroup key={group.group} label={group.group}>
-                    {group.items.map((option) => (
+                    {group.items.map(option => (
                       <option
                         key={option.value}
                         value={option.value}
@@ -120,7 +121,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                     ))}
                   </optgroup>
                 ))
-              : options.map((option) => (
+              : options.map(option => (
                   <option
                     key={option.value}
                     value={option.value}
@@ -132,7 +133,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           </select>
         </div>
         {(error || helperText) && (
-          <p className={`text-sm mt-1 ${error ? 'text-red-400' : 'text-muted'}`}>
+          <p
+            className={`text-sm mt-1 ${error ? 'text-red-400' : 'text-muted'}`}
+          >
             {error || helperText}
           </p>
         )}
