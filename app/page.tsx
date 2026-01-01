@@ -93,7 +93,7 @@ function PostsContent() {
           </div>
           <Button onClick={handleCreate} variant="primary">
             <span className="flex items-center gap-2">
-              <Icon name="plus" size="5" /> Nou article
+              <Icon name="plus" size="3" /> Nou article
             </span>
           </Button>
         </div>

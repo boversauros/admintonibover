@@ -108,7 +108,7 @@ export function KeywordsInput({
                 key={i}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-overlay-5 border border-overlay-20 text-sm text-primary-80"
               >
-                #{kw}
+                {kw}
                 <button
                   type="button"
                   onClick={() => handleRemove(kw)}
@@ -157,7 +157,7 @@ export function KeywordsInput({
                     }}
                     className="px-2.5 py-1 text-xs text-body bg-overlay-5 hover:bg-overlay-10 hover:text-primary transition-colors"
                   >
-                    #{kw}
+                    {kw}
                   </button>
                 ))}
               </div>
