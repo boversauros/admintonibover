@@ -18,7 +18,8 @@ export type IconName =
   | 'search'
   | 'image'
   | 'image-placeholder'
-  | 'grip-vertical';
+  | 'grip-vertical'
+  | 'upload';
 
 export type IconSize = '3' | '4' | '5' | '6' | '8' | '10' | '12';
 
@@ -170,6 +171,13 @@ const icons: Record<IconName, IconDefinition> = {
         <circle cx="9" cy="18" r="1.5" fill="currentColor" />
         <circle cx="15" cy="18" r="1.5" fill="currentColor" />
       </>
+    ),
+  },
+  'upload': {
+    viewBox: '0 0 24 24',
+    strokeWidth: '2',
+    render: () => (
+      <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" strokeLinecap="round" strokeLinejoin="round" />
     ),
   },
 };

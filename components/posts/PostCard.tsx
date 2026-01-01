@@ -33,10 +33,10 @@ export function PostCard({
 
   return (
     <article className="group">
-      <div className="flex gap-5 py-4 border-b border-white/10 hover:bg-white/2 transition-colors duration-300">
+      <div className="flex gap-5 py-4 border-b border-overlay-10 hover:bg-overlay-2 transition-colors duration-300">
         {/* Left: Thumbnail - taller, wider */}
         <div
-          className="relative w-48 shrink-0 overflow-hidden bg-white/5 cursor-pointer self-stretch min-h-[100px]"
+          className="relative w-48 shrink-0 overflow-hidden bg-overlay-5 cursor-pointer self-stretch min-h-[100px]"
           onClick={() => onEdit(post)}
           role="button"
           tabIndex={0}
@@ -65,7 +65,7 @@ export function PostCard({
               <span className="text-slate-400 text-xs tracking-widest uppercase font-medium">
                 {categoryLabel}
               </span>
-              <span className="w-px h-3 bg-white/20" aria-hidden="true" />
+              <span className="w-px h-3 bg-overlay-20" aria-hidden="true" />
               <LanguageIndicator
                 hasCA={!!post.translations.ca?.title}
                 hasEN={!!post.translations.en?.title}
@@ -79,7 +79,7 @@ export function PostCard({
               className="group/title text-left w-full"
               aria-label={`Edit: ${title}`}
             >
-              <h3 className="text-lg font-serif text-white leading-snug inline">
+              <h3 className="text-lg font-serif text-primary leading-snug inline">
                 {title}
                 <Icon
                   name="arrow-right-line"
@@ -90,7 +90,7 @@ export function PostCard({
 
             {/* Excerpt - improved contrast */}
             {excerpt && (
-              <p className="text-sm text-white/60 leading-relaxed mt-2 line-clamp-2">
+              <p className="text-sm text-primary-60 leading-relaxed mt-2 line-clamp-2">
                 {excerpt}
               </p>
             )}
@@ -102,7 +102,7 @@ export function PostCard({
               {keywords.map((kw, i) => (
                 <span
                   key={i}
-                  className="text-sm text-white/50 tracking-wide"
+                  className="text-sm text-primary-50 tracking-wide"
                 >
                   #{kw}
                 </span>
@@ -118,7 +118,7 @@ export function PostCard({
               e.stopPropagation();
               onEdit(post);
             }}
-            className="w-9 h-9 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 transition-all duration-200"
+            className="w-9 h-9 flex items-center justify-center text-primary-30 hover:text-primary hover:bg-overlay-10 transition-all duration-200"
             aria-label="Edit post"
           >
             <Icon name="edit" />
@@ -128,7 +128,7 @@ export function PostCard({
               e.stopPropagation();
               onDelete(post);
             }}
-            className="w-9 h-9 flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+            className="w-9 h-9 flex items-center justify-center text-primary-30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
             aria-label="Delete post"
           >
             <Icon name="trash" />

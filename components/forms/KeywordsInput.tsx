@@ -97,20 +97,20 @@ export function KeywordsInput({
         </label>
       )}
 
-      <div className="border border-default focus-within:border-slate-500 transition-colors">
+      <div className="border border-default focus-within:border-focus transition-colors">
         {/* Selected keywords */}
         {value.length > 0 && (
           <div className="flex flex-wrap gap-2 p-3 pb-0">
             {value.map((kw, i) => (
               <span
                 key={i}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/20 text-sm text-white/80"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-overlay-5 border border-overlay-20 text-sm text-primary-80"
               >
                 #{kw}
                 <button
                   type="button"
                   onClick={() => handleRemove(kw)}
-                  className="text-white/40 hover:text-red-400 transition-colors"
+                  className="text-primary-40 hover:text-red-400 transition-colors"
                 >
                   <Icon name="x" />
                 </button>
@@ -151,7 +151,7 @@ export function KeywordsInput({
                       addKeyword(kw);
                       inputRef.current?.focus();
                     }}
-                    className="px-2.5 py-1 text-xs text-body bg-white/5 hover:bg-white/10 hover:text-primary transition-colors"
+                    className="px-2.5 py-1 text-xs text-body bg-overlay-5 hover:bg-overlay-10 hover:text-primary transition-colors"
                   >
                     #{kw}
                   </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { Button } from '@/components/ui';
+import { Button, Icon } from '@/components/ui';
 import { Image } from '@/components/ui/Image';
 
 interface ImageUploadProps {
@@ -192,27 +192,14 @@ export function ImageUpload({
               border-2 border-dashed p-8
               transition-colors duration-200
               ${isDragging
-                ? 'border-slate-500 bg-surface'
+                ? 'border-focus bg-surface'
                 : 'border-default hover:border-subtle'
               }
             `}
           >
             <div className="flex flex-col items-center justify-center space-y-4">
               {/* Upload Icon */}
-              <svg
-                className="w-12 h-12 text-muted"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
-              </svg>
+              <Icon name="upload" size="12" className="text-muted" />
 
               <div className="text-center">
                 <p className="text-sm text-muted mb-2">
