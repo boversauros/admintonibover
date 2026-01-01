@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Icon } from "@/components/ui";
+import { Icon, Button } from "@/components/ui";
 
 interface ImageSelectorProps {
   label: string;
@@ -91,23 +91,23 @@ export function ImageSelector({
               className="absolute inset-0 w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-              <button
-                type="button"
-                className="p-2 bg-overlay-10 hover:bg-overlay-20 transition-colors"
+              <Button
+                variant="icon"
+                className="bg-overlay-10 hover:bg-overlay-20"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleClick();
                 }}
               >
                 <Icon name="edit" />
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="icon"
                 onClick={handleClear}
-                className="p-2 bg-overlay-10 hover:bg-red-500/50 transition-colors"
+                className="bg-overlay-10 hover:bg-red-500/50"
               >
                 <Icon name="trash" />
-              </button>
+              </Button>
             </div>
           </>
         ) : (

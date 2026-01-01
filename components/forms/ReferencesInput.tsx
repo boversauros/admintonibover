@@ -1,7 +1,7 @@
 "use client";
 
 import { Reference } from "@/lib/types/post";
-import { Icon, Input, Select, Textarea } from "@/components/ui";
+import { Icon, Input, Select, Textarea, Button } from "@/components/ui";
 
 interface ReferencesInputProps {
   value: Reference[];
@@ -93,13 +93,13 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
             </div>
 
             {/* Remove Button */}
-            <button
-              type="button"
+            <Button
+              variant="icon"
               onClick={() => handleRemove(ref.id)}
-              className="p-2 text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+              className="opacity-0 group-hover:opacity-100 hover:text-red-400"
             >
               <Icon name="trash" />
-            </button>
+            </Button>
           </div>
         </div>
       ))}

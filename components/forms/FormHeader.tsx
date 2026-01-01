@@ -25,14 +25,13 @@ export function FormHeader({
   return (
     <header className="sticky top-0 z-50 bg-nav backdrop-blur-sm border-b border-default">
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={handleBack}
-          className="flex items-center gap-2 text-muted hover:text-primary transition-colors"
         >
           <Icon name="chevron-left" size="5" />
           <span className="text-sm">Tornar</span>
-        </button>
+        </Button>
 
         <div className="flex items-center gap-3">
           {/* Publish Toggle */}

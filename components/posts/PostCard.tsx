@@ -1,7 +1,7 @@
 "use client";
 
 import { StoredPost } from "@/lib/types/post";
-import { StatusBadge, LanguageIndicator, Icon } from "@/components/ui";
+import { StatusBadge, LanguageIndicator, Icon, Button } from "@/components/ui";
 
 interface PostCardProps {
   post: StoredPost;
@@ -113,26 +113,27 @@ export function PostCard({
 
         {/* Right: Always-visible actions */}
         <div className="flex flex-col justify-center gap-0 shrink-0">
-          <button
+          <Button
+            variant="icon"
             onClick={(e) => {
               e.stopPropagation();
               onEdit(post);
             }}
-            className="w-9 h-9 flex items-center justify-center text-primary-30 hover:text-primary hover:bg-overlay-10 transition-all duration-200"
             aria-label="Edit post"
           >
             <Icon name="edit" />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="icon"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(post);
             }}
-            className="w-9 h-9 flex items-center justify-center text-primary-30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+            className="hover:text-red-400 hover:bg-red-500/10"
             aria-label="Delete post"
           >
             <Icon name="trash" />
-          </button>
+          </Button>
         </div>
       </div>
     </article>
