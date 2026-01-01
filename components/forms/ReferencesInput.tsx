@@ -1,49 +1,12 @@
 "use client";
 
 import { Reference } from "@/lib/types/post";
+import { Icon } from "@/components/ui";
 
 interface ReferencesInputProps {
   value: Reference[];
   onChange: (references: Reference[]) => void;
 }
-
-const GripVerticalIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-    <circle cx="9" cy="6" r="1.5" />
-    <circle cx="15" cy="6" r="1.5" />
-    <circle cx="9" cy="12" r="1.5" />
-    <circle cx="15" cy="12" r="1.5" />
-    <circle cx="9" cy="18" r="1.5" />
-    <circle cx="15" cy="18" r="1.5" />
-  </svg>
-);
-
-const TrashIcon = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-  >
-    <polyline points="3,6 5,6 21,6" />
-    <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6" />
-  </svg>
-);
-
-const PlusIcon = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-  >
-    <path d="M12 5v14M5 12h14" />
-  </svg>
-);
 
 export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
   const handleAdd = () => {
@@ -72,12 +35,12 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
       {value.map((ref) => (
         <div
           key={ref.id}
-          className="group border border-default p-4 bg-white/2"
+          className="group border border-default p-4 bg-overlay-2"
         >
           <div className="flex items-start gap-3">
             {/* Drag Handle */}
             <div className="pt-1 text-muted cursor-grab opacity-0 group-hover:opacity-100 transition-opacity">
-              <GripVerticalIcon />
+              <Icon name="grip-vertical" />
             </div>
 
             {/* Content */}
@@ -93,7 +56,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
                       e.target.value as "image" | "text"
                     )
                   }
-                  className="bg-surface border border-default px-3 py-2 text-sm text-primary focus:outline-none focus:border-slate-500"
+                  className="bg-surface border border-default px-3 py-2 text-sm text-primary focus:outline-none focus:border-focus"
                 >
                   <option value="text">Text</option>
                   <option value="image">Imatge</option>
@@ -107,7 +70,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
                     handleUpdate(ref.id, "reference", e.target.value)
                   }
                   placeholder="Font o autor..."
-                  className="flex-1 bg-transparent border border-default px-3 py-2 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-slate-500"
+                  className="flex-1 bg-transparent border border-default px-3 py-2 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-focus"
                 />
               </div>
 
@@ -119,7 +82,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
                 }
                 placeholder="Cita o extracte (opcional)..."
                 rows={2}
-                className="w-full bg-transparent border border-default px-3 py-2 text-sm text-body placeholder:text-muted focus:outline-none focus:border-slate-500 resize-none font-serif italic"
+                className="w-full bg-transparent border border-default px-3 py-2 text-sm text-body placeholder:text-muted focus:outline-none focus:border-focus resize-none font-serif italic"
               />
             </div>
 
@@ -129,7 +92,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
               onClick={() => handleRemove(ref.id)}
               className="p-2 text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
             >
-              <TrashIcon />
+              <Icon name="trash" />
             </button>
           </div>
         </div>
@@ -141,7 +104,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
         onClick={handleAdd}
         className="w-full py-3 border border-dashed border-default text-muted hover:border-subtle hover:text-secondary transition-colors text-sm flex items-center justify-center gap-2"
       >
-        <PlusIcon /> Afegeix referència
+        <Icon name="plus" /> Afegeix referència
       </button>
     </div>
   );

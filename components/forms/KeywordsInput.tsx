@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { Language } from "@/lib/types/post";
+import { Icon } from "@/components/ui";
 
 interface KeywordsInputProps {
   value: string[];
@@ -11,19 +12,6 @@ interface KeywordsInputProps {
   language?: Language;
   suggestions?: string[];
 }
-
-const XIcon = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-  >
-    <path d="M18 6L6 18M6 6l12 12" />
-  </svg>
-);
 
 export function KeywordsInput({
   value,
@@ -124,7 +112,7 @@ export function KeywordsInput({
                   onClick={() => handleRemove(kw)}
                   className="text-white/40 hover:text-red-400 transition-colors"
                 >
-                  <XIcon />
+                  <Icon name="x" />
                 </button>
               </span>
             ))}

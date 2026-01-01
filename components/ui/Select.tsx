@@ -64,7 +64,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       appearance-none
       cursor-pointer
       focus:outline-none
-      focus:border-slate-500
+      focus:border-focus
       hover:border-subtle
       disabled:opacity-50
       disabled:cursor-not-allowed
@@ -73,6 +73,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       ${className}
     `.trim().replace(/\s+/g, ' ');
 
+    // Uses --color-text-muted (#9ca3af) for chevron color
     const chevronSvg = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E`;
 
     return (

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Header } from '@/components/layout/Header';
-import { Button } from '@/components/ui';
+import { Button, Icon } from '@/components/ui';
 import { PostCard, PostsFilters, FilterStatus } from '@/components/posts';
 import { getPosts, deletePost } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
@@ -15,19 +15,6 @@ const categoryLabels: Record<string, string> = {
   '2': 'Influències',
   '3': 'Perspectives',
 };
-
-const PlusIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-  >
-    <path d="M12 5v14M5 12h14" />
-  </svg>
-);
 
 function PostsContent() {
   const [posts, setPosts] = useState<StoredPost[]>([]);
@@ -106,7 +93,7 @@ function PostsContent() {
           </div>
           <Button onClick={handleCreate} variant="primary">
             <span className="flex items-center gap-2">
-              <PlusIcon /> Nou article
+              <Icon name="plus" size="5" /> Nou article
             </span>
           </Button>
         </div>

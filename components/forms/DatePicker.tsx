@@ -45,7 +45,7 @@ export function DatePicker({
           px-4
           py-2
           focus:outline-none
-          focus:border-slate-500
+          focus:border-focus
           hover:border-subtle
           transition-colors-default
         `.trim().replace(/\s+/g, ' ')}

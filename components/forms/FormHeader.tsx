@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui";
+import { Button, Icon } from "@/components/ui";
 
 interface FormHeaderProps {
   isPublished: boolean;
@@ -9,32 +9,6 @@ interface FormHeaderProps {
   isSubmitting: boolean;
   isEditMode: boolean;
 }
-
-const ChevronLeftIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-  >
-    <path d="M15 18l-6-6 6-6" />
-  </svg>
-);
-
-const CheckIcon = () => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    <polyline points="20,6 9,17 4,12" />
-  </svg>
-);
 
 export function FormHeader({
   isPublished,
@@ -56,7 +30,7 @@ export function FormHeader({
           onClick={handleBack}
           className="flex items-center gap-2 text-muted hover:text-primary transition-colors"
         >
-          <ChevronLeftIcon />
+          <Icon name="chevron-left" size="5" />
           <span className="text-sm">Tornar</span>
         </button>
 
@@ -73,7 +47,7 @@ export function FormHeader({
           >
             {isPublished ? (
               <span className="flex items-center gap-2">
-                <CheckIcon /> Publicat
+                <Icon name="check" size="4" /> Publicat
               </span>
             ) : (
               "Esborrany"

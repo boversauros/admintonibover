@@ -45,7 +45,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       placeholder:text-muted
       resize-none
       focus:outline-none
-      focus:border-slate-500
+      focus:border-focus
       hover:border-subtle
       disabled:opacity-50
       disabled:cursor-not-allowed
