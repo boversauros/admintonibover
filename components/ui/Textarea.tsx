@@ -26,7 +26,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       showCharCount = false,
       maxChars,
       wrapperClassName = 'w-full',
-      labelClassName = 'block text-xs text-muted uppercase tracking-wider mb-2',
+      labelClassName = 'font-serif block text-xs text-muted uppercase tracking-wider mb-2',
       className = '',
       id,
       value,
@@ -45,7 +45,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 
     const textareaClasses = `
       w-full
-      bg-surface
+      bg-transparent
       border
       ${isInvalid || error ? 'border-red-400' : 'border-default'}
       text-primary

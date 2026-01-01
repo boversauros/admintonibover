@@ -39,7 +39,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
     const inputClasses = `
       w-full
-      bg-surface
+      bg-transperent
       border
       ${isInvalid || error ? 'border-red-400' : 'border-default'}
       text-primary

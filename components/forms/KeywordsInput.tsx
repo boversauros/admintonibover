@@ -90,7 +90,10 @@ export function KeywordsInput({
   return (
     <div className="space-y-2" ref={containerRef}>
       {label && (
-        <label className="block text-xs text-muted uppercase tracking-wider">
+        <label
+          htmlFor="keywords-input"
+          className="font-serif block text-xs text-muted uppercase tracking-wider mb-2"
+        >
           {label}
           <span className="text-subtle normal-case ml-1">({langLabel})</span>
         </label>
@@ -122,6 +125,8 @@ export function KeywordsInput({
         <div className="relative">
           <input
             ref={inputRef}
+            id="keywords-input"
+            aria-label="Paraules clau"
             type="text"
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}

@@ -58,7 +58,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 
     const selectClasses = `
       w-full
-      bg-surface
+      bg-transparent
       border
       ${isInvalid || error ? 'border-red-400' : 'border-default'}
       text-primary
