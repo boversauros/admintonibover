@@ -12,12 +12,13 @@ interface PostCardProps {
 
 const EditIcon = () => (
   <svg
-    width="18"
-    height="18"
+    width="16"
+    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
     strokeWidth="1.5"
+    aria-hidden="true"
   >
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -26,27 +27,44 @@ const EditIcon = () => (
 
 const TrashIcon = () => (
   <svg
-    width="18"
-    height="18"
+    width="16"
+    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
     strokeWidth="1.5"
+    aria-hidden="true"
   >
     <polyline points="3,6 5,6 21,6" />
     <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6" />
   </svg>
 );
 
+const ArrowIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    aria-hidden="true"
+    className="inline-block ml-2 opacity-0 -translate-x-1 group-hover/title:opacity-100 group-hover/title:translate-x-0 transition-all duration-200"
+  >
+    <path d="M5 12h14M12 5l7 7-7 7" />
+  </svg>
+);
+
 const ImagePlaceholder = () => (
   <svg
-    width="24"
-    height="24"
+    width="32"
+    height="32"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
     strokeWidth="1"
-    className="opacity-20"
+    className="opacity-30"
+    aria-hidden="true"
   >
     <rect x="3" y="3" width="18" height="18" rx="0" ry="0" />
     <circle cx="8.5" cy="8.5" r="1.5" />
@@ -64,7 +82,7 @@ export function PostCard({
   const content =
     post.translations.ca?.content || post.translations.en?.content;
   const excerpt = content
-    ? content.slice(0, 140).trim() + (content.length > 140 ? "…" : "")
+    ? content.slice(0, 120).trim() + (content.length > 120 ? "…" : "")
     : "";
   const keywords = [
     ...(post.translations.ca?.keywords || []),
@@ -76,95 +94,104 @@ export function PostCard({
   const thumbnailUrl = post.thumbnail?.url;
 
   return (
-    <article className="group relative">
-      <div className="flex gap-6 py-6 border-b border-white/6">
-        {/* Left: Thumbnail with action overlay */}
-        <div className="relative w-44 h-28 shrink-0 overflow-hidden bg-white/2 group/image">
+    <article className="group">
+      <div className="flex gap-5 py-4 border-b border-white/10 hover:bg-white/2 transition-colors duration-300">
+        {/* Left: Thumbnail - taller, wider */}
+        <div
+          className="relative w-48 shrink-0 overflow-hidden bg-white/5 cursor-pointer self-stretch min-h-[100px]"
+          onClick={() => onEdit(post)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && onEdit(post)}
+          aria-label={`Edit ${title}`}
+        >
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
               alt=""
-              className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <ImagePlaceholder />
             </div>
           )}
-
-          {/* Actions overlay - appears on card hover */}
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(post);
-              }}
-              className="w-10 h-10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200"
-              title="Editar"
-            >
-              <EditIcon />
-            </button>
-            <span className="w-px h-5 bg-white/20" />
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(post);
-              }}
-              className="w-10 h-10 flex items-center justify-center text-white/70 hover:text-red-400 transition-all duration-200"
-              title="Eliminar"
-            >
-              <TrashIcon />
-            </button>
-          </div>
         </div>
 
-        {/* Right: Content */}
-        <div className="flex-1 flex flex-col justify-between min-h-[112px]">
+        {/* Middle: Content */}
+        <div className="flex-1 flex flex-col justify-between min-w-0">
           {/* Top section */}
           <div>
             {/* Meta row */}
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-slate-400 text-[11px] tracking-[0.15em] uppercase font-medium">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-slate-400 text-xs tracking-widest uppercase font-medium">
                 {categoryLabel}
               </span>
-              <span className="w-px h-3 bg-white/10" />
+              <span className="w-px h-3 bg-white/20" aria-hidden="true" />
               <LanguageIndicator
                 hasCA={!!post.translations.ca?.title}
                 hasEN={!!post.translations.en?.title}
               />
-              <div className="flex-1" />
               <StatusBadge published={post.is_published} />
             </div>
 
-            {/* Title - clickable */}
-            <h3
+            {/* Title - clearly clickable with arrow hint */}
+            <button
               onClick={() => onEdit(post)}
-              className="text-xl font-serif text-white/90 leading-snug mb-2 cursor-pointer hover:text-white transition-colors duration-200"
+              className="group/title text-left w-full"
+              aria-label={`Edit: ${title}`}
             >
-              {title}
-            </h3>
+              <h3 className="text-lg font-serif text-white leading-snug inline">
+                {title}
+                <ArrowIcon />
+              </h3>
+            </button>
 
-            {/* Excerpt */}
+            {/* Excerpt - improved contrast */}
             {excerpt && (
-              <p className="text-sm text-white/35 leading-relaxed line-clamp-2">
+              <p className="text-sm text-white/60 leading-relaxed mt-2 line-clamp-2">
                 {excerpt}
               </p>
             )}
           </div>
 
-          {/* Keywords */}
+          {/* Keywords - improved contrast */}
           {keywords.length > 0 && (
-            <div className="flex items-center gap-2 mt-4">
+            <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-3">
               {keywords.map((kw, i) => (
                 <span
                   key={i}
-                  className="text-xs text-white/40 tracking-wide hover:text-white/60 transition-colors cursor-default"
+                  className="text-sm text-white/50 tracking-wide"
                 >
                   #{kw}
                 </span>
               ))}
             </div>
           )}
+        </div>
+
+        {/* Right: Always-visible actions */}
+        <div className="flex flex-col justify-center gap-0 shrink-0">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(post);
+            }}
+            className="w-9 h-9 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 transition-all duration-200"
+            aria-label="Edit post"
+          >
+            <EditIcon />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(post);
+            }}
+            className="w-9 h-9 flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+            aria-label="Delete post"
+          >
+            <TrashIcon />
+          </button>
         </div>
       </div>
     </article>
