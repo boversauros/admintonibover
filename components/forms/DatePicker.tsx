@@ -39,20 +39,19 @@ export function DatePicker({
           w-full
           bg-surface
           border
-          ${error ? 'border-accent text-accent' : 'border-default'}
+          ${error ? 'border-red-400' : 'border-default'}
           text-primary
           placeholder:text-muted
-          rounded
           px-4
           py-2
           focus:outline-none
-          focus:border-primary
+          focus:border-slate-500
           hover:border-subtle
           transition-colors-default
         `.trim().replace(/\s+/g, ' ')}
       />
       {(error || helperText) && (
-        <p className={`text-sm mt-1 ${error ? 'text-accent' : 'text-muted'}`}>
+        <p className={`text-sm mt-1 ${error ? 'text-red-400' : 'text-muted'}`}>
           {error || helperText}
         </p>
       )}

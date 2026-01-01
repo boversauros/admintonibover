@@ -15,9 +15,9 @@ export function Badge({
 }: BadgeProps) {
   const variantClasses = {
     default: 'text-muted border-subtle',
-    accent: 'text-accent border-accent',
+    accent: 'text-slate-400 border-slate-500/30',
     secondary: 'text-primary-80 border-subtle',
-    error: 'text-subtle border-subtle',
+    error: 'text-red-400 border-red-500/30',
   };
 
   const sizeClasses = {
@@ -25,7 +25,7 @@ export function Badge({
     md: 'px-3 py-1.5 text-base',
   };
 
-  const finalClasses = `inline-flex items-center bg-surface border rounded ${variantClasses[variant]} ${sizeClasses[size]} ${className}`.trim();
+  const finalClasses = `inline-flex items-center bg-surface border ${variantClasses[variant]} ${sizeClasses[size]} ${className}`.trim();
 
   return (
     <span className={finalClasses} {...rest}>

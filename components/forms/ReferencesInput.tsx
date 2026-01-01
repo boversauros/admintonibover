@@ -89,7 +89,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
                   onChange={(e) =>
                     handleUpdate(ref.id, "type", e.target.value as "image" | "text")
                   }
-                  className="bg-surface border border-default px-3 py-2 text-sm text-primary focus:outline-none focus:border-accent"
+                  className="bg-surface border border-default px-3 py-2 text-sm text-primary focus:outline-none focus:border-slate-500"
                 >
                   <option value="text">Cita</option>
                   <option value="image">Imatge</option>
@@ -103,7 +103,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
                     handleUpdate(ref.id, "reference", e.target.value)
                   }
                   placeholder="Font o autor..."
-                  className="flex-1 bg-transparent border border-default px-3 py-2 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-accent"
+                  className="flex-1 bg-transparent border border-default px-3 py-2 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-slate-500"
                 />
               </div>
 
@@ -115,7 +115,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
                 }
                 placeholder="Cita o extracte (opcional)..."
                 rows={2}
-                className="w-full bg-transparent border border-default px-3 py-2 text-sm text-body placeholder:text-muted focus:outline-none focus:border-accent resize-none font-serif italic"
+                className="w-full bg-transparent border border-default px-3 py-2 text-sm text-body placeholder:text-muted focus:outline-none focus:border-slate-500 resize-none font-serif italic"
               />
             </div>
 

@@ -294,7 +294,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         />
 
         {/* Form Content */}
-        <main className="max-w-5xl mx-auto px-6 py-8">
+        <main className="max-w-6xl mx-auto px-6 py-8">
           {/* Language Tabs */}
           <LanguageTabs
             active={activeLanguage}

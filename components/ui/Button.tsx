@@ -19,14 +19,14 @@ export function Button({
   children,
   ...rest
 }: ButtonProps) {
-  const baseClasses = 'inline-flex items-center justify-center font-medium transition-all duration-200 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+  const baseClasses = 'inline-flex items-center justify-center font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:ring-offset-black disabled:opacity-50 disabled:pointer-events-none';
 
   const variantClasses = {
-    primary: 'bg-primary text-white hover:bg-primary/90 active:bg-primary/80 focus-visible:ring-primary',
-    secondary: 'border-2 border-primary text-primary hover:bg-primary hover:text-white active:bg-primary/90 focus-visible:ring-primary',
-    ghost: 'text-body hover:bg-surface hover:text-primary active:bg-surface/80 focus-visible:ring-primary',
-    destructive: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 focus-visible:ring-red-600',
-    icon: 'text-body hover:text-primary hover:bg-surface active:bg-surface/80 focus-visible:ring-primary',
+    primary: 'border border-white/60 text-white hover:bg-white hover:text-black active:bg-white/90 focus-visible:ring-white/50',
+    secondary: 'border border-white/30 text-white/80 hover:border-white/60 hover:text-white active:border-white/80 focus-visible:ring-white/30',
+    ghost: 'text-body hover:text-primary hover:bg-white/5 active:bg-white/10 focus-visible:ring-white/30',
+    destructive: 'border border-red-500/50 text-red-400 hover:bg-red-500/10 active:bg-red-500/20 focus-visible:ring-red-500/50',
+    icon: 'text-body hover:text-primary hover:bg-white/5 active:bg-white/10 focus-visible:ring-white/30',
   };
 
   const sizeClasses = {

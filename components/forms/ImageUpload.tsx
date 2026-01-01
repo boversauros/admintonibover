@@ -147,7 +147,7 @@ export function ImageUpload({
       <div className="space-y-4">
         {displayUrl ? (
           /* Image Preview */
-          <div className="border border-default rounded p-4 space-y-3">
+          <div className="border border-default p-4 space-y-3">
             <p className="text-sm text-muted">Preview:</p>
             <div className="relative">
               <Image
@@ -155,7 +155,7 @@ export function ImageUpload({
                 alt={`${label} preview`}
                 aspect="auto"
                 hover="none"
-                className="max-h-64 w-auto mx-auto rounded"
+                className="max-h-64 w-auto mx-auto"
                 onError={(e: any) => {
                   e.currentTarget.src = '';
                   e.currentTarget.style.display = 'none';
@@ -189,10 +189,10 @@ export function ImageUpload({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={`
-              border-2 border-dashed rounded-lg p-8
+              border-2 border-dashed p-8
               transition-colors duration-200
               ${isDragging
-                ? 'border-primary bg-surface'
+                ? 'border-slate-500 bg-surface'
                 : 'border-default hover:border-subtle'
               }
             `}
@@ -240,7 +240,7 @@ export function ImageUpload({
 
       {/* Error Message */}
       {displayError && (
-        <p className="text-sm mt-2 text-accent">
+        <p className="text-sm mt-2 text-red-400">
           {displayError}
         </p>
       )}

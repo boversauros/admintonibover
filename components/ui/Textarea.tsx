@@ -40,13 +40,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       w-full
       bg-surface
       border
-      ${isInvalid || error ? 'border-accent text-accent' : 'border-default'}
+      ${isInvalid || error ? 'border-red-400' : 'border-default'}
       text-primary
       placeholder:text-muted
-      rounded
       resize-none
       focus:outline-none
-      focus:border-primary
+      focus:border-slate-500
       hover:border-subtle
       disabled:opacity-50
       disabled:cursor-not-allowed
@@ -76,7 +75,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         />
         {(error || helperText || showCharCount) && (
           <div className="flex justify-between items-center mt-1">
-            <p className={`text-sm ${error ? 'text-accent' : 'text-muted'}`}>
+            <p className={`text-sm ${error ? 'text-red-400' : 'text-muted'}`}>
               {error || helperText || ''}
             </p>
             {showCharCount && maxChars && (

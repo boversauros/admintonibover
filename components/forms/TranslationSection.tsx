@@ -44,11 +44,11 @@ export function TranslationSection({ language }: TranslationSectionProps) {
           type="text"
           {...register(titleField)}
           placeholder={titlePlaceholder}
-          className={`w-full bg-transparent border px-4 py-3 font-serif text-lg text-primary placeholder:text-muted focus:outline-none focus:border-accent transition-colors ${
-            titleError ? "border-accent" : "border-default"
+          className={`w-full bg-transparent border px-4 py-3 font-serif text-lg text-primary placeholder:text-muted focus:outline-none focus:border-slate-500 transition-colors ${
+            titleError ? "border-red-400" : "border-default"
           }`}
         />
-        {titleError && <p className="text-sm text-accent">{titleError}</p>}
+        {titleError && <p className="text-sm text-red-400">{titleError}</p>}
       </div>
 
       {/* Content Textarea */}
@@ -61,11 +61,11 @@ export function TranslationSection({ language }: TranslationSectionProps) {
           {...register(contentField)}
           placeholder={contentPlaceholder}
           rows={16}
-          className={`w-full bg-transparent border px-4 py-3 text-body placeholder:text-muted focus:outline-none focus:border-accent transition-colors resize-none leading-relaxed ${
-            contentError ? "border-accent" : "border-default"
+          className={`w-full bg-transparent border px-4 py-3 text-body placeholder:text-muted focus:outline-none focus:border-slate-500 transition-colors resize-none leading-relaxed ${
+            contentError ? "border-red-400" : "border-default"
           }`}
         />
-        {contentError && <p className="text-sm text-accent">{contentError}</p>}
+        {contentError && <p className="text-sm text-red-400">{contentError}</p>}
       </div>
     </div>
   );

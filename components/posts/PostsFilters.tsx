@@ -47,7 +47,7 @@ export function PostsFilters({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Cerca articles..."
-          className="w-full bg-transparent border border-default pl-12 pr-4 py-2.5 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+          className="w-full bg-transparent border border-default pl-12 pr-4 py-2.5 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-slate-500 transition-colors"
         />
       </div>
 

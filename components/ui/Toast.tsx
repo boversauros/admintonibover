@@ -30,17 +30,17 @@ export function Toast({
   }, [duration, onClose]);
 
   const typeClasses = {
-    info: 'border-l-accent',
-    success: 'border-l-primary',
-    error: 'border-l-accent',
-    warning: 'border-l-accent',
+    info: 'border-l-slate-500',
+    success: 'border-l-emerald-500',
+    error: 'border-l-red-500',
+    warning: 'border-l-amber-500',
   };
 
   const typeTextClasses = {
     info: 'text-primary',
     success: 'text-primary',
-    error: 'text-accent',
-    warning: 'text-accent',
+    error: 'text-red-400',
+    warning: 'text-amber-400',
   };
 
   const toastClasses = `
@@ -51,7 +51,6 @@ export function Toast({
     bg-surface
     border-l-4
     ${typeClasses[type]}
-    rounded-md
     shadow-lg
     z-50
     min-w-80

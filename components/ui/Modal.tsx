@@ -76,7 +76,6 @@ export function Modal({
             bg-surface
             border
             border-default
-            rounded-md
             shadow-lg
             w-full
             ${sizeClasses[size]}

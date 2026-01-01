@@ -45,7 +45,7 @@ export function Table<T>({
 
   if (data.length === 0) {
     return (
-      <div className="w-full p-8 text-center text-muted border border-subtle rounded-md bg-surface">
+      <div className="w-full p-8 text-center text-muted border border-subtle bg-surface">
         {emptyMessage}
       </div>
     );

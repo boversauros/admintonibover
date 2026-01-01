@@ -34,12 +34,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       w-full
       bg-surface
       border
-      ${isInvalid || error ? 'border-accent text-accent' : 'border-default'}
+      ${isInvalid || error ? 'border-red-400' : 'border-default'}
       text-primary
       placeholder:text-muted
-      rounded
       focus:outline-none
-      focus:border-primary
+      focus:border-slate-500
       hover:border-subtle
       disabled:opacity-50
       disabled:cursor-not-allowed
@@ -60,7 +59,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <input ref={ref} id={inputId} className={inputClasses} {...rest} />
         {(error || helperText) && (
-          <p className={`text-sm mt-1 ${error ? 'text-accent' : 'text-muted'}`}>
+          <p className={`text-sm mt-1 ${error ? 'text-red-400' : 'text-muted'}`}>
             {error || helperText}
           </p>
         )}

@@ -109,20 +109,20 @@ export function KeywordsInput({
         </label>
       )}
 
-      <div className="border border-default focus-within:border-accent transition-colors">
+      <div className="border border-default focus-within:border-slate-500 transition-colors">
         {/* Selected keywords */}
         {value.length > 0 && (
           <div className="flex flex-wrap gap-2 p-3 pb-0">
             {value.map((kw, i) => (
               <span
                 key={i}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-yellow-500/10 border border-yellow-500/20 text-sm text-yellow-200"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/20 text-sm text-white/80"
               >
                 #{kw}
                 <button
                   type="button"
                   onClick={() => handleRemove(kw)}
-                  className="text-yellow-400/60 hover:text-red-400 transition-colors"
+                  className="text-white/40 hover:text-red-400 transition-colors"
                 >
                   <XIcon />
                 </button>
