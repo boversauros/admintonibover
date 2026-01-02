@@ -4,11 +4,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LoginForm } from '@/components/auth/LoginForm';
-import { Header } from '@/components/layout/Header';
 import { Button, Icon } from '@/components/ui';
 import { PostCard, PostsFilters, FilterStatus } from '@/components/posts';
 import { getPosts, deletePost } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 const categoryLabels: Record<string, string> = {
   '1': 'Vivències',
@@ -21,6 +21,7 @@ function PostsContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const router = useRouter();
+  const { user, signOut } = useAuth();
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -63,6 +64,15 @@ function PostsContent() {
     router.push('/reflexions/new');
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
   const filteredPosts = useMemo(() => {
     return posts.filter(post => {
       const matchesSearch =
@@ -80,6 +90,12 @@ function PostsContent() {
     });
   }, [posts, searchQuery, filterStatus]);
 
+  // Get display name from various possible fields
+  const getUserDisplayName = () => {
+    if (!user) return '';
+    return user.email;
+  };
+
   return (
     <div className="min-h-screen bg-background text-primary">
       {/* Header */}
@@ -91,22 +107,34 @@ function PostsContent() {
               Administració del blog
             </p>
           </div>
+          {user && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted">
+                {getUserDisplayName()}
+              </span>
+              <Button onClick={handleLogout} variant="secondary">
+                <span className="flex items-center gap-2">Tancar sessió</span>
+              </Button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Filters */}
+      <div className="max-w-6xl mx-auto px-6 py-6">
+        <div className="flex items-center justify-between gap-4">
+          <PostsFilters
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            filterStatus={filterStatus}
+            onFilterChange={setFilterStatus}
+          />
           <Button onClick={handleCreate} variant="primary">
             <span className="flex items-center gap-2">
               <Icon name="plus" size="3" /> Nou article
             </span>
           </Button>
         </div>
-      </header>
-
-      {/* Filters */}
-      <div className="max-w-6xl mx-auto px-6 py-6">
-        <PostsFilters
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          filterStatus={filterStatus}
-          onFilterChange={setFilterStatus}
-        />
       </div>
 
       {/* Posts Grid */}
