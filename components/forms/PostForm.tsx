@@ -17,6 +17,12 @@ import { ImageSelector } from './ImageSelector';
 import { TranslationStatusPanel } from './TranslationStatusPanel';
 import { CollapsibleSection } from './CollapsibleSection';
 
+function convertToMarkdownParagraphs(content: string): string {
+  return content
+    .trim()
+    .replace(/\n+/g, '\n\n');
+}
+
 interface PostFormProps {
   initialData?: StoredPost;
   onSuccess?: () => void;
@@ -237,11 +243,13 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         translations: {
           ca: {
             ...data.translations.ca,
+            content: convertToMarkdownParagraphs(data.translations.ca.content),
             slug: uniqueSlugCA,
             post_id: isEditMode ? initialData.id : '',
           },
           en: {
             ...data.translations.en,
+            content: convertToMarkdownParagraphs(data.translations.en.content),
             slug: uniqueSlugEN,
             post_id: isEditMode ? initialData.id : '',
           },
