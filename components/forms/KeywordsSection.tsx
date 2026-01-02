@@ -1,46 +1,7 @@
 import { Controller, useFormContext } from 'react-hook-form';
 import { KeywordsInput } from './KeywordsInput';
 import { Language } from '@/lib/types/post';
-
-// Existing keywords for suggestions (would ideally come from database)
-const existingKeywords = {
-  ca: [
-    'filosofia',
-    'vida',
-    'reflexió',
-    'viatges',
-    'natura',
-    'muntanya',
-    'cultura',
-    'tradició',
-    'història',
-    'família',
-    'records',
-    'poesia',
-    'art',
-    'música',
-    'mar',
-    'mediterrani',
-  ],
-  en: [
-    'philosophy',
-    'life',
-    'reflection',
-    'travel',
-    'nature',
-    'mountain',
-    'culture',
-    'tradition',
-    'history',
-    'family',
-    'memories',
-    'poetry',
-    'art',
-    'music',
-    'sea',
-    'mediterranean',
-  ],
-};
+import { useKeywords } from '@/lib/hooks/useKeywords';
 
 interface KeywordsSectionProps {
   language: Language;
@@ -48,6 +9,7 @@ interface KeywordsSectionProps {
 
 export function KeywordsSection({ language }: KeywordsSectionProps) {
   const { control } = useFormContext();
+  const { keywords, isLoading } = useKeywords();
 
   const fieldName = `translations.${language}.keywords` as const;
 
@@ -61,7 +23,7 @@ export function KeywordsSection({ language }: KeywordsSectionProps) {
           value={field.value || []}
           onChange={field.onChange}
           language={language}
-          suggestions={existingKeywords[language]}
+          suggestions={isLoading ? [] : keywords[language]}
         />
       )}
     />
