@@ -188,6 +188,52 @@ export async function getImageById(imageId: string): Promise<Image | null> {
 }
 
 /**
+ * Updates an existing image record
+ * @param imageId - The image record ID
+ * @param alt - Alt text for accessibility
+ * @param title - Optional image title
+ * @returns The updated image record
+ */
+export async function updateImageRecord(
+  imageId: string,
+  alt: string,
+  title?: string
+): Promise<Image> {
+  try {
+    const updateData: { alt: string; title?: string; updated_at: string } = {
+      alt,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (title !== undefined) {
+      updateData.title = title;
+    }
+
+    const { data, error } = await supabase
+      .from('images')
+      .update(updateData)
+      .eq('id', parseInt(imageId))
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update image record: ${error.message}`);
+    }
+
+    return {
+      id: data.id.toString(),
+      url: data.url,
+      title: data.title || '',
+      alt: data.alt || '',
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    };
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to update image record');
+  }
+}
+
+/**
  * Complete flow: Upload file, create record, return image data
  * @param file - The file to upload
  * @param bucket - Storage bucket

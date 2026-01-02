@@ -2,11 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useForm, FormProvider, Controller } from 'react-hook-form';
-import { Select } from '@/components/ui';
+import { Select, Input } from '@/components/ui';
 import { PostFormData, StoredPost, Language } from '@/lib/types/post';
 import { slugify, generateUniqueSlug } from '@/lib/utils/slugify';
 import { savePost, getExistingSlugs } from '@/lib/api/posts';
-import { uploadAndCreateImage, deleteImageCompletely } from '@/lib/api/images';
+import {
+  uploadAndCreateImage,
+  deleteImageCompletely,
+  updateImageRecord,
+} from '@/lib/api/images';
 import { getCategories, type Category } from '@/lib/api/categories';
 import { LanguageTabs } from './LanguageTabs';
 import { TranslationSection } from './TranslationSection';
@@ -18,9 +22,7 @@ import { TranslationStatusPanel } from './TranslationStatusPanel';
 import { CollapsibleSection } from './CollapsibleSection';
 
 function convertToMarkdownParagraphs(content: string): string {
-  return content
-    .trim()
-    .replace(/\n+/g, '\n\n');
+  return content.trim().replace(/\n+/g, '\n\n');
 }
 
 interface PostFormProps {
@@ -44,6 +46,9 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
   const [existingMainImageUrl, setExistingMainImageUrl] = useState<string>(
     initialData?.image?.url || ''
   );
+  const [existingMainImageAlt, setExistingMainImageAlt] = useState<string>(
+    initialData?.image?.alt || ''
+  );
 
   // Load categories on mount
   useEffect(() => {
@@ -66,6 +71,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           author: initialData.author,
           thumbnail_file: null,
           main_image_file: null,
+          main_image_alt: initialData?.image?.alt || '',
           is_published: initialData.is_published,
           translations: {
             ca: {
@@ -92,6 +98,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
           author: '',
           thumbnail_file: null,
           main_image_file: null,
+          main_image_alt: '',
           is_published: false,
           translations: {
             ca: {
@@ -161,14 +168,18 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
       // 1. Handle thumbnail upload
       let thumbnailId = existingThumbnailId;
       let newThumbnailUrl = existingThumbnailUrl;
+      // Auto-generate thumbnail alt text from post title
+      const postTitle =
+        data.translations.ca.title || data.translations.en.title || 'post';
+      const thumbnailAlt = `Miniatura per a ${postTitle}`;
 
       if (data.thumbnail_file) {
-        // Upload new thumbnail
+        // Upload new thumbnail with auto-generated alt text
         const uploadedThumbnail = await uploadAndCreateImage(
           data.thumbnail_file,
           'post-thumbnails',
           'Post Thumbnail',
-          `Thumbnail for ${data.translations.ca.title || 'post'}`
+          thumbnailAlt
         );
 
         thumbnailId = uploadedThumbnail.id;
@@ -182,19 +193,27 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
             'post-thumbnails'
           );
         }
+      } else if (existingThumbnailId) {
+        // Update alt text for existing thumbnail (no new file uploaded)
+        // Always update since alt text is auto-generated from title which may have changed
+        const existingThumbnailAlt = initialData?.thumbnail?.alt || '';
+        if (thumbnailAlt !== existingThumbnailAlt) {
+          await updateImageRecord(existingThumbnailId, thumbnailAlt);
+        }
       }
 
       // 2. Handle main image upload
       let mainImageId = existingMainImageId;
       let newMainImageUrl = existingMainImageUrl;
+      const mainImageAlt = data.main_image_alt || '';
 
       if (data.main_image_file) {
-        // Upload new main image
+        // Upload new main image with alt text
         const uploadedMainImage = await uploadAndCreateImage(
           data.main_image_file,
           'post-images',
           'Post Main Image',
-          `Main image for ${data.translations.ca.title || 'post'}`
+          mainImageAlt
         );
 
         mainImageId = uploadedMainImage.id;
@@ -208,6 +227,9 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
             'post-images'
           );
         }
+      } else if (existingMainImageId && mainImageAlt !== existingMainImageAlt) {
+        // Update alt text for existing main image (no new file uploaded)
+        await updateImageRecord(existingMainImageId, mainImageAlt);
       }
 
       // 3. Get existing slugs for uniqueness check (exclude current post if editing)
@@ -259,11 +281,12 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
       // 5. Save post (handles both create and update)
       await savePost(storedPost);
 
-      // 6. Update existing image IDs and URLs for next edit
+      // 6. Update existing image IDs, URLs, and alt text for next edit
       setExistingThumbnailId(thumbnailId);
       setExistingThumbnailUrl(newThumbnailUrl);
       setExistingMainImageId(mainImageId);
       setExistingMainImageUrl(newMainImageUrl);
+      setExistingMainImageAlt(mainImageAlt);
 
       console.log(`Post ${isEditMode ? 'updated' : 'saved'} successfully`);
 
@@ -347,6 +370,12 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
                 value={existingMainImageUrl || null}
                 onFileSelect={handleMainImageSelect}
                 error={errors.main_image_file?.message as string}
+              />
+              <Input
+                {...register('main_image_alt')}
+                label="Text alternatiu de la imatge destacada"
+                placeholder="Descriu la imatge per a l'accessibilitat"
+                error={errors.main_image_alt?.message as string}
               />
 
               {/* Thumbnail */}

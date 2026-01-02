@@ -33,6 +33,8 @@ export interface PostFormData {
   author: string;
   thumbnail_file?: File | null;
   main_image_file?: File | null;
+  thumbnail_alt?: string;
+  main_image_alt?: string;
   is_published: boolean;
   translations: {
     ca: PostTranslation;
