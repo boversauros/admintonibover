@@ -21,19 +21,15 @@ export function Toggle({
   size = 'default',
   className = '',
   wrapperClassName = '',
-  labelClassName = 'block text-xs text-muted uppercase tracking-wider mb-2',
+  labelClassName = 'block text-xs text-muted uppercase tracking-wider mb-2 font-serif',
   ...rest
 }: ToggleProps) {
   const isSmall = size === 'small';
 
   // Size-based classes
-  const containerSizeClasses = isSmall
-    ? 'h-5 w-9'
-    : 'h-7 w-12';
+  const containerSizeClasses = isSmall ? 'h-5 w-9' : 'h-7 w-12';
 
-  const ballSizeClasses = isSmall
-    ? 'h-3.5 w-3.5'
-    : 'h-5 w-5';
+  const ballSizeClasses = isSmall ? 'h-3.5 w-3.5' : 'h-5 w-5';
 
   const ballTranslateClasses = checked
     ? isSmall
@@ -64,7 +60,7 @@ export function Toggle({
       <input
         type="checkbox"
         checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
+        onChange={e => onChange(e.target.checked)}
         disabled={disabled}
         className="sr-only focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:ring-overlay-50"
         {...rest}

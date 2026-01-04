@@ -25,9 +25,6 @@ export function PublicationStatusPanel({
         size="small"
         label="Publicar"
       />
-      <div className="pt-3 border-t border-subtle">
-        <StatusBadge published={isPublished} />
-      </div>
     </div>
   );
 }
