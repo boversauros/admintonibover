@@ -113,9 +113,9 @@ export function PostCard({
                   key={i}
                   as="span"
                   variant="small"
-                  className="text-primary-50 tracking-wide"
+                  className="text-primary-50 tracking-wide font-serif"
                 >
-                  #{kw}
+                  {kw}
                 </Text>
               ))}
             </div>
