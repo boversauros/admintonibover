@@ -9,6 +9,7 @@ export { Input } from './Input';
 export { LanguageIndicator } from './LanguageIndicator';
 export { Link } from './Link';
 export { Modal } from './Modal';
+export { Pagination } from './Pagination';
 export { SectionTitle } from './SectionTitle';
 export { Select } from './Select';
 export type { SelectOption, SelectGroup } from './Select';

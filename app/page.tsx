@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LoginForm } from '@/components/auth/LoginForm';
-import { Button, Icon } from '@/components/ui';
+import { Button, Icon, Pagination } from '@/components/ui';
 import { PostCard, PostsFilters, FilterStatus } from '@/components/posts';
 import { getPosts, deletePost } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
@@ -20,7 +20,10 @@ function PostsContent() {
   const [posts, setPosts] = useState<StoredPost[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
+  
+  const POSTS_PER_PAGE = 10;
   const avatarDropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { user, signOut } = useAuth();
@@ -143,6 +146,18 @@ function PostsContent() {
     });
   }, [posts, searchQuery, filterStatus]);
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterStatus]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
+  const paginatedPosts = useMemo(() => {
+    const startIndex = (currentPage - 1) * POSTS_PER_PAGE;
+    return filteredPosts.slice(startIndex, startIndex + POSTS_PER_PAGE);
+  }, [filteredPosts, currentPage]);
+
   return (
     <div className="min-h-screen bg-background text-primary">
       {/* Header */}
@@ -208,7 +223,7 @@ function PostsContent() {
       {/* Posts Grid */}
       <main className="max-w-6xl mx-auto px-6 pb-12">
         <div className="space-y-4">
-          {filteredPosts.map(post => (
+          {paginatedPosts.map(post => (
             <PostCard
               key={post.id}
               post={post}
@@ -245,6 +260,16 @@ function PostsContent() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {filteredPosts.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            className="mt-8"
+          />
+        )}
       </main>
     </div>
   );
