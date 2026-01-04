@@ -19,10 +19,12 @@ export function PublicationStatusPanel({
       <p className="text-sm text-body mb-4">
         Publica l'article o desa com a esborrany
       </p>
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-sm text-secondary">Publicar</span>
-        <Toggle checked={isPublished} onChange={onToggle} size="small" />
-      </div>
+      <Toggle
+        checked={isPublished}
+        onChange={onToggle}
+        size="small"
+        label="Publicar"
+      />
       <div className="pt-3 border-t border-subtle">
         <StatusBadge published={isPublished} />
       </div>

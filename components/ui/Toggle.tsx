@@ -1,14 +1,16 @@
-import { ButtonHTMLAttributes } from 'react';
+import { InputHTMLAttributes } from 'react';
 
 interface ToggleProps extends Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  'onChange'
+  InputHTMLAttributes<HTMLInputElement>,
+  'onChange' | 'type' | 'size'
 > {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: string;
   disabled?: boolean;
   size?: 'default' | 'small';
+  wrapperClassName?: string;
+  labelClassName?: string;
 }
 
 export function Toggle({
@@ -18,25 +20,21 @@ export function Toggle({
   disabled = false,
   size = 'default',
   className = '',
+  wrapperClassName = '',
+  labelClassName = 'block text-xs text-muted uppercase tracking-wider mb-2',
   ...rest
 }: ToggleProps) {
-  const handleClick = () => {
-    if (!disabled) {
-      onChange(!checked);
-    }
-  };
-
   const isSmall = size === 'small';
-  
+
   // Size-based classes
   const containerSizeClasses = isSmall
     ? 'h-5 w-9'
     : 'h-7 w-12';
-  
+
   const ballSizeClasses = isSmall
     ? 'h-3.5 w-3.5'
     : 'h-5 w-5';
-  
+
   const ballTranslateClasses = checked
     ? isSmall
       ? 'translate-x-4.5'
@@ -48,29 +46,29 @@ export function Toggle({
     ? 'bg-white/70 shadow-white/30'
     : 'bg-white shadow-black/20';
 
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={handleClick}
-      disabled={disabled}
+  const toggleSwitch = (
+    <label
       className={`
         relative inline-flex ${containerSizeClasses} items-center rounded-full transition-all-smooth
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:ring-overlay-50
-        disabled:opacity-50 disabled:cursor-not-allowed
         ${
           checked
             ? 'bg-emerald-500/30 border border-default'
             : 'bg-overlay-10 border border-default'
         }
-        ${disabled ? '' : 'cursor-pointer active:scale-95'}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
         ${className}
       `
         .trim()
         .replace(/\s+/g, ' ')}
-      {...rest}
     >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+        className="sr-only focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:ring-overlay-50"
+        {...rest}
+      />
       <span
         className={`
           inline-block ${ballSizeClasses} transform rounded-full transition-all-smooth
@@ -79,6 +77,19 @@ export function Toggle({
           .trim()
           .replace(/\s+/g, ' ')}
       />
-    </button>
+    </label>
   );
+
+  // If label is provided, wrap in a container with label on top
+  if (label) {
+    return (
+      <div className={wrapperClassName}>
+        <span className={labelClassName}>{label}</span>
+        {toggleSwitch}
+      </div>
+    );
+  }
+
+  // Otherwise return just the toggle switch
+  return toggleSwitch;
 }
