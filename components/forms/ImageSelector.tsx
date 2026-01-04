@@ -81,16 +81,16 @@ export function ImageSelector({
 
       <div
         onClick={handleClick}
-        className={`${aspectClasses[aspectRatio]} border border-dashed border-default flex items-center justify-center text-muted hover:border-subtle hover:text-body transition-colors cursor-pointer group relative overflow-hidden`}
+        className={`${aspectClasses[aspectRatio]} border border-dashed border-default flex items-center justify-center text-muted hover:border-subtle hover:text-body transition-all-smooth cursor-pointer group relative overflow-hidden hover:scale-102`}
       >
         {displayUrl ? (
           <>
             <img
               src={displayUrl}
               alt=""
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover transition-transform-smooth group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity-smooth flex items-center justify-center gap-2">
               <Button
                 variant="icon"
                 className="bg-overlay-10 hover:bg-overlay-20"
@@ -111,7 +111,7 @@ export function ImageSelector({
             </div>
           </>
         ) : (
-          <div className="text-center">
+          <div className="text-center transition-transform-smooth group-hover:scale-105">
             <Icon name="image" size="6" />
             <span className="block mt-2 text-xs">Clica per seleccionar</span>
           </div>

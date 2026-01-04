@@ -20,18 +20,18 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const baseClasses =
-    'inline-flex items-center justify-center font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:ring-offset-black disabled:opacity-50 disabled:pointer-events-none';
+    'inline-flex items-center justify-center font-medium transition-all-smooth focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:ring-offset-black disabled:opacity-50 disabled:pointer-events-none active:scale-98';
 
   const variantClasses = {
     primary:
-      'border border-overlay-60 text-primary hover:bg-primary hover:text-background active:bg-overlay-90 focus-visible:ring-overlay-50',
+      'border border-overlay-60 text-primary hover:bg-primary hover:text-background hover:scale-102 active:bg-overlay-90 focus-visible:ring-overlay-50',
     secondary:
-      'border border-overlay-30 text-primary-80 hover:border-overlay-60 hover:text-primary active:border-overlay-80 focus-visible:ring-overlay-30',
+      'border border-overlay-30 text-primary-80 hover:border-overlay-60 hover:text-primary hover:scale-102 active:border-overlay-80 focus-visible:ring-overlay-30',
     ghost:
       'text-body hover:text-primary hover:bg-overlay-5 active:bg-overlay-10 focus-visible:ring-overlay-30',
     destructive:
-      'border border-red-500/50 text-red-400 hover:bg-red-500/10 active:bg-red-500/20 focus-visible:ring-red-500/50',
-    icon: 'text-body hover:text-primary hover:bg-overlay-5 active:bg-overlay-10 focus-visible:ring-overlay-30',
+      'border border-red-500/50 text-red-400 hover:bg-red-500/10 hover:scale-102 active:bg-red-500/20 focus-visible:ring-red-500/50',
+    icon: 'text-body hover:text-primary hover:bg-overlay-5 hover:scale-105 active:bg-overlay-10 active:scale-95 focus-visible:ring-overlay-30',
   };
 
   const sizeClasses = {

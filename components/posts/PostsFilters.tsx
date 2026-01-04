@@ -35,7 +35,7 @@ export function PostsFilters({
           value={searchQuery}
           onChange={e => onSearchChange(e.target.value)}
           placeholder="Cerca articles..."
-          className="w-full bg-transparent border border-default pl-12 pr-4 py-2.5 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-focus transition-colors"
+          className="w-full bg-transparent border border-default pl-12 pr-4 py-2.5 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-focus focus:glow transition-all-smooth"
         />
       </div>
 
@@ -45,10 +45,10 @@ export function PostsFilters({
           <button
             key={option.value}
             onClick={() => onFilterChange(option.value)}
-            className={`px-4 py-2 text-sm transition-colors ${
+            className={`px-4 py-2 text-sm transition-all-smooth ${
               filterStatus === option.value
                 ? 'bg-overlay-10 text-primary'
-                : 'text-muted hover:text-secondary'
+                : 'text-muted hover:text-secondary hover:bg-overlay-5'
             }`}
           >
             {option.label}

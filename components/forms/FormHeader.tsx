@@ -35,10 +35,10 @@ export function FormHeader({
           <button
             type="button"
             onClick={onPublishToggle}
-            className={`px-4 py-2 text-sm border transition-all ${
+            className={`px-4 py-2 text-sm border transition-all-smooth hover:scale-102 active:scale-98 ${
               isPublished
                 ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10'
-                : 'border-default text-muted hover:border-subtle'
+                : 'border-default text-muted hover:border-subtle hover:bg-overlay-5'
             }`}
           >
             {isPublished ? (

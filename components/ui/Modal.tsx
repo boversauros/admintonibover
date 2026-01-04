@@ -61,7 +61,7 @@ export function Modal({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-40 transition-opacity-default"
+        className="fixed inset-0 bg-black/50 z-40 animate-fade-in"
         onClick={handleBackdropClick}
         aria-hidden="true"
       />
@@ -80,6 +80,7 @@ export function Modal({
             w-full
             ${sizeClasses[size]}
             overflow-hidden
+            animate-scale-in
           `
             .trim()
             .replace(/\s+/g, ' ')}

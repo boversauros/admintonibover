@@ -53,10 +53,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       resize-none
       focus:outline-none
       focus:border-focus
+      focus:glow
       hover:border-subtle
       disabled:opacity-50
       disabled:cursor-not-allowed
-      transition-colors-default
+      transition-all-smooth
       leading-relaxed
       ${sizeClasses[size]}
       ${className}

@@ -229,6 +229,17 @@
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Animation Durations */
+  --duration-instant: 100ms;
+  --duration-quick: 150ms;
+  --duration-normal: 200ms;
+  --duration-smooth: 300ms;
+  --duration-slow: 500ms;
+
+  /* Card Hover */
+  --shadow-card-hover: 0 8px 25px -5px rgba(0, 0, 0, 0.3),
+    0 4px 10px -6px rgba(0, 0, 0, 0.2);
 }
 
 /* ============================================
@@ -580,5 +591,220 @@
     & p:last-child {
       margin-bottom: 0;
     }
+  }
+}
+
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-4px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================
+   ANIMATION UTILITY CLASSES
+   ============================================ */
+
+@layer utilities {
+  /* Fade Animations */
+  .animate-fade-in {
+    animation: fadeIn var(--duration-normal) var(--ease-out) forwards;
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp var(--duration-smooth) var(--ease-out) forwards;
+  }
+
+  .animate-fade-in-down {
+    animation: fadeInDown var(--duration-smooth) var(--ease-out) forwards;
+  }
+
+  /* Scale Animation */
+  .animate-scale-in {
+    animation: scaleIn var(--duration-normal) var(--ease-out) forwards;
+  }
+
+  /* Slide Animation */
+  .animate-slide-in-right {
+    animation: slideInRight var(--duration-smooth) var(--ease-out) forwards;
+  }
+
+  /* Shake Animation (for errors) */
+  .animate-shake {
+    animation: shake 0.5s var(--ease-in-out);
+  }
+
+  /* Pulse Animation */
+  .animate-pulse {
+    animation: pulse 2s var(--ease-in-out) infinite;
+  }
+
+  /* Spin Animation */
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+
+  /* Transition Utilities - Enhanced */
+  .transition-all-smooth {
+    transition: all var(--duration-normal) var(--ease-out);
+  }
+
+  .transition-transform-smooth {
+    transition: transform var(--duration-quick) var(--ease-out);
+  }
+
+  .transition-opacity-smooth {
+    transition: opacity var(--duration-normal) var(--ease-out);
+  }
+
+  .transition-colors-smooth {
+    transition:
+      color var(--duration-quick) var(--ease-out),
+      background-color var(--duration-quick) var(--ease-out),
+      border-color var(--duration-quick) var(--ease-out);
+  }
+
+  /* Interactive Transforms */
+  .hover\:scale-102:hover {
+    transform: scale(1.02);
+  }
+
+  .hover\:scale-105:hover {
+    transform: scale(1.05);
+  }
+
+  .hover\:-translate-y-0\.5:hover {
+    transform: translateY(-2px);
+  }
+
+  .hover\:-translate-y-1:hover {
+    transform: translateY(-4px);
+  }
+
+  .active\:scale-98:active {
+    transform: scale(0.98);
+  }
+
+  .active\:scale-95:active {
+    transform: scale(0.95);
+  }
+
+  /* Card Hover Shadow */
+  .hover\:shadow-card-hover:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  /* Focus Glow Effect */
+  .focus\:glow:focus {
+    box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.2);
+  }
+
+  /* Animation Delays for Stagger Effects */
+  .animation-delay-100 {
+    animation-delay: 100ms;
+  }
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+  .animation-delay-500 {
+    animation-delay: 500ms;
+  }
+
+  /* Initial state for animated elements */
+  .opacity-0 {
+    opacity: 0;
   }
 }

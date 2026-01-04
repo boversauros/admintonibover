@@ -39,17 +39,18 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
     const inputClasses = `
       w-full
-      bg-transperent
+      bg-transparent
       border
       ${isInvalid || error ? 'border-red-400' : 'border-default'}
       text-primary
       placeholder:text-muted
       focus:outline-none
       focus:border-focus
+      focus:glow
       hover:border-subtle
       disabled:opacity-50
       disabled:cursor-not-allowed
-      transition-colors-default
+      transition-all-smooth
       ${sizeClasses[size]}
       ${className}
     `

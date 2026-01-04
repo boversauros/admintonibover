@@ -33,16 +33,9 @@ export function PostCard({
 
   return (
     <article className="group">
-      <div className="flex gap-5 py-4 border-b border-overlay-10 hover:bg-overlay-2 transition-colors duration-300">
-        {/* Left: Thumbnail - taller, wider */}
-        <div
-          className="relative w-48 shrink-0 overflow-hidden bg-overlay-5 cursor-pointer self-stretch min-h-[100px]"
-          onClick={() => onEdit(post)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={e => e.key === 'Enter' && onEdit(post)}
-          aria-label={`Edit ${title}`}
-        >
+      <div className="flex gap-5 py-4 border-b border-overlay-10 hover:bg-overlay-2 transition-colors-smooth">
+        {/* Left: Thumbnail */}
+        <div className="relative w-48 shrink-0 overflow-hidden bg-overlay-5 self-stretch min-h-[100px]">
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
@@ -83,7 +76,7 @@ export function PostCard({
                 {title}
                 <Icon
                   name="arrow-right-line"
-                  className="inline-block ml-2 opacity-0 -translate-x-1 group-hover/title:opacity-100 group-hover/title:translate-x-0 transition-all duration-200"
+                  className="inline-block ml-2 opacity-0 -translate-x-1 group-hover/title:opacity-100 group-hover/title:translate-x-0 transition-all-smooth"
                 />
               </h3>
             </button>

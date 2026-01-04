@@ -66,10 +66,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       cursor-pointer
       focus:outline-none
       focus:border-focus
+      focus:glow
       hover:border-subtle
       disabled:opacity-50
       disabled:cursor-not-allowed
-      transition-colors-default
+      transition-all-smooth
       ${sizeClasses[size]}
       ${className}
     `
