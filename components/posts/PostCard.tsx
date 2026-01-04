@@ -1,7 +1,15 @@
 'use client';
 
 import { StoredPost } from '@/lib/types/post';
-import { StatusBadge, LanguageIndicator, Icon, Button } from '@/components/ui';
+import {
+  StatusBadge,
+  LanguageIndicator,
+  Icon,
+  Button,
+  Image,
+  Text,
+  Heading,
+} from '@/components/ui';
 
 interface PostCardProps {
   post: StoredPost;
@@ -37,7 +45,7 @@ export function PostCard({
         {/* Left: Thumbnail */}
         <div className="relative w-48 shrink-0 overflow-hidden bg-overlay-5 self-stretch min-h-[100px]">
           {thumbnailUrl ? (
-            <img
+            <Image
               src={thumbnailUrl}
               alt=""
               className="w-full h-full object-cover"
@@ -55,10 +63,18 @@ export function PostCard({
           <div>
             {/* Meta row */}
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-slate-400 text-xs tracking-widest uppercase font-medium">
+              <Text
+                as="span"
+                variant="small"
+                className="text-slate-400 text-xs tracking-widest uppercase font-medium"
+              >
                 {categoryLabel}
-              </span>
-              <span className="w-px h-3 bg-overlay-20" aria-hidden="true" />
+              </Text>
+              <Text
+                as="span"
+                className="w-px h-3 bg-overlay-20"
+                aria-hidden="true"
+              />
               <LanguageIndicator
                 hasCA={!!post.translations.ca?.title}
                 hasEN={!!post.translations.en?.title}
@@ -67,25 +83,26 @@ export function PostCard({
             </div>
 
             {/* Title - clearly clickable with arrow hint */}
-            <button
+            <Button
               onClick={() => onEdit(post)}
-              className="group/title text-left w-full"
+              variant="ghost"
+              className="group/title text-left w-full p-0 h-auto"
               aria-label={`Edit: ${title}`}
             >
-              <h3 className="text-lg font-serif text-primary leading-snug inline">
+              <Heading as="h3" size="xl" className="text-lg font-serif text-primary leading-snug inline mb-0">
                 {title}
                 <Icon
                   name="arrow-right-line"
                   className="inline-block ml-2 opacity-0 -translate-x-1 group-hover/title:opacity-100 group-hover/title:translate-x-0 transition-all-smooth"
                 />
-              </h3>
-            </button>
+              </Heading>
+            </Button>
 
             {/* Excerpt - improved contrast */}
             {excerpt && (
-              <p className="text-sm text-primary-60 leading-relaxed mt-2 line-clamp-2">
+              <Text variant="small" className="text-primary-60 leading-relaxed mt-2 line-clamp-2">
                 {excerpt}
-              </p>
+              </Text>
             )}
           </div>
 
@@ -93,9 +110,14 @@ export function PostCard({
           {keywords.length > 0 && (
             <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-3">
               {keywords.map((kw, i) => (
-                <span key={i} className="text-sm text-primary-50 tracking-wide">
+                <Text
+                  key={i}
+                  as="span"
+                  variant="small"
+                  className="text-primary-50 tracking-wide"
+                >
                   #{kw}
-                </span>
+                </Text>
               ))}
             </div>
           )}

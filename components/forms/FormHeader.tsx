@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Button, Icon } from '@/components/ui';
+import { Button, Icon, Text } from '@/components/ui';
 
 interface FormHeaderProps {
   isSubmitting: boolean;
@@ -20,7 +20,9 @@ export function FormHeader({ isSubmitting, isEditMode }: FormHeaderProps) {
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <Button variant="ghost" onClick={handleBack}>
           <Icon name="chevron-left" size="5" />
-          <span className="text-sm">Tornar</span>
+          <Text as="span" variant="small">
+            Tornar
+          </Text>
         </Button>
 
         <Button

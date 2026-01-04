@@ -39,44 +39,39 @@ export function LoginForm() {
         <Text variant="muted">Sign in to manage your reflexions</Text>
       </div>
 
-      <form onSubmit={handleSubmit} className={`space-y-6 ${hasError ? 'animate-shake' : ''}`}>
+      <form
+        onSubmit={handleSubmit}
+        className={`space-y-6 ${hasError ? 'animate-shake' : ''}`}
+      >
         {error && (
           <div className="p-4 border border-red-500/30 bg-red-500/10 animate-fade-in">
             <Text className="text-red-400 text-sm">{error}</Text>
           </div>
         )}
 
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium mb-2">
-            Email
-          </label>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            disabled={loading}
-            autoComplete="email"
-            placeholder="your@email.com"
-          />
-        </div>
+        <Input
+          id="email"
+          type="email"
+          label="Email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+          disabled={loading}
+          autoComplete="email"
+          placeholder="your@email.com"
+        />
 
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium mb-2">
-            Password
-          </label>
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            disabled={loading}
-            autoComplete="current-password"
-            placeholder="Enter your password"
-          />
-        </div>
+        <Input
+          id="password"
+          type="password"
+          label="Password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+          disabled={loading}
+          autoComplete="current-password"
+          placeholder="Enter your password"
+        />
 
         <Button type="submit" variant="primary" fullWidth loading={loading}>
           Sign In

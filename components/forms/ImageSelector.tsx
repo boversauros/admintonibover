@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Icon, Button } from '@/components/ui';
+import { Icon, Button, Text, Image } from '@/components/ui';
 
 interface ImageSelectorProps {
   label: string;
@@ -65,10 +65,14 @@ export function ImageSelector({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="block text-xs text-muted uppercase tracking-wider">
+        <Text variant="label" className="block">
           {label}
-        </label>
-        {hint && <span className="text-[10px] text-subtle">{hint}</span>}
+        </Text>
+        {hint && (
+          <Text as="span" variant="small" className="text-subtle text-[10px]">
+            {hint}
+          </Text>
+        )}
       </div>
 
       <input
@@ -85,7 +89,7 @@ export function ImageSelector({
       >
         {displayUrl ? (
           <>
-            <img
+            <Image
               src={displayUrl}
               alt=""
               className="absolute inset-0 w-full h-full object-cover transition-transform-smooth group-hover:scale-105"
@@ -113,12 +117,18 @@ export function ImageSelector({
         ) : (
           <div className="text-center transition-transform-smooth group-hover:scale-105">
             <Icon name="image" size="6" />
-            <span className="block mt-2 text-xs">Clica per seleccionar</span>
+            <Text as="span" variant="small" className="block mt-2">
+              Clica per seleccionar
+            </Text>
           </div>
         )}
       </div>
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && (
+        <Text variant="small" className="text-red-400">
+          {error}
+        </Text>
+      )}
     </div>
   );
 }

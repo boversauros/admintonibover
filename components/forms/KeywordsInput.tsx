@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { Language } from '@/lib/types/post';
-import { Icon } from '@/components/ui';
+import { Icon, Text, Button, Input } from '@/components/ui';
 
 interface KeywordsInputProps {
   value: string[];
@@ -90,13 +90,12 @@ export function KeywordsInput({
   return (
     <div className="space-y-2" ref={containerRef}>
       {label && (
-        <label
-          htmlFor="keywords-input"
-          className="font-serif block text-xs text-muted uppercase tracking-wider mb-2"
-        >
+        <Text variant="label" className="block mb-2">
           {label}
-          <span className="text-subtle normal-case ml-1">({langLabel})</span>
-        </label>
+          <Text as="span" variant="small" className="text-subtle normal-case ml-1">
+            ({langLabel})
+          </Text>
+        </Text>
       )}
 
       <div className="border border-default focus-within:border-focus transition-colors">
@@ -104,26 +103,30 @@ export function KeywordsInput({
         {value.length > 0 && (
           <div className="flex flex-wrap gap-2 p-3 pb-0">
             {value.map((kw, i) => (
-              <span
+              <Text
                 key={i}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-overlay-5 border border-overlay-20 text-sm text-primary-80"
+                as="span"
+                variant="small"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-overlay-5 border border-overlay-20 text-primary-80"
               >
                 {kw}
-                <button
+                <Button
                   type="button"
+                  variant="icon"
+                  size="icon"
                   onClick={() => handleRemove(kw)}
-                  className="text-primary-40 hover:text-red-400 transition-colors"
+                  className="text-primary-40 hover:text-red-400 transition-colors h-auto w-auto p-0"
                 >
                   <Icon name="x" />
-                </button>
-              </span>
+                </Button>
+              </Text>
             ))}
           </div>
         )}
 
         {/* Input */}
         <div className="relative">
-          <input
+          <Input
             ref={inputRef}
             id="keywords-input"
             aria-label="Paraules clau"
@@ -133,7 +136,9 @@ export function KeywordsInput({
             onFocus={() => setShowSuggestions(true)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder || defaultPlaceholder}
-            className="w-full bg-transparent text-sm text-primary placeholder:text-muted focus:outline-none p-3"
+            size="sm"
+            wrapperClassName=""
+            className="bg-transparent border-0 focus:border-0 focus:ring-0 p-3"
           />
         </div>
 
@@ -141,24 +146,30 @@ export function KeywordsInput({
         {showSuggestions && filteredSuggestions.length > 0 && (
           <div className="border-t border-default">
             <div className="p-2">
-              <span className="text-[10px] text-muted uppercase tracking-wider px-2">
+              <Text
+                as="span"
+                variant="small"
+                className="text-[10px] text-muted uppercase tracking-wider px-2"
+              >
                 Suggeriments
-              </span>
+              </Text>
             </div>
             <div className="max-h-32 overflow-y-auto pb-2">
               <div className="flex flex-wrap gap-1.5 px-3">
                 {filteredSuggestions.map((kw, i) => (
-                  <button
+                  <Button
                     key={i}
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       addKeyword(kw);
                       inputRef.current?.focus();
                     }}
-                    className="px-2.5 py-1 text-xs text-body bg-overlay-5 hover:bg-overlay-10 hover:text-primary transition-colors"
+                    className="px-2.5 py-1 text-xs"
                   >
                     {kw}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

@@ -1,15 +1,17 @@
-import { ReactNode, ElementType } from 'react';
+import { ReactNode, ElementType, HTMLAttributes } from 'react';
 
 type HeadingLevel = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
 type HeadingSize = 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
 type HeadingVariant = 'primary' | 'secondary' | 'body' | 'muted';
 
-interface HeadingProps {
+interface HeadingProps extends Omit<
+  HTMLAttributes<HTMLHeadingElement>,
+  'size'
+> {
   as?: HeadingLevel;
   size?: HeadingSize;
   variant?: HeadingVariant;
   italic?: boolean;
-  className?: string;
   children: ReactNode;
 }
 
@@ -20,6 +22,7 @@ export function Heading({
   italic = false,
   className = '',
   children,
+  ...rest
 }: HeadingProps) {
   const sizeClasses: Record<HeadingSize, string> = {
     xl: 'text-xl',
@@ -50,5 +53,9 @@ export function Heading({
 
   const HeadingElement = Element as ElementType;
 
-  return <HeadingElement className={finalClasses}>{children}</HeadingElement>;
+  return (
+    <HeadingElement className={finalClasses} {...rest}>
+      {children}
+    </HeadingElement>
+  );
 }

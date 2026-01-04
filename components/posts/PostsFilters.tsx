@@ -1,6 +1,6 @@
 'use client';
 
-import { Icon } from '@/components/ui';
+import { Icon, Text, Button, Input } from '@/components/ui';
 
 export type FilterStatus = 'all' | 'published' | 'draft';
 
@@ -27,24 +27,31 @@ export function PostsFilters({
     <div className="flex items-center justify-between gap-4">
       {/* Search Input */}
       <div className="relative flex-1 max-w-md">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted">
+        <Text
+          as="span"
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none z-10"
+        >
           <Icon name="search" size="5" />
-        </span>
-        <input
+        </Text>
+        <Input
           type="text"
           value={searchQuery}
           onChange={e => onSearchChange(e.target.value)}
           placeholder="Cerca articles..."
-          className="w-full bg-transparent border border-default pl-12 pr-4 py-2.5 text-sm text-primary placeholder:text-muted focus:outline-none focus:border-focus focus:glow transition-all-smooth"
+          size="sm"
+          wrapperClassName="w-full"
+          className="bg-transparent pl-12 pr-4"
         />
       </div>
 
       {/* Status Filter Buttons */}
       <div className="flex border border-default">
         {filterOptions.map(option => (
-          <button
+          <Button
             key={option.value}
             onClick={() => onFilterChange(option.value)}
+            variant="ghost"
+            size="sm"
             className={`px-4 py-2 text-sm transition-all-smooth ${
               filterStatus === option.value
                 ? 'bg-overlay-10 text-primary'
@@ -52,7 +59,7 @@ export function PostsFilters({
             }`}
           >
             {option.label}
-          </button>
+          </Button>
         ))}
       </div>
     </div>

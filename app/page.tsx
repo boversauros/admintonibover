@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LoginForm } from '@/components/auth/LoginForm';
-import { Button, Icon, Pagination } from '@/components/ui';
+import { Button, Icon, Pagination, Heading, Text } from '@/components/ui';
 import { PostCard, PostsFilters, FilterStatus } from '@/components/posts';
 import { getPosts, deletePost } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
@@ -22,7 +22,7 @@ function PostsContent() {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
-  
+
   const POSTS_PER_PAGE = 10;
   const avatarDropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -164,42 +164,56 @@ function PostsContent() {
       <header className="sticky top-0 z-50 bg-nav backdrop-blur-sm border-b border-default">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-serif text-primary">Toni Bover</h1>
-            <p className="text-xs text-muted tracking-wider uppercase mt-0.5">
+            <Heading
+              as="h1"
+              size="xl"
+              className="text-xl font-serif text-primary mb-0"
+            >
+              Toni Bover
+            </Heading>
+            <Text
+              variant="small"
+              className="text-xs text-muted tracking-wider uppercase mt-0.5"
+            >
               Administració del blog
-            </p>
+            </Text>
           </div>
           {user && (
             <div className="flex items-center gap-3">
               <Button onClick={handleCreate} variant="primary">
-                <span className="flex items-center gap-2">
+                <Text as="span" className="flex items-center gap-2">
                   <Icon name="plus" size="3" /> Nou article
-                </span>
+                </Text>
               </Button>
               <div className="relative" ref={avatarDropdownRef}>
-                <button
+                <Button
                   onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
-                  className="w-10 h-10 rounded-full bg-overlay-10 flex items-center justify-center text-primary font-medium text-sm hover:bg-overlay-20 transition-colors-smooth cursor-pointer"
+                  variant="icon"
+                  className="w-10 h-10 rounded-full bg-overlay-10 text-primary font-medium text-sm hover:bg-overlay-20"
                   aria-label="User menu"
                 >
                   {getUserInitials()}
-                </button>
+                </Button>
                 {showAvatarDropdown && (
                   <div className="absolute right-0 mt-2 w-56 bg-surface border border-default shadow-lg animate-fade-in">
                     <div className="py-2">
                       <div className="px-4 py-2 border-b border-subtle">
-                        <p className="text-sm text-muted">Usuari</p>
-                        <p className="text-sm text-primary mt-1">
+                        <Text variant="small" className="text-muted">
+                          Usuari
+                        </Text>
+                        <Text variant="small" className="text-primary mt-1">
                           {user.email}
-                        </p>
+                        </Text>
                       </div>
                       <div className="px-2 py-1">
-                        <button
+                        <Button
                           onClick={handleLogout}
-                          className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-overlay-5 transition-colors-smooth rounded"
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-left px-3 py-2 text-sm"
                         >
                           Tancar sessió
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -251,12 +265,14 @@ function PostsContent() {
                   />
                 </svg>
               </div>
-              <p className="text-muted mb-2">No s'han trobat articles</p>
-              <p className="text-subtle text-sm">
+              <Text variant="muted" className="mb-2">
+                No s'han trobat articles
+              </Text>
+              <Text variant="small" className="text-subtle">
                 {searchQuery
                   ? 'Prova amb un altre terme de cerca'
                   : 'Crea el teu primer article per començar'}
-              </p>
+              </Text>
             </div>
           )}
         </div>

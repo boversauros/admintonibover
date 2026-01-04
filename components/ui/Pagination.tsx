@@ -1,6 +1,8 @@
 'use client';
 
 import { Icon } from './Icon';
+import { Button } from './Button';
+import { Text } from './Text';
 
 interface PaginationProps {
   currentPage: number;
@@ -23,44 +25,45 @@ export function Pagination({
   const isFirstPage = currentPage === 1;
   const isLastPage = currentPage === totalPages;
 
-  const buttonClasses = (isDisabled: boolean) =>
-    `inline-flex items-center justify-center h-9 px-4 text-sm transition-all-smooth focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:ring-offset-black focus-visible:ring-overlay-50 ${
-      isDisabled
-        ? 'text-overlay-30 cursor-not-allowed'
-        : 'text-muted hover:text-primary hover:bg-overlay-5'
-    }`;
-
   return (
     <nav
       className={`flex items-center justify-between ${className}`}
       aria-label="Pagination"
     >
       {/* Previous Button */}
-      <button
+      <Button
         onClick={() => !isFirstPage && onPageChange(currentPage - 1)}
         disabled={isFirstPage}
-        className={buttonClasses(isFirstPage)}
+        variant="ghost"
+        size="sm"
+        className={isFirstPage ? 'text-overlay-30 cursor-not-allowed' : ''}
         aria-label="Pàgina anterior"
       >
         <Icon name="chevron-left" size="4" />
-        <span className="ml-1">Anterior</span>
-      </button>
+        <Text as="span" variant="small" className="ml-1">
+          Anterior
+        </Text>
+      </Button>
 
       {/* Page indicator */}
-      <span className="text-sm text-muted">
+      <Text as="span" variant="small" className="text-muted">
         {currentPage} / {totalPages}
-      </span>
+      </Text>
 
       {/* Next Button */}
-      <button
+      <Button
         onClick={() => !isLastPage && onPageChange(currentPage + 1)}
         disabled={isLastPage}
-        className={buttonClasses(isLastPage)}
+        variant="ghost"
+        size="sm"
+        className={isLastPage ? 'text-overlay-30 cursor-not-allowed' : ''}
         aria-label="Pàgina següent"
       >
-        <span className="mr-1">Següent</span>
+        <Text as="span" variant="small" className="mr-1">
+          Següent
+        </Text>
         <Icon name="chevron-right" size="4" />
-      </button>
+      </Button>
     </nav>
   );
 }

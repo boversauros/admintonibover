@@ -1,6 +1,8 @@
 'use client';
 
 import { Language } from '@/lib/types/post';
+import { Button } from '@/components/ui/Button';
+import { Text } from '@/components/ui/Text';
 
 interface LanguageTabsProps {
   active: Language;
@@ -25,26 +27,28 @@ function LanguageTab({
   onClick,
 }: LanguageTabProps) {
   return (
-    <button
+    <Button
       type="button"
       onClick={onClick}
+      variant="ghost"
       className={`relative px-6 py-3 text-sm font-medium transition-all-smooth ${
         active ? 'text-primary' : 'text-muted hover:text-secondary'
       }`}
     >
-      <span className="flex items-center gap-2">
+      <Text as="span" className="flex items-center gap-2">
         {name}
         {!hasContent && !active && (
-          <span
+          <Text
+            as="span"
             className="w-2 h-2 rounded-full bg-amber-500/50 animate-pulse"
             title="No traduït"
           />
         )}
-      </span>
+      </Text>
       {active && (
         <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary animate-slide-in-right" />
       )}
-    </button>
+    </Button>
   );
 }
 

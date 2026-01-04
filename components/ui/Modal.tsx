@@ -3,6 +3,7 @@
 import { ReactNode, useEffect } from 'react';
 import { Button } from './Button';
 import { Icon } from './Icon';
+import { Heading } from './Heading';
 
 interface ModalProps {
   isOpen: boolean;
@@ -90,9 +91,9 @@ export function Modal({
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-subtle">
-            <h2 id="modal-title" className="text-lg text-primary font-medium">
+            <Heading as="h2" size="xl" id="modal-title" className="mb-0">
               {title}
-            </h2>
+            </Heading>
             {showCloseButton && (
               <Button
                 variant="icon"
