@@ -48,7 +48,7 @@ export function Toggle({
         relative inline-flex ${containerSizeClasses} items-center rounded-full transition-all-smooth
         ${
           checked
-            ? 'bg-emerald-500/30 border border-default'
+            ? 'bg-emerald-500/50 border border-default'
             : 'bg-overlay-10 border border-default'
         }
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
