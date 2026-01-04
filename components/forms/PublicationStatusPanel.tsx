@@ -24,7 +24,6 @@ export function PublicationStatusPanel({
         <Toggle checked={isPublished} onChange={onToggle} size="small" />
       </div>
       <div className="pt-3 border-t border-subtle">
-        <p className="text-xs text-muted mb-2">Estat actual:</p>
         <StatusBadge published={isPublished} />
       </div>
     </div>
