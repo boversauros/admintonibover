@@ -43,12 +43,10 @@ export function Toggle({
       : 'translate-x-6'
     : 'translate-x-1';
 
-  // Ball color: use pale white when disabled, otherwise use normal colors
+  // Ball color: use pale white when disabled, otherwise white in all states
   const ballColorClasses = disabled
     ? 'bg-white/70 shadow-white/30'
-    : checked
-      ? 'bg-emerald-400 shadow-emerald-400/50'
-      : 'bg-primary-80 shadow-black/20';
+    : 'bg-white shadow-black/20';
 
   return (
     <button
@@ -63,10 +61,10 @@ export function Toggle({
         disabled:opacity-50 disabled:cursor-not-allowed
         ${
           checked
-            ? 'bg-emerald-500/30 border border-emerald-500/50'
+            ? 'bg-emerald-500/30 border border-default'
             : 'bg-overlay-10 border border-default'
         }
-        ${disabled ? '' : 'cursor-pointer hover:scale-105 active:scale-95'}
+        ${disabled ? '' : 'cursor-pointer active:scale-95'}
         ${className}
       `
         .trim()
