@@ -1,51 +1,75 @@
-# Next.js Starter
+# Admin Toni Bover
 
-A clean Next.js 15 starter template with TypeScript and Tailwind CSS v4.
+Personal blog administration system for managing posts, translations, and content.
+
+## Tech Stack
+
+- **Next.js 16** with App Router
+- **React 19**
+- **TypeScript**
+- **Tailwind CSS v4**
+- **Supabase** (database & authentication)
+- **React Hook Form** for form management
 
 ## Getting Started
 
-First, install the dependencies:
+### Prerequisites
+
+- Node.js (v18 or higher)
+- pnpm
+- A Supabase account and project
+
+### Installation
+
+1. Install dependencies:
 
 ```bash
 pnpm install
 ```
 
-Then, run the development server:
+2. Set up environment variables:
+
+Create a `.env.local` file in the root directory:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+3. Set up the database:
+
+Follow the instructions in `SUPABASE_SETUP.md` to run the migrations and configure your Supabase project.
+
+4. Start the development server:
 
 ```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## What's Included
-
-- Next.js 15 with App Router
-- React 19
-- TypeScript
-- Tailwind CSS v4
-- ESLint configuration
-- Turbopack for faster development
-
-## Scripts
+## Available Scripts
 
 - `pnpm dev` - Start development server with Turbopack
-- `pnpm build` - Build production version
+- `pnpm build` - Build for production
 - `pnpm start` - Start production server
 - `pnpm lint` - Run ESLint
+- `pnpm format` - Format code with Prettier
+- `pnpm format:check` - Check code formatting
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, check out the following resources:
+- `app/` - Next.js app router pages and routes
+- `components/` - React components (auth, forms, posts, UI)
+- `lib/` - Utilities, API clients, types, and validation
+- `supabase/migrations/` - Database migration files
 
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Learn Next.js](https://nextjs.org/learn)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
+## Features
 
-## Deploy
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new).
-
-Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Authentication with Supabase Auth
+- Post management with multi-language support (Catalan/English)
+- Category organization
+- Keyword tagging
+- Image upload and management
+- Publication status control
+- Search and filtering
