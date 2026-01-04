@@ -24,7 +24,7 @@ export function PostsFilters({
   onFilterChange,
 }: PostsFiltersProps) {
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center justify-between gap-4">
       {/* Search Input */}
       <div className="relative flex-1 max-w-md">
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted">

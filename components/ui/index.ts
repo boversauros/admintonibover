@@ -18,3 +18,4 @@ export type { TableColumn, TableAction } from './Table';
 export { Text } from './Text';
 export { Textarea } from './Textarea';
 export { Toast } from './Toast';
+export { Toggle } from './Toggle';

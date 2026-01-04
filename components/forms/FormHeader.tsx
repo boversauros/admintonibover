@@ -4,18 +4,11 @@ import { useRouter } from 'next/navigation';
 import { Button, Icon } from '@/components/ui';
 
 interface FormHeaderProps {
-  isPublished: boolean;
-  onPublishToggle: () => void;
   isSubmitting: boolean;
   isEditMode: boolean;
 }
 
-export function FormHeader({
-  isPublished,
-  onPublishToggle,
-  isSubmitting,
-  isEditMode,
-}: FormHeaderProps) {
+export function FormHeader({ isSubmitting, isEditMode }: FormHeaderProps) {
   const router = useRouter();
 
   const handleBack = () => {
@@ -30,36 +23,14 @@ export function FormHeader({
           <span className="text-sm">Tornar</span>
         </Button>
 
-        <div className="flex items-center gap-3">
-          {/* Publish Toggle */}
-          <button
-            type="button"
-            onClick={onPublishToggle}
-            className={`px-4 py-2 text-sm border transition-all-smooth hover:scale-102 active:scale-98 ${
-              isPublished
-                ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10'
-                : 'border-default text-muted hover:border-subtle hover:bg-overlay-5'
-            }`}
-          >
-            {isPublished ? (
-              <span className="flex items-center gap-2">
-                <Icon name="check" size="4" /> Publicat
-              </span>
-            ) : (
-              'Esborrany'
-            )}
-          </button>
-
-          {/* Save Button */}
-          <Button
-            type="submit"
-            variant="primary"
-            loading={isSubmitting}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (isEditMode ? 'Desant...' : 'Creant...') : 'Desar'}
-          </Button>
-        </div>
+        <Button
+          type="submit"
+          variant="primary"
+          loading={isSubmitting}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (isEditMode ? 'Desant...' : 'Creant...') : 'Desar'}
+        </Button>
       </div>
     </header>
   );

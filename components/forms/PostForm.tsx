@@ -19,6 +19,7 @@ import { ReferencesSection } from './ReferencesSection';
 import { FormHeader } from './FormHeader';
 import { ImageSelector } from './ImageSelector';
 import { TranslationStatusPanel } from './TranslationStatusPanel';
+import { PublicationStatusPanel } from './PublicationStatusPanel';
 import { CollapsibleSection } from './CollapsibleSection';
 
 function convertToMarkdownParagraphs(content: string): string {
@@ -308,8 +309,8 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
     label: cat.name_ca,
   }));
 
-  const handlePublishToggle = () => {
-    setValue('is_published', !watch('is_published'));
+  const handlePublishToggle = (checked: boolean) => {
+    setValue('is_published', checked);
   };
 
   const handleThumbnailSelect = (file: File | null) => {
@@ -327,12 +328,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         className="min-h-screen bg-background"
       >
         {/* Sticky Header */}
-        <FormHeader
-          isPublished={watch('is_published')}
-          onPublishToggle={handlePublishToggle}
-          isSubmitting={isSubmitting}
-          isEditMode={!!initialData}
-        />
+        <FormHeader isSubmitting={isSubmitting} isEditMode={!!initialData} />
 
         {/* Form Content */}
         <main className="max-w-6xl mx-auto px-6 py-8">
@@ -362,6 +358,12 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
 
             {/* Sidebar - 1 column */}
             <div className="space-y-6">
+              {/* Publication Status Panel */}
+              <PublicationStatusPanel
+                isPublished={watch('is_published')}
+                onToggle={handlePublishToggle}
+              />
+
               {/* Featured Image */}
               <ImageSelector
                 label="Imatge destacada"

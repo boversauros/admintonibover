@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LoginForm } from '@/components/auth/LoginForm';
@@ -20,6 +20,8 @@ function PostsContent() {
   const [posts, setPosts] = useState<StoredPost[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
+  const avatarDropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { user, signOut } = useAuth();
 
@@ -66,12 +68,63 @@ function PostsContent() {
 
   const handleLogout = async () => {
     try {
+      setShowAvatarDropdown(false);
       await signOut();
       router.push('/');
     } catch (error) {
       console.error('Error logging out:', error);
     }
   };
+
+  // Get user initials from name or email
+  const getUserInitials = () => {
+    if (!user) return 'U';
+
+    // Try to get initials from user_metadata name first
+    const name = user.user_metadata?.name || user.user_metadata?.full_name;
+    if (name) {
+      const nameParts = name.trim().split(/\s+/);
+      if (nameParts.length >= 2) {
+        return (nameParts[0][0] + nameParts[1][0]).toUpperCase();
+      }
+      if (nameParts[0].length >= 2) {
+        return nameParts[0].substring(0, 2).toUpperCase();
+      }
+      return nameParts[0][0].toUpperCase();
+    }
+
+    // Fall back to email
+    if (user.email) {
+      const email = user.email;
+      const parts = email.split('@')[0];
+      if (parts.length >= 2) {
+        return parts.substring(0, 2).toUpperCase();
+      }
+      return email.charAt(0).toUpperCase();
+    }
+
+    return 'U';
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        avatarDropdownRef.current &&
+        !avatarDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowAvatarDropdown(false);
+      }
+    };
+
+    if (showAvatarDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAvatarDropdown]);
 
   const filteredPosts = useMemo(() => {
     return posts.filter(post => {
@@ -90,12 +143,6 @@ function PostsContent() {
     });
   }, [posts, searchQuery, filterStatus]);
 
-  // Get display name from various possible fields
-  const getUserDisplayName = () => {
-    if (!user) return '';
-    return user.email;
-  };
-
   return (
     <div className="min-h-screen bg-background text-primary">
       {/* Header */}
@@ -109,12 +156,40 @@ function PostsContent() {
           </div>
           {user && (
             <div className="flex items-center gap-3">
-              <span className="text-sm text-muted">
-                {getUserDisplayName()}
-              </span>
-              <Button onClick={handleLogout} variant="secondary">
-                <span className="flex items-center gap-2">Tancar sessió</span>
+              <Button onClick={handleCreate} variant="primary">
+                <span className="flex items-center gap-2">
+                  <Icon name="plus" size="3" /> Nou article
+                </span>
               </Button>
+              <div className="relative" ref={avatarDropdownRef}>
+                <button
+                  onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
+                  className="w-10 h-10 rounded-full bg-overlay-10 flex items-center justify-center text-primary font-medium text-sm hover:bg-overlay-20 transition-colors-smooth cursor-pointer"
+                  aria-label="User menu"
+                >
+                  {getUserInitials()}
+                </button>
+                {showAvatarDropdown && (
+                  <div className="absolute right-0 mt-2 w-56 bg-surface border border-default shadow-lg animate-fade-in">
+                    <div className="py-2">
+                      <div className="px-4 py-2 border-b border-subtle">
+                        <p className="text-sm text-muted">Usuari</p>
+                        <p className="text-sm text-primary mt-1">
+                          {user.email}
+                        </p>
+                      </div>
+                      <div className="px-2 py-1">
+                        <button
+                          onClick={handleLogout}
+                          className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-overlay-5 transition-colors-smooth rounded"
+                        >
+                          Tancar sessió
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -122,19 +197,12 @@ function PostsContent() {
 
       {/* Filters */}
       <div className="max-w-6xl mx-auto px-6 py-6">
-        <div className="flex items-center justify-between gap-4">
-          <PostsFilters
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            filterStatus={filterStatus}
-            onFilterChange={setFilterStatus}
-          />
-          <Button onClick={handleCreate} variant="primary">
-            <span className="flex items-center gap-2">
-              <Icon name="plus" size="3" /> Nou article
-            </span>
-          </Button>
-        </div>
+        <PostsFilters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          filterStatus={filterStatus}
+          onFilterChange={setFilterStatus}
+        />
       </div>
 
       {/* Posts Grid */}
