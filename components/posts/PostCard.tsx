@@ -74,7 +74,9 @@ export function PostCard({
                 as="span"
                 className="w-px h-3 bg-overlay-20"
                 aria-hidden="true"
-              />
+              >
+                {' '}
+              </Text>
               <LanguageIndicator
                 hasCA={!!post.translations.ca?.title}
                 hasEN={!!post.translations.en?.title}
@@ -83,24 +85,21 @@ export function PostCard({
             </div>
 
             {/* Title - clearly clickable with arrow hint */}
-            <Button
-              onClick={() => onEdit(post)}
-              variant="ghost"
-              className="group/title text-left w-full p-0 h-auto"
-              aria-label={`Edit: ${title}`}
+
+            <Heading
+              as="h3"
+              size="xl"
+              className="text-lg font-serif text-primary leading-snug inline mb-0"
             >
-              <Heading as="h3" size="xl" className="text-lg font-serif text-primary leading-snug inline mb-0">
-                {title}
-                <Icon
-                  name="arrow-right-line"
-                  className="inline-block ml-2 opacity-0 -translate-x-1 group-hover/title:opacity-100 group-hover/title:translate-x-0 transition-all-smooth"
-                />
-              </Heading>
-            </Button>
+              {title}
+            </Heading>
 
             {/* Excerpt - improved contrast */}
             {excerpt && (
-              <Text variant="small" className="text-primary-60 leading-relaxed mt-2 line-clamp-2">
+              <Text
+                variant="small"
+                className="text-primary-60 leading-relaxed mt-2 line-clamp-2"
+              >
                 {excerpt}
               </Text>
             )}
