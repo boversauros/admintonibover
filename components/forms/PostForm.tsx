@@ -68,6 +68,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
     defaultValues: initialData
       ? {
           category_id: initialData.category_id,
+          sort_order: initialData.sort_order ?? 0,
           date: initialData.date,
           author: initialData.author,
           thumbnail_file: null,
@@ -95,6 +96,7 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         }
       : {
           category_id: '',
+          sort_order: 0,
           date: '',
           author: '',
           thumbnail_file: null,
@@ -252,10 +254,16 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
       // It gets the authenticated user from the session
       const authorName = data.author || 'Admin';
 
+      const sortOrder =
+        typeof data.sort_order === 'number' && Number.isFinite(data.sort_order)
+          ? data.sort_order
+          : 0;
+
       const storedPost: StoredPost = {
         id: isEditMode ? initialData.id : '', // Empty string for new posts (DB will auto-generate)
         user_id: isEditMode ? initialData.user_id : '', // API will set this for new posts
         category_id: data.category_id,
+        sort_order: sortOrder,
         thumbnail_id: thumbnailId,
         image_id: mainImageId,
         is_published: data.is_published,
@@ -362,6 +370,15 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
               <PublicationStatusPanel
                 isPublished={watch('is_published')}
                 onToggle={handlePublishToggle}
+              />
+
+              <Input
+                type="number"
+                label="Ordre"
+                min={0}
+                step={1}
+                helperText="Nombre més baix = més amunt al lloc públic (ordenació ascendent)"
+                {...register('sort_order', { valueAsNumber: true })}
               />
 
               {/* Featured Image */}

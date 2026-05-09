@@ -29,6 +29,7 @@ export interface PostTranslation {
 
 export interface PostFormData {
   category_id: string;
+  sort_order: number;
   date: string;
   author: string;
   thumbnail_file?: File | null;
@@ -46,6 +47,7 @@ export interface StoredPost {
   id: string;
   user_id: string;
   category_id: string;
+  sort_order: number;
   thumbnail_id: string | null;
   thumbnail?: Image | null;
   image_id: string | null;

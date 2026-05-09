@@ -122,6 +122,10 @@ export async function getPosts(): Promise<StoredPost[]> {
         id: post.id.toString(),
         user_id: post.user_id,
         category_id: post.category_id.toString(),
+        sort_order:
+          typeof post.sort_order === 'number' && !Number.isNaN(post.sort_order)
+            ? post.sort_order
+            : 0,
         thumbnail_id: post.thumbnail_id ? post.thumbnail_id.toString() : null,
         thumbnail: transformImage(post.thumbnail),
         image_id: post.image_id ? post.image_id.toString() : null,
@@ -199,6 +203,7 @@ async function createPost(post: StoredPost): Promise<void> {
       author: post.author,
       is_published: post.is_published,
       date: post.date,
+      sort_order: post.sort_order ?? 0,
       thumbnail_id: post.thumbnail_id ? parseInt(post.thumbnail_id) : null,
       image_id: post.image_id ? parseInt(post.image_id) : null,
     })
@@ -228,6 +233,7 @@ async function updatePost(post: StoredPost): Promise<void> {
       author: post.author,
       is_published: post.is_published,
       date: post.date,
+      sort_order: post.sort_order ?? 0,
       thumbnail_id: post.thumbnail_id ? parseInt(post.thumbnail_id) : null,
       image_id: post.image_id ? parseInt(post.image_id) : null,
     })

@@ -277,6 +277,7 @@ export type Database = {
           id: number;
           image_id: number | null;
           is_published: boolean;
+          sort_order: number;
           thumbnail_id: number | null;
           updated_at: string;
           user_id: string;
@@ -289,6 +290,7 @@ export type Database = {
           id?: number;
           image_id?: number | null;
           is_published?: boolean;
+          sort_order?: number;
           thumbnail_id?: number | null;
           updated_at?: string;
           user_id: string;
@@ -301,6 +303,7 @@ export type Database = {
           id?: number;
           image_id?: number | null;
           is_published?: boolean;
+          sort_order?: number;
           thumbnail_id?: number | null;
           updated_at?: string;
           user_id?: string;
