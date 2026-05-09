@@ -166,6 +166,18 @@ export async function getPosts(): Promise<StoredPost[]> {
 }
 
 /**
+ * Returns total post count (used to default sort_order on create)
+ */
+export async function getPostsCount(): Promise<number> {
+  const { count, error } = await supabase
+    .from('posts')
+    .select('*', { count: 'exact', head: true });
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
  * Saves a single post (create or update)
  * Handles multi-table operations: posts, post_translations, keywords, references
  */

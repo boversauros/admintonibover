@@ -5,7 +5,7 @@ import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { Select, Input } from '@/components/ui';
 import { PostFormData, StoredPost, Language } from '@/lib/types/post';
 import { slugify, generateUniqueSlug } from '@/lib/utils/slugify';
-import { savePost, getExistingSlugs } from '@/lib/api/posts';
+import { savePost, getExistingSlugs, getPostsCount } from '@/lib/api/posts';
 import {
   uploadAndCreateImage,
   deleteImageCompletely,
@@ -133,6 +133,14 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
     register,
     formState: { errors },
   } = methods;
+
+  // On create, default sort_order to total posts + 1
+  useEffect(() => {
+    if (initialData) return;
+    getPostsCount()
+      .then(count => setValue('sort_order', count + 1))
+      .catch(error => console.error('Failed to load posts count:', error));
+  }, [initialData, setValue]);
 
   // Auto-generate slugs from titles
   const titleCA = watch('translations.ca.title');
@@ -366,19 +374,20 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
 
             {/* Sidebar - 1 column */}
             <div className="space-y-6">
-              {/* Publication Status Panel */}
-              <PublicationStatusPanel
-                isPublished={watch('is_published')}
-                onToggle={handlePublishToggle}
-              />
-
               <Input
                 type="number"
                 label="Ordre"
                 min={0}
                 step={1}
                 helperText="Nombre més baix = més amunt al lloc públic (ordenació ascendent)"
+                className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
                 {...register('sort_order', { valueAsNumber: true })}
+              />
+
+              {/* Publication Status Panel */}
+              <PublicationStatusPanel
+                isPublished={watch('is_published')}
+                onToggle={handlePublishToggle}
               />
 
               {/* Featured Image */}
