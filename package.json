@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.89.0",
@@ -28,6 +29,7 @@
     "eslint-config-next": "16.1.1",
     "prettier": "^3.7.4",
     "tailwindcss": "4.1.18",
+    "tsx": "^4.21.0",
     "typescript": "5.9.3"
   }
 }

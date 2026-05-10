@@ -101,6 +101,39 @@ pnpm run dev
 
 Your app should now connect to Supabase!
 
+## Seeding dummy posts
+
+For local dev / demos you can populate the DB with fixture posts.
+
+1. In **Settings** → **API**, copy the `service_role` key (long string starting with `eyJ...`). **This key bypasses RLS — never commit it.**
+2. Add it to `.env.local`:
+
+   ```env
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   ```
+
+3. Make sure at least one user exists in **Authentication → Users**. Posts FK to `auth.users` (see migration 005).
+4. (Optional) Pin to a specific auth user by email:
+
+   ```env
+   SEED_USER_EMAIL=you@example.com
+   ```
+
+   If unset, the script uses the first auth user it finds.
+5. Run:
+
+   ```bash
+   pnpm seed
+   ```
+
+The script inserts 6 posts (2 per category, ca + en translations, 2 keywords per translation) tagged with `author = 'SEED'`. It is idempotent: re-running deletes the previous seed batch first, leaving any non-seed posts untouched.
+
+To remove all seeded data manually:
+
+```sql
+DELETE FROM posts WHERE author = 'SEED';
+```
+
 ## Testing the Connection
 
 1. Open your browser console (F12)
