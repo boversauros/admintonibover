@@ -28,14 +28,24 @@ export function useKeywords() {
         const cached = localStorage.getItem(CACHE_KEY);
 
         if (cached) {
-          const cachedData: CachedData = JSON.parse(cached);
-          const now = Date.now();
+          try {
+            const cachedData = JSON.parse(cached) as Partial<CachedData>;
+            const now = Date.now();
 
-          // If cache is still valid, use it
-          if (now - cachedData.timestamp < CACHE_DURATION) {
-            setKeywords(cachedData.keywords);
-            setIsLoading(false);
-            return;
+            if (
+              cachedData &&
+              typeof cachedData.timestamp === 'number' &&
+              cachedData.keywords &&
+              Array.isArray(cachedData.keywords.ca) &&
+              Array.isArray(cachedData.keywords.en) &&
+              now - cachedData.timestamp < CACHE_DURATION
+            ) {
+              setKeywords(cachedData.keywords as KeywordsByLanguage);
+              setIsLoading(false);
+              return;
+            }
+          } catch {
+            localStorage.removeItem(CACHE_KEY);
           }
         }
 

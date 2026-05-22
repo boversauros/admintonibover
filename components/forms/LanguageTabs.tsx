@@ -38,10 +38,10 @@ function LanguageTab({
       <Text as="span" className="flex items-center gap-2">
         {name}
         {!hasContent && !active && (
-          <Text
-            as="span"
+          <span
             className="w-2 h-2 rounded-full bg-amber-500/50 animate-pulse"
             title="No traduït"
+            aria-label="No traduït"
           />
         )}
       </Text>

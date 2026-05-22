@@ -2,6 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Icon, Button, Text, Image } from '@/components/ui';
+import {
+  ALLOWED_IMAGE_MIME_TYPES,
+  validateImageFile,
+} from '@/lib/api/images';
 
 interface ImageSelectorProps {
   label: string;
@@ -21,6 +25,7 @@ export function ImageSelector({
   error,
 }: ImageSelectorProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const aspectClasses = {
@@ -40,11 +45,19 @@ export function ImageSelector({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
-    if (file) {
-      const blobUrl = URL.createObjectURL(file);
-      setPreviewUrl(blobUrl);
-      onFileSelect(file);
+    if (!file) return;
+
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setLocalError(validationError);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
     }
+
+    setLocalError(null);
+    const blobUrl = URL.createObjectURL(file);
+    setPreviewUrl(blobUrl);
+    onFileSelect(file);
   };
 
   const handleClear = (e: React.MouseEvent) => {
@@ -78,7 +91,7 @@ export function ImageSelector({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={ALLOWED_IMAGE_MIME_TYPES.join(',')}
         onChange={handleFileChange}
         className="hidden"
       />
@@ -124,9 +137,9 @@ export function ImageSelector({
         )}
       </div>
 
-      {error && (
+      {(localError || error) && (
         <Text variant="small" className="text-red-400">
-          {error}
+          {localError || error}
         </Text>
       )}
     </div>

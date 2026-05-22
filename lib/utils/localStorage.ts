@@ -6,7 +6,14 @@ export function getPosts(): StoredPost[] {
   if (typeof window === 'undefined') return [];
 
   const data = localStorage.getItem(POSTS_KEY);
-  return data ? JSON.parse(data) : [];
+  if (!data) return [];
+
+  try {
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? (parsed as StoredPost[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 export function savePosts(posts: StoredPost[]): void {

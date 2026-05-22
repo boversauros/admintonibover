@@ -11,26 +11,70 @@ export interface Image {
   updated_at: string;
 }
 
-/**
- * Generate a unique filename for storage
- */
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export const ALLOWED_IMAGE_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/avif',
+] as const;
+const EXTENSION_BY_MIME: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/avif': 'avif',
+};
+
+export function validateImageFile(file: File): string | null {
+  if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type as never)) {
+    return `Unsupported file type. Allowed: ${ALLOWED_IMAGE_MIME_TYPES.join(', ')}`;
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    return `File too large. Max ${(MAX_IMAGE_BYTES / 1024 / 1024).toFixed(0)} MB`;
+  }
+  return null;
+}
+
 function generateFileName(file: File): string {
   const timestamp = Date.now();
   const randomString = Math.random().toString(36).substring(2, 15);
-  const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const extension =
+    EXTENSION_BY_MIME[file.type] ||
+    file.name.split('.').pop()?.toLowerCase() ||
+    'jpg';
   return `${timestamp}-${randomString}.${extension}`;
 }
 
-/**
- * Extract file path from Supabase Storage URL
- */
+const SUPABASE_HOST = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return '';
+  try {
+    return new URL(url).host;
+  } catch {
+    return '';
+  }
+})();
+
 function extractPathFromUrl(url: string, bucket: StorageBucket): string {
-  // URL format: https://{project}.supabase.co/storage/v1/object/public/{bucket}/{path}
-  const urlParts = url.split(`/object/public/${bucket}/`);
-  if (urlParts.length < 2) {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('Invalid storage URL');
+  }
+  if (SUPABASE_HOST && parsed.host !== SUPABASE_HOST) {
+    throw new Error('Storage URL host does not match Supabase project');
+  }
+  const marker = `/object/public/${bucket}/`;
+  const idx = parsed.pathname.indexOf(marker);
+  if (idx === -1) {
     throw new Error('Invalid storage URL format');
   }
-  return urlParts[1];
+  const path = parsed.pathname.slice(idx + marker.length);
+  if (path.includes('..') || path.startsWith('/')) {
+    throw new Error('Invalid storage URL path');
+  }
+  return path;
 }
 
 /**
@@ -46,6 +90,11 @@ export async function uploadImageToStorage(
   fileName?: string
 ): Promise<string> {
   try {
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      throw new Error(validationError);
+    }
+
     const uploadFileName = fileName || generateFileName(file);
 
     const { data, error } = await supabase.storage
@@ -53,6 +102,7 @@ export async function uploadImageToStorage(
       .upload(uploadFileName, file, {
         cacheControl: '3600',
         upsert: false,
+        contentType: file.type,
       });
 
     if (error) {

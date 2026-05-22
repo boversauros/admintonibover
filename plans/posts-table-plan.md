@@ -163,7 +163,7 @@ The Table component expects `key` to be `keyof T`, but nested properties like `t
 
 ## Files to Modify
 
-**1. `/Users/oriolbovervila/Dev/projects/admintonibover/app/page.tsx`**
+**1. `app/page.tsx`**
 
 - Convert to client component ('use client')
 - Add state management for posts
@@ -262,7 +262,7 @@ After implementation, verify:
 
 **Critical File:**
 
-- `/Users/oriolbovervila/Dev/projects/admintonibover/app/page.tsx` - Main implementation
+- `app/page.tsx` - Main implementation
 
 **Dependencies:**
 

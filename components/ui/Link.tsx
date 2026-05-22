@@ -42,8 +42,20 @@ export function Link({
     );
   }
 
+  const isExternalHttp = /^https?:\/\//i.test(href);
+  const externalRel = isExternalHttp
+    ? `noopener noreferrer${rest.rel ? ` ${rest.rel}` : ''}`
+    : rest.rel;
+  const externalTarget = isExternalHttp ? rest.target || '_blank' : rest.target;
+
   return (
-    <a href={href} className={finalClasses} {...rest}>
+    <a
+      href={href}
+      className={finalClasses}
+      {...rest}
+      rel={externalRel}
+      target={externalTarget}
+    >
       {children}
     </a>
   );
