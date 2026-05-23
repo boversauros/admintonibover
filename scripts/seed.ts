@@ -1,4 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { readFileSync, readdirSync } from 'node:fs';
+import { extname, join } from 'node:path';
 
 process.loadEnvFile('.env.local');
 
@@ -13,10 +15,22 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
 }
 
 const SEED_AUTHOR = 'SEED';
+const SEED_IMAGE_TITLE_PREFIX = 'SEED:';
+const SEED_IMAGES_DIR = join(process.cwd(), 'scripts', 'seed-images');
 
 const LANGUAGE_IDS = { ca: 1, en: 2 } as const;
 
+const MIME_BY_EXT: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.avif': 'image/avif',
+};
+
 type Lang = 'ca' | 'en';
+
+type Bucket = 'post-images' | 'post-thumbnails';
 
 type TranslationFixture = {
   title: string;
@@ -27,8 +41,8 @@ type TranslationFixture = {
 
 type PostFixture = {
   categorySlug: 'vivencies' | 'influencies' | 'perspectives';
-  ca: TranslationFixture;
-  en: TranslationFixture;
+  ca?: TranslationFixture;
+  en?: TranslationFixture;
 };
 
 const FIXTURES: PostFixture[] = [
@@ -40,13 +54,6 @@ const FIXTURES: PostFixture[] = [
         'Els estius a la costa van marcar la meva manera de mirar el món. Aquell gust de sal i el so de les onades encara em ressonen.',
       slug: 'seed-vivencies-1-ca',
       keywords: ['infància', 'mallorca'],
-    },
-    en: {
-      title: 'Childhood memories in Mallorca',
-      content:
-        'Summers on the coast shaped how I see the world. The taste of salt and the sound of waves still echo within me.',
-      slug: 'seed-vivencies-1-en',
-      keywords: ['childhood', 'mallorca'],
     },
   },
   {
@@ -119,13 +126,6 @@ const FIXTURES: PostFixture[] = [
   },
   {
     categorySlug: 'perspectives',
-    ca: {
-      title: 'Què significa pertànyer',
-      content:
-        'Pertànyer no és quedar-se quiet sinó arrelar-se mentre un creix. La identitat és un riu, no una pedra.',
-      slug: 'seed-perspectives-2-ca',
-      keywords: ['identitat', 'arrels'],
-    },
     en: {
       title: 'What it means to belong',
       content:
@@ -183,6 +183,152 @@ async function wipeSeed(client: SupabaseClient): Promise<number> {
     .select('id');
   if (error) throw error;
   return data?.length ?? 0;
+}
+
+function bucketAndPathFromUrl(url: string): { bucket: Bucket; path: string } | null {
+  const marker = '/object/public/';
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  const rest = url.slice(idx + marker.length);
+  const slash = rest.indexOf('/');
+  if (slash === -1) return null;
+  const bucket = rest.slice(0, slash);
+  const path = rest.slice(slash + 1);
+  if (bucket !== 'post-images' && bucket !== 'post-thumbnails') return null;
+  return { bucket: bucket as Bucket, path };
+}
+
+async function wipeSeedImages(client: SupabaseClient): Promise<number> {
+  const { data, error } = await client
+    .from('images')
+    .select('id, url')
+    .like('title', `${SEED_IMAGE_TITLE_PREFIX}%`);
+  if (error) throw error;
+
+  const rows = data ?? [];
+  if (rows.length === 0) return 0;
+
+  const byBucket: Record<Bucket, string[]> = {
+    'post-images': [],
+    'post-thumbnails': [],
+  };
+  for (const row of rows) {
+    const parsed = bucketAndPathFromUrl(row.url as string);
+    if (parsed) byBucket[parsed.bucket].push(parsed.path);
+  }
+  for (const bucket of Object.keys(byBucket) as Bucket[]) {
+    const paths = byBucket[bucket];
+    if (paths.length === 0) continue;
+    const { error: storageError } = await client.storage
+      .from(bucket)
+      .remove(paths);
+    if (storageError) {
+      console.warn(`  storage cleanup warning (${bucket}): ${storageError.message}`);
+    }
+  }
+
+  const { error: deleteError } = await client
+    .from('images')
+    .delete()
+    .like('title', `${SEED_IMAGE_TITLE_PREFIX}%`);
+  if (deleteError) throw deleteError;
+
+  return rows.length;
+}
+
+function discoverPoolFiles(): { main: string[]; thumb: string[] } {
+  let entries: string[];
+  try {
+    entries = readdirSync(SEED_IMAGES_DIR);
+  } catch {
+    throw new Error(
+      `Missing ${SEED_IMAGES_DIR}. Create it and drop main-*/thumb-* images inside.`
+    );
+  }
+  const main: string[] = [];
+  const thumb: string[] = [];
+  for (const name of entries) {
+    const ext = extname(name).toLowerCase();
+    if (!MIME_BY_EXT[ext]) continue;
+    if (name.startsWith('main-')) main.push(name);
+    else if (name.startsWith('thumb-')) thumb.push(name);
+  }
+  if (main.length === 0 || thumb.length === 0) {
+    throw new Error(
+      `Need at least one main-* and one thumb-* image in ${SEED_IMAGES_DIR}. ` +
+        `Found main: [${main.join(', ')}], thumb: [${thumb.join(', ')}].`
+    );
+  }
+  return { main, thumb };
+}
+
+async function uploadSeedImage(
+  client: SupabaseClient,
+  bucket: Bucket,
+  localFile: string
+): Promise<string> {
+  const ext = extname(localFile).toLowerCase();
+  const contentType = MIME_BY_EXT[ext];
+  if (!contentType) {
+    throw new Error(`Unsupported image extension on ${localFile}`);
+  }
+  const buffer = readFileSync(join(SEED_IMAGES_DIR, localFile));
+  const key = `seed-${localFile}`;
+
+  const { error } = await client.storage.from(bucket).upload(key, buffer, {
+    contentType,
+    upsert: true,
+    cacheControl: '3600',
+  });
+  if (error) throw new Error(`Upload failed for ${localFile}: ${error.message}`);
+
+  const { data } = client.storage.from(bucket).getPublicUrl(key);
+  return data.publicUrl;
+}
+
+async function createSeedImageRecord(
+  client: SupabaseClient,
+  url: string,
+  localFile: string
+): Promise<number> {
+  const { data, error } = await client
+    .from('images')
+    .insert({
+      url,
+      title: `${SEED_IMAGE_TITLE_PREFIX} ${localFile}`,
+      alt: 'Sample seed image',
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id as number;
+}
+
+async function uploadPool(client: SupabaseClient): Promise<{
+  mainIds: number[];
+  thumbIds: number[];
+}> {
+  const { main, thumb } = discoverPoolFiles();
+  const mainIds: number[] = [];
+  const thumbIds: number[] = [];
+
+  for (const file of main) {
+    const url = await uploadSeedImage(client, 'post-images', file);
+    mainIds.push(await createSeedImageRecord(client, url, file));
+  }
+  for (const file of thumb) {
+    const url = await uploadSeedImage(client, 'post-thumbnails', file);
+    thumbIds.push(await createSeedImageRecord(client, url, file));
+  }
+
+  console.log(
+    `  uploaded ${main.length} main + ${thumb.length} thumb image(s)`
+  );
+  return { mainIds, thumbIds };
+}
+
+function pickRandom<T>(arr: readonly T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 async function insertKeywords(
@@ -245,7 +391,9 @@ async function insertPost(
   fx: PostFixture,
   userId: string,
   categoryId: number,
-  sortOrder: number
+  sortOrder: number,
+  imageId: number,
+  thumbnailId: number
 ): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
 
@@ -258,22 +406,30 @@ async function insertPost(
       is_published: true,
       date: today,
       sort_order: sortOrder,
-      image_id: null,
-      thumbnail_id: null,
+      image_id: imageId,
+      thumbnail_id: thumbnailId,
     })
     .select('id')
     .single();
   if (error) throw error;
 
   const postId = data.id as number;
-  await insertTranslation(client, postId, 'ca', fx.ca);
-  await insertTranslation(client, postId, 'en', fx.en);
+  if (fx.ca) await insertTranslation(client, postId, 'ca', fx.ca);
+  if (fx.en) await insertTranslation(client, postId, 'en', fx.en);
 }
 
 async function main() {
   const client = createClient(SUPABASE_URL!, SERVICE_ROLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  for (const fx of FIXTURES) {
+    if (!fx.ca && !fx.en) {
+      throw new Error(
+        `Fixture in category "${fx.categorySlug}" has no translations. Need at least one of ca/en.`
+      );
+    }
+  }
 
   console.log('Resolving user and categories...');
   const userId = await resolveUserId(client);
@@ -291,12 +447,27 @@ async function main() {
   const wiped = await wipeSeed(client);
   console.log(`  removed ${wiped} post(s)`);
 
+  console.log('Wiping previous seed images...');
+  const wipedImages = await wipeSeedImages(client);
+  console.log(`  removed ${wipedImages} image(s)`);
+
+  console.log('Uploading seed image pool...');
+  const { mainIds, thumbIds } = await uploadPool(client);
+
   console.log(`Inserting ${FIXTURES.length} posts...`);
   const sortCounters = new Map<string, number>();
   for (const fx of FIXTURES) {
     const next = sortCounters.get(fx.categorySlug) ?? 0;
     sortCounters.set(fx.categorySlug, next + 1);
-    await insertPost(client, fx, userId, categoryMap.get(fx.categorySlug)!, next);
+    await insertPost(
+      client,
+      fx,
+      userId,
+      categoryMap.get(fx.categorySlug)!,
+      next,
+      pickRandom(mainIds),
+      pickRandom(thumbIds)
+    );
   }
 
   const categories = new Set(FIXTURES.map(f => f.categorySlug));
