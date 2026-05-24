@@ -19,7 +19,9 @@ export type IconName =
   | 'image'
   | 'image-placeholder'
   | 'grip-vertical'
-  | 'upload';
+  | 'upload'
+  | 'download'
+  | 'log-out';
 
 export type IconSize = '3' | '4' | '5' | '6' | '8' | '10' | '12';
 
@@ -239,6 +241,28 @@ const icons: Record<IconName, IconDefinition> = {
     render: () => (
       <path
         d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
+  },
+  download: {
+    viewBox: '0 0 24 24',
+    strokeWidth: '1.5',
+    render: () => (
+      <path
+        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
+  },
+  'log-out': {
+    viewBox: '0 0 24 24',
+    strokeWidth: '1.5',
+    render: () => (
+      <path
+        d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

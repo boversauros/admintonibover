@@ -134,6 +134,18 @@ To remove all seeded data manually:
 DELETE FROM posts WHERE author = 'SEED';
 ```
 
+## Database backups
+
+From the admin home page, open the user menu (avatar) and choose **Descarregar còpia de seguretat**. This downloads a single JSON file with every row from the `public` schema tables, in foreign-key-safe order.
+
+The file includes a `manifest` (export timestamp, project URL, row counts, schema migration reference) and a `tables` object with raw rows. It does **not** include:
+
+- Schema DDL (use `supabase/migrations/` to recreate structure)
+- `auth.users` (not readable from the browser; `posts.user_id` still stores the UUIDs)
+- Supabase Storage files (only `images` table metadata/URLs)
+
+To restore into another Supabase project, apply migrations first, ensure auth users exist with matching UUIDs for `posts.user_id`, then run a restore script that inserts rows in the same table order and resets `BIGSERIAL` sequences. A `scripts/restore.ts` helper is planned as a follow-up.
+
 ## Testing the Connection
 
 1. Open your browser console (F12)

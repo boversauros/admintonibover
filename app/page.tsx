@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LoginForm } from '@/components/auth/LoginForm';
+import { UserMenu } from '@/components/auth/UserMenu';
 import { Button, Icon, Pagination, Heading, Text } from '@/components/ui';
 import { PostCard, PostsFilters, FilterStatus } from '@/components/posts';
+import { downloadBackupAsJson } from '@/lib/api/backup';
 import { getPosts, deletePost } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -21,10 +23,9 @@ function PostsContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
 
   const POSTS_PER_PAGE = 10;
-  const avatarDropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { user, signOut } = useAuth();
 
@@ -69,65 +70,31 @@ function PostsContent() {
     router.push('/reflexions/new');
   };
 
+  const handleBackup = async () => {
+    setIsBackingUp(true);
+    try {
+      await downloadBackupAsJson();
+      alert('Còpia de seguretat descarregada correctament.');
+    } catch (error) {
+      console.error('Error creating backup:', error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'No s’ha pogut generar la còpia de seguretat.'
+      );
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
-      setShowAvatarDropdown(false);
       await signOut();
       router.push('/');
     } catch (error) {
       console.error('Error logging out:', error);
     }
   };
-
-  // Get user initials from name or email
-  const getUserInitials = () => {
-    if (!user) return 'U';
-
-    // Try to get initials from user_metadata name first
-    const name = user.user_metadata?.name || user.user_metadata?.full_name;
-    if (name) {
-      const nameParts = name.trim().split(/\s+/);
-      if (nameParts.length >= 2) {
-        return (nameParts[0][0] + nameParts[1][0]).toUpperCase();
-      }
-      if (nameParts[0].length >= 2) {
-        return nameParts[0].substring(0, 2).toUpperCase();
-      }
-      return nameParts[0][0].toUpperCase();
-    }
-
-    // Fall back to email
-    if (user.email) {
-      const email = user.email;
-      const parts = email.split('@')[0];
-      if (parts.length >= 2) {
-        return parts.substring(0, 2).toUpperCase();
-      }
-      return email.charAt(0).toUpperCase();
-    }
-
-    return 'U';
-  };
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        avatarDropdownRef.current &&
-        !avatarDropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowAvatarDropdown(false);
-      }
-    };
-
-    if (showAvatarDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showAvatarDropdown]);
 
   const filteredPosts = useMemo(() => {
     return posts.filter(post => {
@@ -185,40 +152,12 @@ function PostsContent() {
                   <Icon name="plus" size="3" /> Nou article
                 </Text>
               </Button>
-              <div className="relative" ref={avatarDropdownRef}>
-                <Button
-                  onClick={() => setShowAvatarDropdown(!showAvatarDropdown)}
-                  variant="icon"
-                  className="w-10 h-10 rounded-full bg-overlay-10 text-primary font-medium text-sm hover:bg-overlay-20"
-                  aria-label="User menu"
-                >
-                  {getUserInitials()}
-                </Button>
-                {showAvatarDropdown && (
-                  <div className="absolute right-0 mt-2 w-56 bg-surface border border-default shadow-lg animate-fade-in">
-                    <div className="py-2">
-                      <div className="px-4 py-2 border-b border-subtle">
-                        <Text variant="small" className="text-muted">
-                          Usuari
-                        </Text>
-                        <Text variant="small" className="text-primary mt-1">
-                          {user.email}
-                        </Text>
-                      </div>
-                      <div className="px-2 py-1">
-                        <Button
-                          onClick={handleLogout}
-                          variant="ghost"
-                          size="sm"
-                          className="w-full text-left px-3 py-2 text-sm"
-                        >
-                          Tancar sessió
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <UserMenu
+                user={user}
+                onBackup={handleBackup}
+                onLogout={handleLogout}
+                isBackingUp={isBackingUp}
+              />
             </div>
           )}
         </div>
