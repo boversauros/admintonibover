@@ -6,7 +6,12 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { Button, Icon, Pagination, Heading, Text } from '@/components/ui';
-import { PostCard, PostsFilters, FilterStatus } from '@/components/posts';
+import {
+  PostCard,
+  PostsFilters,
+  FilterStatus,
+  FilterCategory,
+} from '@/components/posts';
 import { downloadBackupAsJson } from '@/lib/api/backup';
 import { getPosts, deletePost } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
@@ -22,6 +27,7 @@ function PostsContent() {
   const [posts, setPosts] = useState<StoredPost[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filterCategory, setFilterCategory] = useState<FilterCategory>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isBackingUp, setIsBackingUp] = useState(false);
 
@@ -109,14 +115,16 @@ function PostsContent() {
         filterStatus === 'all' ||
         (filterStatus === 'published' && post.is_published) ||
         (filterStatus === 'draft' && !post.is_published);
-      return matchesSearch && matchesStatus;
+      const matchesCategory =
+        filterCategory === 'all' || post.category_id === filterCategory;
+      return matchesSearch && matchesStatus && matchesCategory;
     });
-  }, [posts, searchQuery, filterStatus]);
+  }, [posts, searchQuery, filterStatus, filterCategory]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterStatus]);
+  }, [searchQuery, filterStatus, filterCategory]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
@@ -170,6 +178,8 @@ function PostsContent() {
           onSearchChange={setSearchQuery}
           filterStatus={filterStatus}
           onFilterChange={setFilterStatus}
+          filterCategory={filterCategory}
+          onCategoryChange={setFilterCategory}
         />
       </div>
 
