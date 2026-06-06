@@ -13,7 +13,7 @@ import {
   FilterCategory,
 } from '@/components/posts';
 import { downloadBackupAsJson } from '@/lib/api/backup';
-import { getPosts, deletePost } from '@/lib/api/posts';
+import { getPosts, deletePost, publishAllPosts } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
 import { useAuth } from '@/lib/auth/AuthContext';
 
@@ -30,6 +30,7 @@ function PostsContent() {
   const [filterCategory, setFilterCategory] = useState<FilterCategory>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isPublishingAll, setIsPublishingAll] = useState(false);
 
   const POSTS_PER_PAGE = 10;
   const router = useRouter();
@@ -99,6 +100,27 @@ function PostsContent() {
       router.push('/');
     } catch (error) {
       console.error('Error logging out:', error);
+    }
+  };
+
+  const unpublishedCount = useMemo(
+    () => posts.filter(p => !p.is_published).length,
+    [posts]
+  );
+
+  const handlePublishAll = async () => {
+    if (unpublishedCount === 0) return;
+    if (!confirm('Segur que vols publicar tots els articles?')) return;
+    setIsPublishingAll(true);
+    try {
+      const count = await publishAllPosts();
+      await refreshPosts();
+      alert(`${count} article(s) publicats correctament.`);
+    } catch (error) {
+      console.error('Error publishing all posts:', error);
+      alert('No s’ha pogut publicar tots els articles.');
+    } finally {
+      setIsPublishingAll(false);
     }
   };
 
@@ -173,14 +195,28 @@ function PostsContent() {
 
       {/* Filters */}
       <div className="max-w-6xl mx-auto px-6 py-6">
-        <PostsFilters
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          filterStatus={filterStatus}
-          onFilterChange={setFilterStatus}
-          filterCategory={filterCategory}
-          onCategoryChange={setFilterCategory}
-        />
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <PostsFilters
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              filterStatus={filterStatus}
+              onFilterChange={setFilterStatus}
+              filterCategory={filterCategory}
+              onCategoryChange={setFilterCategory}
+            />
+          </div>
+          <Button
+            onClick={handlePublishAll}
+            variant="secondary"
+            loading={isPublishingAll}
+            disabled={unpublishedCount === 0}
+          >
+            <Text as="span" className="flex items-center gap-2">
+              <Icon name="check" size="3" /> Publicar tots
+            </Text>
+          </Button>
+        </div>
       </div>
 
       {/* Posts Grid */}

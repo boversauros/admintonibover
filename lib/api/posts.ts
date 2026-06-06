@@ -418,6 +418,24 @@ export async function deletePost(id: string): Promise<void> {
 }
 
 /**
+ * Publishes all unpublished posts in a single query.
+ * Returns the number of posts that were published.
+ */
+export async function publishAllPosts(): Promise<number> {
+  const { data, error } = await supabase
+    .from('posts')
+    .update({ is_published: true })
+    .eq('is_published', false)
+    .select('id');
+
+  if (error) {
+    console.error('Error publishing all posts:', error);
+    throw new Error('Failed to publish all posts');
+  }
+  return data?.length ?? 0;
+}
+
+/**
  * Gets existing slugs for a language (for uniqueness check)
  */
 export async function getExistingSlugs(
