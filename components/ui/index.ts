@@ -2,6 +2,8 @@ export { Badge } from './Badge';
 export { Button } from './Button';
 export { Card } from './Card';
 export { Container } from './Container';
+export { Dropdown } from './Dropdown';
+export type { DropdownOption } from './Dropdown';
 export { Heading } from './Heading';
 export { Icon } from './Icon';
 export { Image } from './Image';
