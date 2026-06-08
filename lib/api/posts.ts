@@ -45,6 +45,7 @@ export async function getPosts(): Promise<StoredPost[]> {
         )
       `
       )
+      .order('sort_order', { ascending: false })
       .order('created_at', { ascending: false });
 
     if (postsError) throw postsError;

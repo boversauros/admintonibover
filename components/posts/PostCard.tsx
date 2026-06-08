@@ -91,6 +91,12 @@ export function PostCard({
               size="xl"
               className="text-lg font-serif text-primary leading-snug inline mb-0"
             >
+              <span className="text-primary tabular-nums">
+                {post.sort_order}
+              </span>
+              <span className="text-primary-30 mx-1.5" aria-hidden="true">
+                ·
+              </span>
               {title}
             </Heading>
 
