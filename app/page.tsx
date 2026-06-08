@@ -11,6 +11,7 @@ import {
   PostsFilters,
   FilterStatus,
   FilterCategory,
+  SortDirection,
 } from '@/components/posts';
 import { downloadBackupAsJson } from '@/lib/api/backup';
 import { getPosts, deletePost, publishAllPosts } from '@/lib/api/posts';
@@ -28,6 +29,7 @@ function PostsContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [filterCategory, setFilterCategory] = useState<FilterCategory>('all');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isPublishingAll, setIsPublishingAll] = useState(false);
@@ -143,17 +145,25 @@ function PostsContent() {
     });
   }, [posts, searchQuery, filterStatus, filterCategory]);
 
+  const sortedPosts = useMemo(() => {
+    return [...filteredPosts].sort((a, b) =>
+      sortDirection === 'desc'
+        ? b.sort_order - a.sort_order
+        : a.sort_order - b.sort_order
+    );
+  }, [filteredPosts, sortDirection]);
+
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterStatus, filterCategory]);
+  }, [searchQuery, filterStatus, filterCategory, sortDirection]);
 
   // Calculate pagination
-  const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE);
+  const totalPages = Math.ceil(sortedPosts.length / POSTS_PER_PAGE);
   const paginatedPosts = useMemo(() => {
     const startIndex = (currentPage - 1) * POSTS_PER_PAGE;
-    return filteredPosts.slice(startIndex, startIndex + POSTS_PER_PAGE);
-  }, [filteredPosts, currentPage]);
+    return sortedPosts.slice(startIndex, startIndex + POSTS_PER_PAGE);
+  }, [sortedPosts, currentPage]);
 
   return (
     <div className="min-h-screen bg-background text-primary">
@@ -204,6 +214,8 @@ function PostsContent() {
               onFilterChange={setFilterStatus}
               filterCategory={filterCategory}
               onCategoryChange={setFilterCategory}
+              sortDirection={sortDirection}
+              onSortChange={setSortDirection}
             />
           </div>
           <Button

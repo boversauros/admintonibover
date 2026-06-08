@@ -4,6 +4,7 @@ import { Icon, Text, Input, Dropdown } from '@/components/ui';
 
 export type FilterStatus = 'all' | 'published' | 'draft';
 export type FilterCategory = 'all' | '1' | '2' | '3';
+export type SortDirection = 'desc' | 'asc';
 
 interface PostsFiltersProps {
   searchQuery: string;
@@ -12,6 +13,8 @@ interface PostsFiltersProps {
   onFilterChange: (status: FilterStatus) => void;
   filterCategory: FilterCategory;
   onCategoryChange: (category: FilterCategory) => void;
+  sortDirection: SortDirection;
+  onSortChange: (dir: SortDirection) => void;
 }
 
 const statusOptions: { value: FilterStatus; label: string }[] = [
@@ -27,6 +30,11 @@ const categoryOptions: { value: FilterCategory; label: string }[] = [
   { value: '3', label: 'Perspectives' },
 ];
 
+const sortOptions: { value: SortDirection; label: string }[] = [
+  { value: 'desc', label: 'Ordre descendent' },
+  { value: 'asc', label: 'Ordre ascendent' },
+];
+
 export function PostsFilters({
   searchQuery,
   onSearchChange,
@@ -34,6 +42,8 @@ export function PostsFilters({
   onFilterChange,
   filterCategory,
   onCategoryChange,
+  sortDirection,
+  onSortChange,
 }: PostsFiltersProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -69,6 +79,13 @@ export function PostsFilters({
           value={filterStatus}
           onChange={onFilterChange}
           ariaLabel="Filtrar per estat"
+          wrapperClassName="w-48"
+        />
+        <Dropdown
+          options={sortOptions}
+          value={sortDirection}
+          onChange={onSortChange}
+          ariaLabel="Ordenar articles"
           wrapperClassName="w-48"
         />
       </div>
