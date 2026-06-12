@@ -8,53 +8,191 @@ const LANGUAGE_IDS = {
   en: 2,
 } as const;
 
+// Select shape shared by getPosts (listing) and getPostById (edit)
+const POST_SELECT = `
+  *,
+  post_translations (
+    id,
+    language_id,
+    title,
+    content,
+    slug
+  ),
+  thumbnail:images!posts_thumbnail_id_fkey (
+    id,
+    url,
+    title,
+    alt,
+    created_at,
+    updated_at
+  ),
+  image:images!posts_image_id_fkey (
+    id,
+    url,
+    title,
+    alt,
+    created_at,
+    updated_at
+  )
+`;
+
+/** Transforms a raw post row + its grouped keywords/references into StoredPost */
+function buildStoredPost(
+  post: any,
+  keywordsByTranslation: Map<number, string[]>,
+  referencesByTranslation: Map<number, Reference[]>
+): StoredPost {
+  const transformImage = (img: any): Image | null => {
+    if (!img) return null;
+    return {
+      id: img.id.toString(),
+      url: img.url,
+      title: img.title || '',
+      alt: img.alt || '',
+      created_at: img.created_at,
+      updated_at: img.updated_at,
+    };
+  };
+
+  const translations = post.post_translations || [];
+  const caTranslation = translations.find(
+    (t: any) => t.language_id === LANGUAGE_IDS.ca
+  );
+  const enTranslation = translations.find(
+    (t: any) => t.language_id === LANGUAGE_IDS.en
+  );
+
+  return {
+    id: post.id.toString(),
+    user_id: post.user_id,
+    category_id: post.category_id.toString(),
+    sort_order:
+      typeof post.sort_order === 'number' && !Number.isNaN(post.sort_order)
+        ? post.sort_order
+        : 0,
+    thumbnail_id: post.thumbnail_id ? post.thumbnail_id.toString() : null,
+    thumbnail: transformImage(post.thumbnail),
+    image_id: post.image_id ? post.image_id.toString() : null,
+    image: transformImage(post.image),
+    is_published: post.is_published,
+    date: post.date,
+    author: post.author,
+    created_at: post.created_at,
+    updated_at: post.updated_at,
+    translations: {
+      ca: {
+        language: 'ca',
+        post_id: post.id.toString(),
+        title: caTranslation?.title || '',
+        content: caTranslation?.content || '',
+        slug: caTranslation?.slug || '',
+        keywords: keywordsByTranslation.get(caTranslation?.id) || [],
+        references: referencesByTranslation.get(caTranslation?.id) || [],
+      },
+      en: {
+        language: 'en',
+        post_id: post.id.toString(),
+        title: enTranslation?.title || '',
+        content: enTranslation?.content || '',
+        slug: enTranslation?.slug || '',
+        keywords: keywordsByTranslation.get(enTranslation?.id) || [],
+        references: referencesByTranslation.get(enTranslation?.id) || [],
+      },
+    },
+  };
+}
+
+/** Groups post_keywords rows by post_translation_id into keyword strings */
+function groupKeywords(rows: any[] | null): Map<number, string[]> {
+  const map = new Map<number, string[]>();
+  rows?.forEach((pk: any) => {
+    const translationId = pk.post_translation_id;
+    if (!map.has(translationId)) map.set(translationId, []);
+    map.get(translationId)!.push(pk.keywords.keyword);
+  });
+  return map;
+}
+
+/** Groups post_references rows by post_translation_id into Reference objects */
+function groupReferences(rows: any[] | null): Map<number, Reference[]> {
+  const map = new Map<number, Reference[]>();
+  rows?.forEach((ref: any) => {
+    const translationId = ref.post_translation_id;
+    if (!map.has(translationId)) map.set(translationId, []);
+    map.get(translationId)!.push({
+      id: ref.id.toString(),
+      type: ref.type,
+      reference: ref.reference,
+      blockquote: ref.blockquote || '',
+      sort_order: ref.sort_order,
+    });
+  });
+  return map;
+}
+
 /**
- * Fetches all posts from Supabase with related data
- * Transforms normalized DB structure to denormalized StoredPost format
+ * Fetches all posts from Supabase for the listing view.
+ * Loads keywords (shown on cards) but NOT references — references are unused in the
+ * listing and a global .in() query over all of them hits Supabase's 1000-row cap.
+ * The edit view uses getPostById() to load complete, uncapped references per post.
  */
 export async function getPosts(): Promise<StoredPost[]> {
   try {
-    // Fetch posts with translations and images
     const { data: posts, error: postsError } = await supabase
       .from('posts')
-      .select(
-        `
-        *,
-        post_translations (
-          id,
-          language_id,
-          title,
-          content,
-          slug
-        ),
-        thumbnail:images!posts_thumbnail_id_fkey (
-          id,
-          url,
-          title,
-          alt,
-          created_at,
-          updated_at
-        ),
-        image:images!posts_image_id_fkey (
-          id,
-          url,
-          title,
-          alt,
-          created_at,
-          updated_at
-        )
-      `
-      )
+      .select(POST_SELECT)
       .order('sort_order', { ascending: false })
       .order('created_at', { ascending: false });
 
     if (postsError) throw postsError;
     if (!posts || posts.length === 0) return [];
 
-    // Fetch keywords and references for all post translations
+    // Fetch keywords for all post translations (references omitted — see doc above)
     const translationIds = posts.flatMap(
       p => p.post_translations?.map((t: any) => t.id) || []
     );
+
+    const { data: keywordsData, error: keywordsError } = await supabase
+      .from('post_keywords')
+      .select('post_translation_id, keywords(keyword)')
+      .in('post_translation_id', translationIds);
+
+    if (keywordsError) throw keywordsError;
+
+    const keywordsByTranslation = groupKeywords(keywordsData);
+    const referencesByTranslation = new Map<number, Reference[]>();
+
+    return posts.map((post: any) =>
+      buildStoredPost(post, keywordsByTranslation, referencesByTranslation)
+    );
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    throw new Error('Failed to fetch posts from database');
+  }
+}
+
+/**
+ * Fetches a single post with its COMPLETE keywords and references.
+ * Scopes the keyword/reference queries to this post's own translation IDs (≤2),
+ * so the result can never approach the 1000-row default cap that truncates getPosts().
+ * Returns null if the post does not exist.
+ */
+export async function getPostById(id: string): Promise<StoredPost | null> {
+  try {
+    const postId = parseInt(id);
+    if (Number.isNaN(postId)) return null;
+
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .select(POST_SELECT)
+      .eq('id', postId)
+      .maybeSingle();
+
+    if (postError) throw postError;
+    if (!post) return null;
+
+    const translationIds =
+      post.post_translations?.map((t: any) => t.id) || [];
 
     const [keywordsResult, referencesResult] = await Promise.all([
       supabase
@@ -71,98 +209,14 @@ export async function getPosts(): Promise<StoredPost[]> {
     if (keywordsResult.error) throw keywordsResult.error;
     if (referencesResult.error) throw referencesResult.error;
 
-    // Group keywords and references by translation ID
-    const keywordsByTranslation = new Map<number, string[]>();
-    keywordsResult.data?.forEach((pk: any) => {
-      const translationId = pk.post_translation_id;
-      if (!keywordsByTranslation.has(translationId)) {
-        keywordsByTranslation.set(translationId, []);
-      }
-      keywordsByTranslation.get(translationId)!.push(pk.keywords.keyword);
-    });
-
-    const referencesByTranslation = new Map<number, Reference[]>();
-    referencesResult.data?.forEach((ref: any) => {
-      const translationId = ref.post_translation_id;
-      if (!referencesByTranslation.has(translationId)) {
-        referencesByTranslation.set(translationId, []);
-      }
-      referencesByTranslation.get(translationId)!.push({
-        id: ref.id.toString(),
-        type: ref.type,
-        reference: ref.reference,
-        blockquote: ref.blockquote || '',
-        sort_order: ref.sort_order,
-      });
-    });
-
-    // Helper to transform image data
-    const transformImage = (img: any): Image | null => {
-      if (!img) return null;
-      return {
-        id: img.id.toString(),
-        url: img.url,
-        title: img.title || '',
-        alt: img.alt || '',
-        created_at: img.created_at,
-        updated_at: img.updated_at,
-      };
-    };
-
-    // Transform to StoredPost format
-    const storedPosts: StoredPost[] = posts.map((post: any) => {
-      const translations = post.post_translations || [];
-      const caTranslation = translations.find(
-        (t: any) => t.language_id === LANGUAGE_IDS.ca
-      );
-      const enTranslation = translations.find(
-        (t: any) => t.language_id === LANGUAGE_IDS.en
-      );
-
-      return {
-        id: post.id.toString(),
-        user_id: post.user_id,
-        category_id: post.category_id.toString(),
-        sort_order:
-          typeof post.sort_order === 'number' && !Number.isNaN(post.sort_order)
-            ? post.sort_order
-            : 0,
-        thumbnail_id: post.thumbnail_id ? post.thumbnail_id.toString() : null,
-        thumbnail: transformImage(post.thumbnail),
-        image_id: post.image_id ? post.image_id.toString() : null,
-        image: transformImage(post.image),
-        is_published: post.is_published,
-        date: post.date,
-        author: post.author,
-        created_at: post.created_at,
-        updated_at: post.updated_at,
-        translations: {
-          ca: {
-            language: 'ca',
-            post_id: post.id.toString(),
-            title: caTranslation?.title || '',
-            content: caTranslation?.content || '',
-            slug: caTranslation?.slug || '',
-            keywords: keywordsByTranslation.get(caTranslation?.id) || [],
-            references: referencesByTranslation.get(caTranslation?.id) || [],
-          },
-          en: {
-            language: 'en',
-            post_id: post.id.toString(),
-            title: enTranslation?.title || '',
-            content: enTranslation?.content || '',
-            slug: enTranslation?.slug || '',
-            keywords: keywordsByTranslation.get(enTranslation?.id) || [],
-            references: referencesByTranslation.get(enTranslation?.id) || [],
-          },
-        },
-      };
-    });
-
-    return storedPosts;
+    return buildStoredPost(
+      post,
+      groupKeywords(keywordsResult.data),
+      groupReferences(referencesResult.data)
+    );
   } catch (error) {
-    console.error('Error fetching posts:', error);
-    throw new Error('Failed to fetch posts from database');
+    console.error('Error fetching post by id:', error);
+    throw new Error('Failed to fetch post from database');
   }
 }
 

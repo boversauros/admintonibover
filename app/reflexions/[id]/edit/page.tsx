@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { PostForm } from '@/components/forms/PostForm';
-import { getPosts } from '@/lib/api/posts';
+import { getPostById } from '@/lib/api/posts';
 import { StoredPost } from '@/lib/types/post';
 import { Container, Heading, Text, Link } from '@/components/ui';
 
@@ -18,8 +18,7 @@ function EditReflexionContent() {
     const fetchPost = async () => {
       try {
         const postId = params.id as string;
-        const posts = await getPosts();
-        const foundPost = posts.find(p => p.id === postId);
+        const foundPost = await getPostById(postId);
 
         if (foundPost) {
           setPost(foundPost);
