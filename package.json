@@ -2,11 +2,19 @@
   "name": "nextjs-starter",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.0.9",
+  "engines": {
+    "node": "24.18.0"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "ci": "pnpm check:secrets && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "seed": "tsx scripts/seed.ts"
@@ -21,7 +29,6 @@
     "react-hook-form": "7.69.0"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "3.3.3",
     "@tailwindcss/postcss": "4.1.18",
     "@types/node": "25.0.3",
     "@types/react": "19.2.7",

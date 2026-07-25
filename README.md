@@ -15,8 +15,8 @@ Personal blog administration system for managing posts, translations, and conten
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- pnpm
+- Node.js 24.18.0 (see `.node-version`)
+- pnpm 11.0.9 (pinned in `package.json`)
 - A Supabase account and project
 
 ### Installation
@@ -54,6 +54,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `pnpm build` - Build for production
 - `pnpm start` - Start production server
 - `pnpm lint` - Run ESLint
+- `pnpm typecheck` - Validate TypeScript without emitting files
+- `pnpm test` - Run cloud-free unit tests
+- `pnpm check:secrets` - Reject tracked `.env*` files and high-confidence secrets
+- `pnpm run ci` - Run the complete local validation suite
 - `pnpm format` - Format code with Prettier
 - `pnpm format:check` - Check code formatting
 
@@ -68,6 +72,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 - [Admin-only AWS data and security contract](docs/adr/0001-admin-only-aws-data-security-contract.md)
 - [AWS account guardrails](docs/runbooks/aws-account-guardrails.md)
+- [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
 
 ## Features
 
