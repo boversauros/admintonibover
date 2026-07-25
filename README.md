@@ -56,7 +56,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `pnpm lint` - Run ESLint
 - `pnpm typecheck` - Validate TypeScript without emitting files
 - `pnpm test` - Run cloud-free unit tests
-- `pnpm check:secrets` - Reject tracked `.env*` files and high-confidence secrets
+- `pnpm check:secrets` - Reject repository `.env*` files and high-confidence
+  AWS, GitHub, and privileged Supabase credentials
 - `pnpm run ci` - Run the complete local validation suite
 - `pnpm format` - Format code with Prettier
 - `pnpm format:check` - Check code formatting

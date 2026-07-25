@@ -19,15 +19,16 @@ NEXT_PUBLIC_SUPABASE_URL=https://ci.invalid \
   pnpm run ci
 ```
 
-`pnpm run ci` checks tracked files for `.env*` files and high-confidence secret
-formats, runs ESLint, validates TypeScript, runs cloud-free unit tests, and
-creates the production build. GitHub Actions runs the same sequence for every
-pull request and every push to `main`. It receives read-only repository
-permission, persists no checkout credential, uploads no artifacts, and defines
-no cloud credential or application secret. Only the production-build step
-receives the non-secret `https://ci.invalid` and `ci-placeholder` values; the
-reserved `.invalid` domain cannot resolve to a live Supabase service, and no
-build artifact is published.
+`pnpm run ci` checks repository files for `.env*` files, private keys, and
+high-confidence AWS, GitHub, and privileged Supabase credential formats. It
+then runs ESLint, validates TypeScript, runs cloud-free unit tests, and creates
+the production build. GitHub Actions runs the same sequence for every pull
+request and every push to `main`. It receives read-only repository permission,
+persists no checkout credential, uploads no artifacts, and defines no cloud
+credential or application secret. Only the production-build step receives the
+non-secret `https://ci.invalid` and `ci-placeholder` values; the reserved
+`.invalid` domain cannot resolve to a live Supabase service, and no build
+artifact is published.
 
 The automated secret check is deliberately high confidence. Reviewers must also
 inspect every added or changed configuration, fixture, screenshot, log excerpt,
