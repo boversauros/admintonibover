@@ -16,7 +16,3 @@ test('generateUniqueSlug advances until it finds a free suffix', () => {
     'reflexio-3'
   );
 });
-
-test('CI rejects an intentional unit-test failure', () => {
-  assert.fail('Intentional failure for issue #5 CI evidence');
-});
