@@ -8,11 +8,15 @@ in [ADR 0001](../adr/0001-admin-only-aws-data-security-contract.md) and the
 ## Local and CI baseline
 
 Use the runtime and package-manager versions committed to `.node-version` and
-`package.json`. A clean checkout must pass without Supabase or AWS credentials:
+`package.json`. A clean checkout must pass without real Supabase or AWS
+credentials. To reproduce the GitHub Actions build locally without a
+`.env.local`, use the same inert placeholders:
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm run ci
+NEXT_PUBLIC_SUPABASE_URL=https://ci.invalid \
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-placeholder \
+  pnpm run ci
 ```
 
 `pnpm run ci` checks tracked files for `.env*` files and high-confidence secret
@@ -20,7 +24,10 @@ formats, runs ESLint, validates TypeScript, runs cloud-free unit tests, and
 creates the production build. GitHub Actions runs the same sequence for every
 pull request and every push to `main`. It receives read-only repository
 permission, persists no checkout credential, uploads no artifacts, and defines
-no cloud credential or application secret.
+no cloud credential or application secret. Only the production-build step
+receives the non-secret `https://ci.invalid` and `ci-placeholder` values; the
+reserved `.invalid` domain cannot resolve to a live Supabase service, and no
+build artifact is published.
 
 The automated secret check is deliberately high confidence. Reviewers must also
 inspect every added or changed configuration, fixture, screenshot, log excerpt,
