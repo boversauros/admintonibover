@@ -5,6 +5,9 @@ This runbook records the public, non-sensitive verification evidence for
 account security and cost controls that must exist before application resources
 are deployed.
 
+The application resources governed by these controls are defined in
+[ADR 0001: Admin-only AWS data and security contract](../adr/0001-admin-only-aws-data-security-contract.md).
+
 ## Disclosure boundary
 
 Exact account metadata and console evidence are retained privately. Do not add

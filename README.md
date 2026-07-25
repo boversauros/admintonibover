@@ -64,6 +64,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `lib/` - Utilities, API clients, types, and validation
 - `supabase/migrations/` - Database migration files
 
+## Architecture and operations
+
+- [Admin-only AWS data and security contract](docs/adr/0001-admin-only-aws-data-security-contract.md)
+- [AWS account guardrails](docs/runbooks/aws-account-guardrails.md)
+
 ## Features
 
 - Authentication with Supabase Auth
