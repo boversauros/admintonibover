@@ -14,6 +14,10 @@
 # testing
 /coverage
 
+# private migration inputs and local validation reports
+tonibover-backup-*.json
+backup-validation-report*.json
+
 # next.js
 /.next/
 /out/

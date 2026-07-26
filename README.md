@@ -58,6 +58,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `pnpm test` - Run cloud-free unit tests
 - `pnpm check:secrets` - Reject repository `.env*` files and high-confidence
   AWS, GitHub, and privileged Supabase credentials
+- `pnpm backup:validate -- --input <path>` - Validate a Supabase JSON backup
+  offline without modifying it or contacting a cloud service
 - `pnpm run ci` - Run the complete local validation suite
 - `pnpm format` - Format code with Prettier
 - `pnpm format:check` - Check code formatting
@@ -74,6 +76,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [Admin-only AWS data and security contract](docs/adr/0001-admin-only-aws-data-security-contract.md)
 - [AWS account guardrails](docs/runbooks/aws-account-guardrails.md)
 - [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
+- [Offline Supabase backup validation](docs/runbooks/backup-validation.md)
 
 ## Features
 

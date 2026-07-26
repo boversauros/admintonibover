@@ -1,0 +1,177 @@
+{
+  "manifest": {
+    "version": 1,
+    "exported_at": "2026-06-18T08:46:31.000Z",
+    "source_project_url": "https://fixture.invalid",
+    "schema_migration": "012_add_length_constraints.sql",
+    "row_counts": {
+      "languages": 2,
+      "categories": 1,
+      "category_translations": 2,
+      "images": 1,
+      "posts": 2,
+      "post_translations": 4,
+      "keywords": 2,
+      "post_keywords": 3,
+      "post_references": 3
+    }
+  },
+  "tables": {
+    "languages": [
+      {
+        "id": 1,
+        "code": "ca",
+        "name": "Català de prova"
+      },
+      {
+        "id": 2,
+        "code": "en",
+        "name": "Test English"
+      }
+    ],
+    "categories": [
+      {
+        "id": 10,
+        "slug": "fixture-category"
+      }
+    ],
+    "category_translations": [
+      {
+        "id": 100,
+        "category_id": 10,
+        "language_id": 1,
+        "name": "Categoria fictícia"
+      },
+      {
+        "id": 101,
+        "category_id": 10,
+        "language_id": 2,
+        "name": "Fictional category"
+      }
+    ],
+    "images": [
+      {
+        "id": 200,
+        "url": "https://images.invalid/fixture-main.webp",
+        "title": "Fictional inventory row",
+        "alt": null,
+        "created_at": "2026-01-01T10:00:00.000Z",
+        "updated_at": "2026-01-01T10:00:00.000Z"
+      }
+    ],
+    "posts": [
+      {
+        "id": 1,
+        "category_id": 10,
+        "image_id": 200,
+        "thumbnail_id": null,
+        "user_id": "11111111-1111-4111-8111-111111111111",
+        "author": "Fixture Author",
+        "is_published": false,
+        "sort_order": 1,
+        "date": "2026-01-02",
+        "created_at": "2026-01-02T09:00:00.000Z",
+        "updated_at": "2026-01-03T09:00:00.000Z"
+      },
+      {
+        "id": 2,
+        "category_id": 10,
+        "image_id": null,
+        "thumbnail_id": null,
+        "user_id": "11111111-1111-4111-8111-111111111111",
+        "author": "Fixture Author",
+        "is_published": false,
+        "sort_order": 2,
+        "date": "2026-02-03",
+        "created_at": "2026-02-03T09:00:00.000Z",
+        "updated_at": "2026-02-04T09:00:00.000Z"
+      }
+    ],
+    "post_translations": [
+      {
+        "id": 1000,
+        "post_id": 1,
+        "language_id": 1,
+        "title": "Títol fictici",
+        "content": "Contingut sanititzat per provar una traducció completa.",
+        "slug": "titol-fictici"
+      },
+      {
+        "id": 1001,
+        "post_id": 1,
+        "language_id": 2,
+        "title": "Fictional title",
+        "content": "Sanitized content for a complete translation.",
+        "slug": "fictional-title"
+      },
+      {
+        "id": 1002,
+        "post_id": 2,
+        "language_id": 1,
+        "title": "Segon títol fictici",
+        "content": "Contingut sanititzat per al segon article.",
+        "slug": "segon-titol-fictici"
+      },
+      {
+        "id": 1003,
+        "post_id": 2,
+        "language_id": 2,
+        "title": "",
+        "content": "Sanitized content for an intentionally incomplete translation.",
+        "slug": ""
+      }
+    ],
+    "keywords": [
+      {
+        "id": 3000,
+        "keyword": "prova",
+        "language_id": 1
+      },
+      {
+        "id": 3001,
+        "keyword": "test",
+        "language_id": 2
+      }
+    ],
+    "post_keywords": [
+      {
+        "post_translation_id": 1000,
+        "keyword_id": 3000
+      },
+      {
+        "post_translation_id": 1001,
+        "keyword_id": 3001
+      },
+      {
+        "post_translation_id": 1002,
+        "keyword_id": 3000
+      }
+    ],
+    "post_references": [
+      {
+        "id": 4000,
+        "post_translation_id": 1000,
+        "type": "text",
+        "reference": "https://reference.invalid/catalan",
+        "blockquote": "Citació fictícia i sanititzada.",
+        "sort_order": 0
+      },
+      {
+        "id": 4001,
+        "post_translation_id": 1000,
+        "type": "image",
+        "reference": "https://reference.invalid/illustration.webp",
+        "blockquote": null,
+        "sort_order": 1
+      },
+      {
+        "id": 4002,
+        "post_translation_id": 1001,
+        "type": "text",
+        "reference": "https://reference.invalid/english",
+        "blockquote": null,
+        "sort_order": 0
+      }
+    ]
+  }
+}
