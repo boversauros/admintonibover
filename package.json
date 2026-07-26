@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "check:secrets": "node scripts/check-secrets.mjs",
+    "backup:validate": "node --import tsx scripts/validate-backup.ts",
     "ci": "pnpm check:secrets && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
