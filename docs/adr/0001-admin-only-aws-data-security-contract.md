@@ -72,9 +72,12 @@ All supported resources receive the tags from the
 
 - Cognito self-service sign-up is disabled (`AllowAdminCreateUserOnly`).
 - Exactly one enabled administrator is provisioned by the operator workflow in
-  issue #8. Adding another administrator requires an access-model review.
-- MFA is required. Software-token TOTP is the approved factor; SMS and email MFA
-  are not enabled because they add delivery dependencies and possible charges.
+  the [issue #8 runbook](../runbooks/cognito-single-administrator.md). Adding
+  another administrator requires an access-model review.
+- Application MFA is disabled to keep the single administrator's sign-in
+  accessible: normal login is email plus password, and the verified email is
+  used for invitation and password recovery codes. AWS root and operator IAM
+  MFA remain mandatory and are a separate account-level control.
 - The browser app uses a public Cognito app client without a client secret and
   Authorization Code with PKCE. Callback and logout URLs are exact per
   environment.
@@ -101,7 +104,8 @@ There is one standard Node.js Lambda per AWS environment. It:
 
 - uses the current IaC-supported Node.js LTS and ARM64 when dependency
   compatibility is verified;
-- has reserved concurrency exactly `2`, no provisioned concurrency, and no VPC;
+- uses the account's unreserved concurrency, with no reserved or provisioned
+  concurrency and no VPC;
 - has bounded memory, timeout, and request size;
 - receives no secret in an environment variable;
 - can access only its exact table, bucket prefixes, and log group; and
@@ -110,6 +114,13 @@ There is one standard Node.js Lambda per AWS environment. It:
 
 API stage throttling targets 2 requests per second with burst 4 unless later
 tests justify a separately reviewed change.
+
+The development account starts with AWS's reduced new-account Lambda
+concurrency quota. Reserving two executions would reduce its unreserved pool
+below the service minimum and make the stack undeployable. The authenticated
+API stage throttle is therefore the workload-level concurrency guard until AWS
+raises the account quota and a separately reviewed change introduces a
+function-level reservation.
 
 ### DynamoDB table
 
@@ -314,7 +325,7 @@ editing actions are explicitly identified:
 
 | Current UI action                                                   | Target operation                                                                                                                                           |
 | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sign in and complete MFA                                            | Cognito Authorization Code with PKCE; self-sign-up is unavailable.                                                                                         |
+| Sign in with email and password                                     | Cognito Authorization Code with PKCE; self-sign-up is unavailable and verified email is used for password recovery.                                        |
 | Load, search, filter, sort, or page the post list                   | `GET /posts` with bounded `limit`, cursor, query, status, category, and sort parameters.                                                                   |
 | Open the create screen                                              | Local navigation; form metadata comes from authenticated `GET /categories`, `GET /keywords?language=...`, and list metadata for the default order.         |
 | Open edit                                                           | Authenticated `GET /posts/{id}`.                                                                                                                           |
@@ -510,4 +521,4 @@ Implementation issues must prove:
 - [DynamoDB constraints](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Constraints.html)
 - [DynamoDB transactional writes](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_TransactWriteItems.html)
 - [Cognito administrator-created users](https://docs.aws.amazon.com/cognito/latest/developerguide/how-to-create-user-accounts.html)
-- [Cognito required MFA](https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-settings-mfa.html)
+- [Cognito password recovery](https://docs.aws.amazon.com/cognito/latest/developerguide/managing-users-passwords.html)

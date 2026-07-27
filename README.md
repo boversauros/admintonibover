@@ -80,6 +80,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [Admin-only AWS data and security contract](docs/adr/0001-admin-only-aws-data-security-contract.md)
 - [AWS account guardrails](docs/runbooks/aws-account-guardrails.md)
 - [AWS development foundation](docs/runbooks/aws-development-foundation.md)
+- [Single Cognito administrator](docs/runbooks/cognito-single-administrator.md)
 - [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
 - [Offline Supabase backup validation](docs/runbooks/backup-validation.md)
 

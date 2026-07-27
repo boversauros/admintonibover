@@ -323,7 +323,6 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
           DeletionProtection: 'INACTIVE',
           AdminCreateUserConfig: {
             AllowAdminCreateUserOnly: true,
-            UnusedAccountValidityDays: 3,
           },
           UsernameAttributes: ['email'],
           UsernameConfiguration: { CaseSensitive: false },
@@ -331,8 +330,7 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
           AccountRecoverySetting: {
             RecoveryMechanisms: [{ Name: 'verified_email', Priority: 1 }],
           },
-          MfaConfiguration: 'ON',
-          EnabledMfas: ['SOFTWARE_TOKEN_MFA'],
+          MfaConfiguration: 'OFF',
           Policies: {
             PasswordPolicy: {
               MinimumLength: 14,
@@ -525,7 +523,6 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
           Architectures: ['arm64'],
           MemorySize: 128,
           Timeout: 5,
-          ReservedConcurrentExecutions: 2,
           RecursiveLoop: 'Terminate',
           Role: {
             'Fn::GetAtt': ['LambdaExecutionRole', 'Arn'],

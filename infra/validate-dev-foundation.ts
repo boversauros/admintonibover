@@ -230,21 +230,49 @@ export function validateDevFoundationTemplate(
   );
   requireEqual(
     userPool.MfaConfiguration,
-    'ON',
+    'OFF',
     'UserPool.MfaConfiguration',
     issues
   );
-  requireEqual(
-    userPool.EnabledMfas,
-    ['SOFTWARE_TOKEN_MFA'],
-    'UserPool.EnabledMfas',
-    issues
-  );
+  requireEqual(userPool.EnabledMfas, undefined, 'UserPool.EnabledMfas', issues);
   requireEqual(userPool.UserPoolTier, 'LITE', 'UserPool.UserPoolTier', issues);
   requireEqual(
     userPool.UserPoolAddOns,
     undefined,
     'UserPool.UserPoolAddOns',
+    issues
+  );
+  const adminCreateUserConfig = asRecord(
+    userPool.AdminCreateUserConfig,
+    'UserPool.AdminCreateUserConfig',
+    issues
+  );
+  requireEqual(
+    adminCreateUserConfig.AllowAdminCreateUserOnly,
+    true,
+    'UserPool.AdminCreateUserConfig.AllowAdminCreateUserOnly',
+    issues
+  );
+  requireEqual(
+    adminCreateUserConfig.UnusedAccountValidityDays,
+    undefined,
+    'UserPool.AdminCreateUserConfig.UnusedAccountValidityDays',
+    issues
+  );
+  const userPoolPolicies = asRecord(
+    userPool.Policies,
+    'UserPool.Policies',
+    issues
+  );
+  const passwordPolicy = asRecord(
+    userPoolPolicies.PasswordPolicy,
+    'UserPool.Policies.PasswordPolicy',
+    issues
+  );
+  requireEqual(
+    passwordPolicy.TemporaryPasswordValidityDays,
+    3,
+    'UserPool.Policies.PasswordPolicy.TemporaryPasswordValidityDays',
     issues
   );
 
@@ -291,7 +319,7 @@ export function validateDevFoundationTemplate(
   );
   requireEqual(
     lambda.ReservedConcurrentExecutions,
-    2,
+    undefined,
     'FoundationFunction.ReservedConcurrentExecutions',
     issues
   );
