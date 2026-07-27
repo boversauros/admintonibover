@@ -314,8 +314,7 @@
         "UserPoolTier": "LITE",
         "DeletionProtection": "INACTIVE",
         "AdminCreateUserConfig": {
-          "AllowAdminCreateUserOnly": true,
-          "UnusedAccountValidityDays": 3
+          "AllowAdminCreateUserOnly": true
         },
         "UsernameAttributes": [
           "email"
@@ -334,10 +333,7 @@
             }
           ]
         },
-        "MfaConfiguration": "ON",
-        "EnabledMfas": [
-          "SOFTWARE_TOKEN_MFA"
-        ],
+        "MfaConfiguration": "OFF",
         "Policies": {
           "PasswordPolicy": {
             "MinimumLength": 14,
@@ -616,7 +612,6 @@
         ],
         "MemorySize": 128,
         "Timeout": 5,
-        "ReservedConcurrentExecutions": 2,
         "RecursiveLoop": "Terminate",
         "Role": {
           "Fn::GetAtt": [

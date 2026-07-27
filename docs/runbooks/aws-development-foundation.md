@@ -374,7 +374,8 @@ has never been enabled.
 In **Cognito → User pools → the `UserPoolId` output**, verify:
 
 - Lite tier, self-sign-up disabled, and zero users;
-- TOTP MFA is required; SMS and email MFA are absent;
+- application MFA is off; normal sign-in is email plus password, while AWS
+  account users retain their separate mandatory MFA;
 - recovery is verified email only;
 - the public client has no secret and uses only Authorization Code;
 - token validity is 15 minutes for access/ID and one day for refresh;
@@ -382,7 +383,8 @@ In **Cognito → User pools → the `UserPoolId` output**, verify:
 - there is one custom scope, `admintonibover-api/admin`;
 - threat protection and paid advanced features are absent.
 
-The administrator is deliberately created later in issue #8.
+The administrator is deliberately created later with the
+[single-administrator runbook](cognito-single-administrator.md) for issue #8.
 
 ```bash
 aws cognito-idp describe-user-pool --region eu-west-1 --user-pool-id "$ADMINTONIBOVER_USER_POOL_ID"
@@ -413,7 +415,8 @@ aws apigatewayv2 get-stage --region eu-west-1 --api-id "$ADMINTONIBOVER_API_ID" 
 In **Lambda → Functions → the `LambdaFunctionName` output**, verify:
 
 - Node.js 24, ARM64, 128 MiB, and five-second timeout;
-- reserved concurrency exactly 2 and no provisioned concurrency;
+- no reserved or provisioned concurrency while the account has AWS's reduced
+  new-account Lambda quota;
 - VPC says none and there is no layer, EFS, X-Ray, or secret variable;
 - the execution role is scoped only to the exact log group, table, and
   `temporary/`, `images/`, and `backups/` bucket prefixes.
@@ -426,10 +429,12 @@ logs for 14 days.
 aws lambda get-function-configuration --region eu-west-1 --function-name "$ADMINTONIBOVER_FUNCTION_NAME"
 aws lambda get-function-concurrency --region eu-west-1 --function-name "$ADMINTONIBOVER_FUNCTION_NAME"
 aws lambda list-provisioned-concurrency-configs --region eu-west-1 --function-name "$ADMINTONIBOVER_FUNCTION_NAME"
+aws lambda get-account-settings --region eu-west-1
 aws logs describe-log-groups --region eu-west-1 --log-group-name-prefix /aws/lambda/admintonibover-dev-foundation
 ```
 
-The provisioned-concurrency list must be empty.
+The function-concurrency object and provisioned-concurrency list must both be
+empty. The API stage throttle remains 2 requests/second with burst 4.
 
 ## Negative access tests
 
