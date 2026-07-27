@@ -1,6 +1,6 @@
 # ADR 0001: Admin-only AWS data and security contract
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-07-25
 - Decision owner: project owner
 - Related issues:

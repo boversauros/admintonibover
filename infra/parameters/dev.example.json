@@ -1,0 +1,30 @@
+[
+  {
+    "ParameterKey": "GuardrailsEvidenceConfirmed",
+    "ParameterValue": "STOP-UNTIL-ISSUE-3-EVIDENCE-IS-RECHECKED"
+  },
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "AllowedOrigins",
+    "ParameterValue": "http://localhost:3000,https://replace-me.example.invalid"
+  },
+  {
+    "ParameterKey": "CallbackUrls",
+    "ParameterValue": "http://localhost:3000/auth/callback,https://replace-me.example.invalid/auth/callback"
+  },
+  {
+    "ParameterKey": "LogoutUrls",
+    "ParameterValue": "http://localhost:3000/login,https://replace-me.example.invalid/login"
+  },
+  {
+    "ParameterKey": "CognitoDomainPrefix",
+    "ParameterValue": "replace-me-admintonibover-dev"
+  },
+  {
+    "ParameterKey": "EnableTableDeletionProtection",
+    "ParameterValue": "false"
+  }
+]

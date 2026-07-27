@@ -17,6 +17,7 @@
 # private migration inputs and local validation reports
 tonibover-backup-*.json
 backup-validation-report*.json
+/.artifacts/
 
 # next.js
 /.next/
