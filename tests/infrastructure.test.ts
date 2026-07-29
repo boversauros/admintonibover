@@ -299,7 +299,10 @@ test('post read returns only the tracer projection and correlation data', async 
     },
     requestId: 'browser-request-9',
   });
-  assert.equal(logs.some(log => log.includes('Una primera lectura')), false);
+  assert.equal(
+    logs.some(log => log.includes('Una primera lectura')),
+    false
+  );
 });
 
 test('post read returns a stable 500 without logging content or tokens', async () => {
@@ -330,6 +333,12 @@ test('post read returns a stable 500 without logging content or tokens', async (
     },
     requestId: 'accepted',
   });
-  assert.equal(logs.some(log => log.includes('secret fixture content')), false);
-  assert.equal(logs.some(log => log.includes('eyJ')), false);
+  assert.equal(
+    logs.some(log => log.includes('secret fixture content')),
+    false
+  );
+  assert.equal(
+    logs.some(log => log.includes('eyJ')),
+    false
+  );
 });

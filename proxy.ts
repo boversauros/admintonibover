@@ -1,4 +1,6 @@
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import { getAdminDataBackend } from '@/lib/config/adminBackend';
 import { updateSession } from '@/lib/supabase/middleware';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
@@ -50,7 +52,29 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 export async function proxy(request: NextRequest) {
-  const response = await updateSession(request);
+  const backend = getAdminDataBackend();
+  let response: NextResponse;
+
+  if (
+    backend === 'aws' &&
+    request.nextUrl.pathname === '/' &&
+    (request.nextUrl.searchParams.has('code') ||
+      request.nextUrl.searchParams.has('error'))
+  ) {
+    const callbackUrl = request.nextUrl.clone();
+    callbackUrl.pathname = '/auth/callback';
+    response = NextResponse.rewrite(callbackUrl);
+  } else if (
+    backend === 'aws' &&
+    request.nextUrl.pathname.startsWith('/reflexions')
+  ) {
+    response = NextResponse.redirect(new URL('/', request.url));
+  } else if (backend === 'aws') {
+    response = NextResponse.next({ request });
+  } else {
+    response = await updateSession(request);
+  }
+
   for (const [name, value] of SECURITY_HEADERS) {
     response.headers.set(name, value);
   }

@@ -404,10 +404,7 @@ export function validateDevFoundationTemplate(
   requireEqual(
     postReadRoute.Target,
     {
-      'Fn::Join': [
-        '/',
-        ['integrations', { Ref: 'FoundationIntegration' }],
-      ],
+      'Fn::Join': ['/', ['integrations', { Ref: 'FoundationIntegration' }]],
     },
     'PostReadRoute.Target',
     issues

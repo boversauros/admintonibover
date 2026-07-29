@@ -242,29 +242,31 @@ aws cloudformation describe-change-set \
 
 Creating a change set does not create the application resources. In
 **CloudFormation → Stacks → admintonibover-dev → Change sets**, open
-`issue-7-dev-foundation-create`. Confirm all 16 actions are `Add`, replacement
+`issue-7-dev-foundation-create`. Confirm all 18 actions are `Add`, replacement
 is absent, and the parameters are exact.
 
 ### Expected first change set
 
-| Logical ID              | CloudFormation type                    | Purpose                        |
-| ----------------------- | -------------------------------------- | ------------------------------ |
-| `ContentTable`          | `AWS::DynamoDB::Table`                 | On-demand content table        |
-| `ContentBucket`         | `AWS::S3::Bucket`                      | Private content bucket         |
-| `ContentBucketPolicy`   | `AWS::S3::BucketPolicy`                | TLS-only access                |
-| `UserPool`              | `AWS::Cognito::UserPool`               | Single-admin identity boundary |
-| `AdminResourceServer`   | `AWS::Cognito::UserPoolResourceServer` | Admin OAuth scope              |
-| `UserPoolClient`        | `AWS::Cognito::UserPoolClient`         | Public PKCE client             |
-| `UserPoolDomain`        | `AWS::Cognito::UserPoolDomain`         | Managed-login endpoint         |
-| `LambdaLogGroup`        | `AWS::Logs::LogGroup`                  | 14-day function logs           |
-| `LambdaExecutionRole`   | `AWS::IAM::Role`                       | Exact runtime permissions      |
-| `FoundationFunction`    | `AWS::Lambda::Function`                | Protected foundation handler   |
-| `HttpApi`               | `AWS::ApiGatewayV2::Api`               | HTTP API                       |
-| `JwtAuthorizer`         | `AWS::ApiGatewayV2::Authorizer`        | Cognito JWT verification       |
-| `FoundationIntegration` | `AWS::ApiGatewayV2::Integration`       | Lambda proxy                   |
-| `FoundationRoute`       | `AWS::ApiGatewayV2::Route`             | Protected `GET /health`        |
-| `ApiStage`              | `AWS::ApiGatewayV2::Stage`             | Auto-deployed throttled stage  |
-| `ApiInvokePermission`   | `AWS::Lambda::Permission`              | Exact API route invocation     |
+| Logical ID                 | CloudFormation type                    | Purpose                        |
+| -------------------------- | -------------------------------------- | ------------------------------ |
+| `ContentTable`             | `AWS::DynamoDB::Table`                 | On-demand content table        |
+| `ContentBucket`            | `AWS::S3::Bucket`                      | Private content bucket         |
+| `ContentBucketPolicy`      | `AWS::S3::BucketPolicy`                | TLS-only access                |
+| `UserPool`                 | `AWS::Cognito::UserPool`               | Single-admin identity boundary |
+| `AdminResourceServer`      | `AWS::Cognito::UserPoolResourceServer` | Admin OAuth scope              |
+| `UserPoolClient`           | `AWS::Cognito::UserPoolClient`         | Public PKCE client             |
+| `UserPoolDomain`           | `AWS::Cognito::UserPoolDomain`         | Managed-login endpoint         |
+| `LambdaLogGroup`           | `AWS::Logs::LogGroup`                  | 14-day function logs           |
+| `LambdaExecutionRole`      | `AWS::IAM::Role`                       | Exact runtime permissions      |
+| `FoundationFunction`       | `AWS::Lambda::Function`                | Protected foundation handler   |
+| `HttpApi`                  | `AWS::ApiGatewayV2::Api`               | HTTP API                       |
+| `JwtAuthorizer`            | `AWS::ApiGatewayV2::Authorizer`        | Cognito JWT verification       |
+| `FoundationIntegration`    | `AWS::ApiGatewayV2::Integration`       | Lambda proxy                   |
+| `FoundationRoute`          | `AWS::ApiGatewayV2::Route`             | Protected `GET /health`        |
+| `PostReadRoute`            | `AWS::ApiGatewayV2::Route`             | Protected `GET /posts/{id}`    |
+| `ApiStage`                 | `AWS::ApiGatewayV2::Stage`             | Auto-deployed throttled stage  |
+| `ApiInvokePermission`      | `AWS::Lambda::Permission`              | Exact API route invocation     |
+| `PostReadInvokePermission` | `AWS::Lambda::Permission`              | Exact post-read invocation     |
 
 No other type is approved. In particular, stop on any VPC, subnet, endpoint,
 NAT Gateway, ECR repository, bootstrap/artifact bucket, REST API, cache, WAF,
@@ -311,6 +313,7 @@ ADMINTONIBOVER_BUCKET_NAME="$(aws cloudformation describe-stacks --region eu-wes
 ADMINTONIBOVER_FUNCTION_NAME="$(aws cloudformation describe-stacks --region eu-west-1 --stack-name admintonibover-dev --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionName'].OutputValue | [0]" --output text)"
 ADMINTONIBOVER_USER_POOL_ID="$(aws cloudformation describe-stacks --region eu-west-1 --stack-name admintonibover-dev --query "Stacks[0].Outputs[?OutputKey=='UserPoolId'].OutputValue | [0]" --output text)"
 ADMINTONIBOVER_CLIENT_ID="$(aws cloudformation describe-stacks --region eu-west-1 --stack-name admintonibover-dev --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue | [0]" --output text)"
+ADMINTONIBOVER_ISSUER="$(aws cloudformation describe-stacks --region eu-west-1 --stack-name admintonibover-dev --query "Stacks[0].Outputs[?OutputKey=='UserPoolIssuer'].OutputValue | [0]" --output text)"
 ADMINTONIBOVER_API_URL="$(aws cloudformation describe-stacks --region eu-west-1 --stack-name admintonibover-dev --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue | [0]" --output text)"
 ADMINTONIBOVER_API_ID="$(aws cloudformation describe-stack-resource --region eu-west-1 --stack-name admintonibover-dev --logical-resource-id HttpApi --query 'StackResourceDetail.PhysicalResourceId' --output text)"
 ```
@@ -397,7 +400,8 @@ aws cognito-idp list-users --region eu-west-1 --user-pool-id "$ADMINTONIBOVER_US
 In **API Gateway → APIs → the development HTTP API**, verify:
 
 - protocol is HTTP, not REST;
-- `GET /health` has the Cognito JWT authorizer and exact admin scope;
+- `GET /health` and `GET /posts/{id}` have the Cognito JWT authorizer and exact
+  admin scope;
 - issuer and audience match the stack's User Pool/client;
 - CORS contains only reviewed origins, methods, and headers;
 - the `$default` stage rate is 2 requests/second with burst 4;
@@ -438,8 +442,11 @@ empty. The API stage throttle remains 2 requests/second with burst 4.
 
 ## Negative access tests
 
-No Cognito administrator exists yet, so issue #7 proves denial rather than a
-successful authenticated call.
+The original issue #7 deployment performed this denial check before the
+administrator existed. After issues #8 and #9, repeat it against both protected
+routes and use the
+[authenticated-read tracer runbook](authenticated-read-tracer.md) for the
+successful read and data-layer evidence.
 
 An API request without a bearer token must return `401` and must not invoke
 Lambda:

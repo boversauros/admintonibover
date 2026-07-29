@@ -5,13 +5,15 @@ import { Button, Text } from '@/components/ui';
 import { useRouter } from 'next/navigation';
 
 export function Header() {
-  const { user, signOut } = useAuth();
+  const { backend, user, signOut } = useAuth();
   const router = useRouter();
 
   const handleLogout = async () => {
     try {
       await signOut();
-      router.push('/');
+      if (backend === 'supabase') {
+        router.push('/');
+      }
     } catch (error) {
       console.error('Error signing out:', error);
     }
