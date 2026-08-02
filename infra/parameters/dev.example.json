@@ -17,7 +17,7 @@
   },
   {
     "ParameterKey": "LogoutUrls",
-    "ParameterValue": "http://localhost:3000/login,https://replace-me.example.invalid/login"
+    "ParameterValue": "http://localhost:3000/,https://replace-me.example.invalid/"
   },
   {
     "ParameterKey": "CognitoDomainPrefix",

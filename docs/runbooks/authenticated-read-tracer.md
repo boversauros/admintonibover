@@ -11,21 +11,21 @@ operation, change the public site, or cut over from Supabase.
 
 ## Fixed scope
 
-| Setting               | Required value                                      |
-| --------------------- | --------------------------------------------------- |
-| Region                | `eu-west-1`                                         |
-| Stack                 | `admintonibover-dev`                                |
-| Feature flag          | `ADMIN_DATA_BACKEND=supabase` or `aws`              |
-| Fixture ID            | `issue-9-fixture`                                   |
-| DynamoDB key          | `POST#issue-9-fixture` / `POST#issue-9-fixture`     |
-| Application route     | `GET /posts/{id}`                                   |
-| API type              | HTTP API                                            |
-| API throttle          | 2 requests/second, burst 4                          |
-| Lambda concurrency    | No reserved or provisioned concurrency              |
-| Cognito flow          | Authorization Code with PKCE, public client         |
-| Application MFA       | Off                                                 |
-| Access-token lifetime | 15 minutes                                          |
-| Refresh lifetime      | One day                                             |
+| Setting               | Required value                                  |
+| --------------------- | ----------------------------------------------- |
+| Region                | `eu-west-1`                                     |
+| Stack                 | `admintonibover-dev`                            |
+| Feature flag          | `ADMIN_DATA_BACKEND=supabase` or `aws`          |
+| Fixture ID            | `issue-9-fixture`                               |
+| DynamoDB key          | `POST#issue-9-fixture` / `POST#issue-9-fixture` |
+| Application route     | `GET /posts/{id}`                               |
+| API type              | HTTP API                                        |
+| API throttle          | 2 requests/second, burst 4                      |
+| Lambda concurrency    | No reserved or provisioned concurrency          |
+| Cognito flow          | Authorization Code with PKCE, public client     |
+| Application MFA       | Off                                             |
+| Access-token lifetime | 15 minutes                                      |
+| Refresh lifetime      | One day                                         |
 
 The issue originally said that Lambda concurrency must remain `2`. The product
 owner approved the accepted ADR wording instead: the development account uses
@@ -102,7 +102,10 @@ parameters.
 
 The exact callback and logout values must remain the approved application root
 for each environment. The Next.js proxy internally routes Cognito's root
-callback to the server-only callback handler.
+callback to the server-only callback handler. Before creating the change set,
+confirm that both `CallbackUrls` and `LogoutUrls` in the private
+`dev.parameters.json` contain those same exact roots; update both together if
+either still contains `/auth/callback` or `/login`.
 
 Create an update change set without executing it:
 
@@ -134,7 +137,9 @@ Expected application changes:
 
 - add `PostReadRoute`;
 - add `PostReadInvokePermission`;
-- modify `FoundationFunction` code/description without replacement; and
+- modify `FoundationFunction` code/description without replacement;
+- modify `UserPoolClient` without replacement only when normalizing its
+  callback/logout roots; and
 - no other resource addition, deletion, replacement, or IAM widening.
 
 CloudFormation can report associated API deployment updates. Stop if it
@@ -337,5 +342,7 @@ The draft pull request must include:
 - immediate and settled billing attestations.
 
 If verification fails, switch `ADMIN_DATA_BACKEND` back to `supabase` first.
+Restart or redeploy the Next.js process so it receives the changed runtime
+environment; the request-time backend boundary does not require a new build.
 Do not enable an AWS write path. Preserve the fixture and stack for diagnosis
 unless an exact, reviewed rollback is approved.

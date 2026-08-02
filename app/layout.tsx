@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { getAdminDataBackend } from '@/lib/config/adminBackend';
 import './globals.css';
@@ -8,11 +9,13 @@ export const metadata: Metadata = {
   description: 'Toni Bover - Admin',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await connection();
+
   const currentYear = new Date().getFullYear();
   const backend = getAdminDataBackend();
 

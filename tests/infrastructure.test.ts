@@ -149,6 +149,30 @@ test('committed CloudFormation synthesis is deterministic and current', async ()
   assert.equal(committed, expected);
 });
 
+test('example Cognito callback and logout URLs use identical application roots', async () => {
+  const parameters = JSON.parse(
+    await readFile(
+      new URL('../infra/parameters/dev.example.json', import.meta.url),
+      'utf8'
+    )
+  ) as Array<{ ParameterKey: string; ParameterValue: string }>;
+  const parameterValues = Object.fromEntries(
+    parameters.map(({ ParameterKey, ParameterValue }) => [
+      ParameterKey,
+      ParameterValue,
+    ])
+  );
+  const callbackUrls = parameterValues.CallbackUrls?.split(',') ?? [];
+  const logoutUrls = parameterValues.LogoutUrls?.split(',') ?? [];
+
+  assert.deepEqual(logoutUrls, callbackUrls);
+  assert.equal(callbackUrls.length > 0, true);
+  assert.equal(
+    callbackUrls.every(value => new URL(value).pathname === '/'),
+    true
+  );
+});
+
 test('foundation Lambda rejects missing or incorrect defense-in-depth claims', async () => {
   let reads = 0;
   const handler = loadFoundationHandler({
