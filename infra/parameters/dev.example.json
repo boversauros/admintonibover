@@ -13,11 +13,11 @@
   },
   {
     "ParameterKey": "CallbackUrls",
-    "ParameterValue": "http://localhost:3000/auth/callback,https://replace-me.example.invalid/auth/callback"
+    "ParameterValue": "http://localhost:3000/,https://replace-me.example.invalid/"
   },
   {
     "ParameterKey": "LogoutUrls",
-    "ParameterValue": "http://localhost:3000/login,https://replace-me.example.invalid/login"
+    "ParameterValue": "http://localhost:3000/,https://replace-me.example.invalid/"
   },
   {
     "ParameterKey": "CognitoDomainPrefix",

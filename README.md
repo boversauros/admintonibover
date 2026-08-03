@@ -36,6 +36,23 @@ NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
+The Supabase adapter remains the default. The issue #9 AWS tracer is an
+explicit, server-controlled development mode:
+
+```env
+ADMIN_DATA_BACKEND=aws
+AWS_ADMIN_API_URL=stack-output-api-url
+AWS_COGNITO_CLIENT_ID=stack-output-client-id
+AWS_COGNITO_ISSUER=stack-output-user-pool-issuer
+AWS_COGNITO_LOGIN_URL=stack-output-login-url
+AWS_COGNITO_CALLBACK_URL=http://localhost:3000/
+AWS_COGNITO_LOGOUT_URL=http://localhost:3000/
+```
+
+Use only the non-secret outputs from the named development stack. Never commit
+the real values or Cognito tokens. The exact deployment, fixture, and
+integration procedure is in the authenticated-read tracer runbook below.
+
 3. Set up the database:
 
 Follow the instructions in `SUPABASE_SETUP.md` to run the migrations and configure your Supabase project.
@@ -81,6 +98,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [AWS account guardrails](docs/runbooks/aws-account-guardrails.md)
 - [AWS development foundation](docs/runbooks/aws-development-foundation.md)
 - [Single Cognito administrator](docs/runbooks/cognito-single-administrator.md)
+- [Authenticated DynamoDB read tracer](docs/runbooks/authenticated-read-tracer.md)
 - [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
 - [Offline Supabase backup validation](docs/runbooks/backup-validation.md)
 

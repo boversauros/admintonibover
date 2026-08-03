@@ -1,18 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { User } from '@supabase/supabase-js';
 import { Icon, Text } from '@/components/ui';
 import type { IconName } from '@/components/ui/Icon';
+import type { AuthUser } from '@/lib/auth/AuthContext';
 
 interface UserMenuProps {
-  user: User;
+  user: AuthUser;
   onBackup: () => void | Promise<void>;
   onLogout: () => void | Promise<void>;
   isBackingUp?: boolean;
 }
 
-function getInitials(user: User): string {
+function getInitials(user: AuthUser): string {
   const name = user.user_metadata?.name || user.user_metadata?.full_name;
   if (typeof name === 'string' && name.trim()) {
     const parts = name.trim().split(/\s+/);
@@ -34,7 +34,7 @@ function getInitials(user: User): string {
   return 'U';
 }
 
-function getDisplayName(user: User): string | null {
+function getDisplayName(user: AuthUser): string | null {
   const name = user.user_metadata?.name || user.user_metadata?.full_name;
   if (typeof name === 'string' && name.trim()) return name.trim();
   return null;
@@ -227,7 +227,9 @@ export function UserMenu({
             <MenuItem
               icon="download"
               label={
-                isBackingUp ? 'Generant còpia...' : 'Descarregar còpia de seguretat'
+                isBackingUp
+                  ? 'Generant còpia...'
+                  : 'Descarregar còpia de seguretat'
               }
               onClick={handleBackup}
               loading={isBackingUp}

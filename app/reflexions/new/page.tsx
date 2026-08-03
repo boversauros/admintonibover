@@ -1,23 +1,12 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { useRouter } from 'next/navigation';
-import { AuthGuard } from '@/components/auth/AuthGuard';
-import { PostForm } from '@/components/forms/PostForm';
-
-function NewReflexionContent() {
-  const router = useRouter();
-
-  const handleSuccess = () => {
-    router.push('/');
-  };
-
-  return <PostForm onSuccess={handleSuccess} />;
-}
+import { SupabaseNewReflexion } from '@/components/admin/SupabaseNewReflexion';
+import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
 export default function NewReflexionPage() {
-  return (
-    <AuthGuard fallback={null}>
-      <NewReflexionContent />
-    </AuthGuard>
-  );
+  if (getAdminDataBackend() === 'aws') {
+    redirect('/');
+  }
+
+  return <SupabaseNewReflexion />;
 }

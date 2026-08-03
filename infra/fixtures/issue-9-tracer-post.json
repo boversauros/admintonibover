@@ -1,0 +1,45 @@
+{
+  "PK": {
+    "S": "POST#issue-9-fixture"
+  },
+  "SK": {
+    "S": "POST#issue-9-fixture"
+  },
+  "entityType": {
+    "S": "POST"
+  },
+  "schemaVersion": {
+    "N": "1"
+  },
+  "id": {
+    "S": "issue-9-fixture"
+  },
+  "translations": {
+    "M": {
+      "ca": {
+        "M": {
+          "title": {
+            "S": "Una primera lectura a DynamoDB"
+          }
+        }
+      },
+      "en": {
+        "M": {
+          "title": {
+            "S": "A first DynamoDB read"
+          }
+        }
+      }
+    }
+  },
+  "migration": {
+    "M": {
+      "source": {
+        "S": "issue-9-fixture"
+      },
+      "status": {
+        "S": "ready"
+      }
+    }
+  }
+}

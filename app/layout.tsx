@@ -1,24 +1,28 @@
-'use client';
-
+import type { Metadata } from 'next';
+import { connection } from 'next/server';
 import { AuthProvider } from '@/lib/auth/AuthContext';
+import { getAdminDataBackend } from '@/lib/config/adminBackend';
 import './globals.css';
 
-export default function RootLayout({
+export const metadata: Metadata = {
+  title: 'Toni Bover - Admin',
+  description: 'Toni Bover - Admin',
+};
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await connection();
+
   const currentYear = new Date().getFullYear();
+  const backend = getAdminDataBackend();
 
   return (
     <html lang="en">
-      <head>
-        <title>Toni Bover - Admin</title>
-        <meta name="description" content="Toni Bover - Admin" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-      </head>
       <body className="min-h-screen bg-background text-primary font-sans antialiased flex flex-col">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider backend={backend}>{children}</AuthProvider>
 
         <footer className="border-t border-subtle mt-auto">
           <div className="max-w-4xl mx-auto px-6 py-6">

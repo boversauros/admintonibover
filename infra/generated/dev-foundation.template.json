@@ -603,7 +603,7 @@
         "FunctionName": {
           "Fn::Sub": "${AWS::StackName}-foundation"
         },
-        "Description": "Protected health endpoint and foundation for subsequent admin API issues.",
+        "Description": "Protected health and single-post read endpoints for the development admin.",
         "PackageType": "Zip",
         "Runtime": "nodejs24.x",
         "Handler": "index.handler",
@@ -620,7 +620,7 @@
           ]
         },
         "Code": {
-          "ZipFile": "'use strict';\n\nfunction claimContains(value, expected) {\n  if (Array.isArray(value)) return value.includes(expected);\n  return String(value ?? '').split(' ').includes(expected);\n}\n\nexports.handler = async event => {\n  const requestId = event?.requestContext?.requestId ?? 'unknown';\n  const claims = event?.requestContext?.authorizer?.jwt?.claims ?? {};\n  const clientId = claims.client_id ?? claims.aud;\n  const authorized =\n    claims.iss === process.env.EXPECTED_ISSUER &&\n    clientId === process.env.EXPECTED_CLIENT_ID &&\n    claims.token_use === 'access' &&\n    typeof claims.sub === 'string' &&\n    claims.sub.length > 0 &&\n    claimContains(claims.scope, process.env.REQUIRED_ADMIN_SCOPE);\n\n  if (!authorized) {\n    console.warn(\n      JSON.stringify({\n        level: 'WARN',\n        message: 'authorization_claims_rejected',\n        requestId,\n      })\n    );\n    return {\n      statusCode: 403,\n      headers: { 'content-type': 'application/json' },\n      body: JSON.stringify({\n        error: { code: 'FORBIDDEN', message: 'Access denied' },\n        requestId,\n      }),\n    };\n  }\n\n  console.info(\n    JSON.stringify({\n      level: 'INFO',\n      message: 'foundation_request_authorized',\n      requestId,\n    })\n  );\n  return {\n    statusCode: 200,\n    headers: { 'content-type': 'application/json' },\n    body: JSON.stringify({ status: 'ok', requestId }),\n  };\n};\n"
+          "ZipFile": "'use strict';\n\nconst {\n  DynamoDBClient,\n  GetItemCommand,\n} = require('@aws-sdk/client-dynamodb');\n\nconst dynamodb = new DynamoDBClient({});\nconst API_VERSION = 1;\nconst POST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;\nconst CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;\n\nfunction claimContains(value, expected) {\n  if (Array.isArray(value)) return value.includes(expected);\n  return String(value ?? '').split(' ').includes(expected);\n}\n\nfunction getRequestId(event) {\n  const supplied =\n    event?.headers?.['x-correlation-id'] ??\n    event?.headers?.['X-Correlation-Id'];\n\n  if (\n    typeof supplied === 'string' &&\n    CORRELATION_ID_PATTERN.test(supplied)\n  ) {\n    return supplied;\n  }\n\n  return event?.requestContext?.requestId ?? 'unknown';\n}\n\nfunction jsonResponse(statusCode, body, requestId) {\n  return {\n    statusCode,\n    headers: {\n      'cache-control': 'no-store',\n      'content-type': 'application/json',\n      'x-correlation-id': requestId,\n    },\n    body: JSON.stringify({\n      version: API_VERSION,\n      ...body,\n      requestId,\n    }),\n  };\n}\n\nfunction errorResponse(statusCode, code, message, requestId) {\n  return jsonResponse(\n    statusCode,\n    { error: { code, message } },\n    requestId\n  );\n}\n\nfunction readString(attribute) {\n  return attribute && typeof attribute.S === 'string' ? attribute.S : null;\n}\n\nfunction readMap(attribute) {\n  return attribute && attribute.M && typeof attribute.M === 'object'\n    ? attribute.M\n    : null;\n}\n\nfunction projectTracerPost(item) {\n  const id = readString(item?.id);\n  const translations = readMap(item?.translations);\n  const catalan = readMap(translations?.ca);\n  const english = readMap(translations?.en);\n  const title = readString(catalan?.title) ?? readString(english?.title);\n  const migration = readMap(item?.migration);\n  const source = readString(migration?.source);\n  const status = readString(migration?.status);\n\n  if (!id || !title || !source || !status) {\n    const error = new Error('DynamoDB post does not match the tracer contract');\n    error.name = 'InvalidTracerPost';\n    throw error;\n  }\n\n  return {\n    id,\n    title,\n    migration: { source, status },\n  };\n}\n\nasync function getPostById(id) {\n  const key = 'POST#' + id;\n  const result = await dynamodb.send(\n    new GetItemCommand({\n      TableName: process.env.CONTENT_TABLE_NAME,\n      Key: {\n        PK: { S: key },\n        SK: { S: key },\n      },\n      ConsistentRead: true,\n    })\n  );\n\n  return result.Item ? projectTracerPost(result.Item) : null;\n}\n\nexports.handler = async event => {\n  const requestId = getRequestId(event);\n  const claims = event?.requestContext?.authorizer?.jwt?.claims ?? {};\n  const clientId = claims.client_id ?? claims.aud;\n  const authorized =\n    claims.iss === process.env.EXPECTED_ISSUER &&\n    clientId === process.env.EXPECTED_CLIENT_ID &&\n    claims.token_use === 'access' &&\n    typeof claims.sub === 'string' &&\n    claims.sub.length > 0 &&\n    claimContains(claims.scope, process.env.REQUIRED_ADMIN_SCOPE);\n\n  if (!authorized) {\n    console.warn(\n      JSON.stringify({\n        level: 'WARN',\n        message: 'authorization_claims_rejected',\n        requestId,\n      })\n    );\n    return errorResponse(403, 'FORBIDDEN', 'Access denied', requestId);\n  }\n\n  const routeKey = event?.routeKey ?? '';\n\n  if (routeKey === 'GET /health') {\n    console.info(\n      JSON.stringify({\n        level: 'INFO',\n        message: 'foundation_request_authorized',\n        requestId,\n        routeKey,\n      })\n    );\n    return jsonResponse(200, { data: { status: 'ok' } }, requestId);\n  }\n\n  if (routeKey !== 'GET /posts/{id}') {\n    return errorResponse(404, 'NOT_FOUND', 'Route not found', requestId);\n  }\n\n  const postId = event?.pathParameters?.id;\n  if (typeof postId !== 'string' || !POST_ID_PATTERN.test(postId)) {\n    return errorResponse(\n      400,\n      'BAD_REQUEST',\n      'Post ID is malformed',\n      requestId\n    );\n  }\n\n  try {\n    const post = await getPostById(postId);\n    if (!post) {\n      console.info(\n        JSON.stringify({\n          level: 'INFO',\n          message: 'post_not_found',\n          requestId,\n          routeKey,\n          postId,\n        })\n      );\n      return errorResponse(404, 'NOT_FOUND', 'Post not found', requestId);\n    }\n\n    console.info(\n      JSON.stringify({\n        level: 'INFO',\n        message: 'post_read_succeeded',\n        requestId,\n        routeKey,\n        postId,\n      })\n    );\n    return jsonResponse(200, { data: post }, requestId);\n  } catch (error) {\n    console.error(\n      JSON.stringify({\n        level: 'ERROR',\n        message: 'post_read_failed',\n        requestId,\n        routeKey,\n        postId,\n        errorName: error instanceof Error ? error.name : 'UnknownError',\n      })\n    );\n    return errorResponse(\n      500,\n      'INTERNAL_ERROR',\n      'The post could not be loaded',\n      requestId\n    );\n  }\n};\n"
         },
         "Environment": {
           "Variables": {
@@ -741,7 +741,7 @@
         "ApiId": {
           "Ref": "HttpApi"
         },
-        "Description": "Lambda proxy integration for the protected foundation endpoint.",
+        "Description": "Lambda proxy integration for protected development admin reads.",
         "IntegrationType": "AWS_PROXY",
         "IntegrationMethod": "POST",
         "IntegrationUri": {
@@ -769,6 +769,34 @@
           "Ref": "JwtAuthorizer"
         },
         "RouteKey": "GET /health",
+        "Target": {
+          "Fn::Join": [
+            "/",
+            [
+              "integrations",
+              {
+                "Ref": "FoundationIntegration"
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "PostReadRoute": {
+      "Type": "AWS::ApiGatewayV2::Route",
+      "DependsOn": "AdminResourceServer",
+      "Properties": {
+        "ApiId": {
+          "Ref": "HttpApi"
+        },
+        "AuthorizationScopes": [
+          "admintonibover-api/admin"
+        ],
+        "AuthorizationType": "JWT",
+        "AuthorizerId": {
+          "Ref": "JwtAuthorizer"
+        },
+        "RouteKey": "GET /posts/{id}",
         "Target": {
           "Fn::Join": [
             "/",
@@ -817,6 +845,19 @@
           "Fn::Sub": "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/health"
         }
       }
+    },
+    "PostReadInvokePermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Ref": "FoundationFunction"
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Sub": "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/posts/*"
+        }
+      }
     }
   },
   "Outputs": {
@@ -851,6 +892,12 @@
       "Description": "Public Cognito app-client identifier; the client has no secret.",
       "Value": {
         "Ref": "UserPoolClient"
+      }
+    },
+    "UserPoolIssuer": {
+      "Description": "Public issuer URL used to verify Cognito JWTs.",
+      "Value": {
+        "Fn::Sub": "https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}"
       }
     },
     "CognitoLoginUrl": {

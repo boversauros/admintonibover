@@ -365,6 +365,89 @@ export function validateDevFoundationTemplate(
     'FoundationRoute.AuthorizationScopes',
     issues
   );
+  requireEqual(
+    route.RouteKey,
+    'GET /health',
+    'FoundationRoute.RouteKey',
+    issues
+  );
+
+  const postReadRoute = asRecord(
+    template.Resources.PostReadRoute.Properties,
+    'Resources.PostReadRoute.Properties',
+    issues
+  );
+  requireEqual(
+    postReadRoute.AuthorizationType,
+    'JWT',
+    'PostReadRoute.AuthorizationType',
+    issues
+  );
+  requireEqual(
+    postReadRoute.AuthorizationScopes,
+    ['admintonibover-api/admin'],
+    'PostReadRoute.AuthorizationScopes',
+    issues
+  );
+  requireEqual(
+    postReadRoute.AuthorizerId,
+    { Ref: 'JwtAuthorizer' },
+    'PostReadRoute.AuthorizerId',
+    issues
+  );
+  requireEqual(
+    postReadRoute.RouteKey,
+    'GET /posts/{id}',
+    'PostReadRoute.RouteKey',
+    issues
+  );
+  requireEqual(
+    postReadRoute.Target,
+    {
+      'Fn::Join': ['/', ['integrations', { Ref: 'FoundationIntegration' }]],
+    },
+    'PostReadRoute.Target',
+    issues
+  );
+
+  const stage = asRecord(
+    template.Resources.ApiStage.Properties,
+    'Resources.ApiStage.Properties',
+    issues
+  );
+  requireEqual(stage.StageName, '$default', 'ApiStage.StageName', issues);
+  const defaultRouteSettings = asRecord(
+    stage.DefaultRouteSettings,
+    'ApiStage.DefaultRouteSettings',
+    issues
+  );
+  requireEqual(
+    defaultRouteSettings.ThrottlingRateLimit,
+    2,
+    'ApiStage.ThrottlingRateLimit',
+    issues
+  );
+  requireEqual(
+    defaultRouteSettings.ThrottlingBurstLimit,
+    4,
+    'ApiStage.ThrottlingBurstLimit',
+    issues
+  );
+
+  const postReadPermission = asRecord(
+    template.Resources.PostReadInvokePermission.Properties,
+    'Resources.PostReadInvokePermission.Properties',
+    issues
+  );
+  requireEqual(
+    postReadPermission.SourceArn,
+    {
+      'Fn::Sub':
+        'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/posts/*',
+    },
+    'PostReadInvokePermission.SourceArn',
+    issues
+  );
 
   const executionRole = asRecord(
     template.Resources.LambdaExecutionRole.Properties,
@@ -409,6 +492,7 @@ export function validateDevFoundationTemplate(
     'ApiUrl',
     'UserPoolId',
     'UserPoolClientId',
+    'UserPoolIssuer',
     'TableName',
     'BucketName',
   ]) {
