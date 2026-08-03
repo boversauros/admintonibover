@@ -23,6 +23,8 @@
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1101.0",
+    "@aws-sdk/lib-dynamodb": "3.1101.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "2.89.0",
     "jose": "6.2.4",
