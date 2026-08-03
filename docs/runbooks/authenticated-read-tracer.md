@@ -138,9 +138,13 @@ Expected application changes:
 - add `PostReadRoute`;
 - add `PostReadInvokePermission`;
 - modify `FoundationFunction` code/description without replacement;
+- CloudFormation may report `FoundationIntegration` as `Modify` without
+  replacement only when its details are a `ResourceAttribute`/`Dynamic`
+  reevaluation caused by `FoundationFunction.Arn`;
 - modify `UserPoolClient` without replacement only when normalizing its
   callback/logout roots; and
-- no other resource addition, deletion, replacement, or IAM widening.
+- no other static direct modification, resource addition, deletion,
+  replacement, or IAM widening.
 
 CloudFormation can report associated API deployment updates. Stop if it
 proposes a different service, a table replacement, a Cognito replacement, or a

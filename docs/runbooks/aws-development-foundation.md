@@ -517,8 +517,16 @@ aws cloudformation describe-change-set \
   --output table
 ```
 
-The only resource change must be `ContentTable`, action `Modify`, replacement
-`False`. Execute and verify:
+The only static, direct resource change must be `ContentTable`, action
+`Modify`, replacement `False`, with `DeletionProtectionEnabled` as the changed
+property. CloudFormation can also report `Modify`/`False` dependency
+reevaluations for `LambdaExecutionRole`, `FoundationFunction`, and
+`FoundationIntegration`. Those additional rows are acceptable only when their
+change-set details are `ResourceAttribute`/`Dynamic` references caused by the
+unchanged table, role, or function attributes. Stop on any other direct
+modification, addition, deletion, or replacement.
+
+Execute and verify:
 
 ```bash
 aws cloudformation execute-change-set \
