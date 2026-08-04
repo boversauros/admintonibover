@@ -99,6 +99,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [AWS development foundation](docs/runbooks/aws-development-foundation.md)
 - [Single Cognito administrator](docs/runbooks/cognito-single-administrator.md)
 - [Authenticated DynamoDB read tracer](docs/runbooks/authenticated-read-tracer.md)
+- [DynamoDB post repository boundary](docs/runbooks/dynamodb-post-repository.md)
 - [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
 - [Offline Supabase backup validation](docs/runbooks/backup-validation.md)
 

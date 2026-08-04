@@ -14,12 +14,15 @@ export type BackupTableName = (typeof BACKUP_TABLE_NAMES)[number];
 export type LanguageCode = 'ca' | 'en';
 export type ReferenceType = 'image' | 'text';
 
+export {
+  DYNAMODB_ITEM_SIZE_GUARD_BYTES,
+  DYNAMODB_TRANSACTION_MAX_BYTES,
+  DYNAMODB_TRANSACTION_MAX_ITEMS,
+  REFERENCE_SEGMENT_TARGET_BYTES,
+} from '../../aws/dynamodb/limits';
+
 export const KNOWN_BACKUP_FILE_NAME =
   'tonibover-backup-2026-06-18T08-46-31.json';
-export const DYNAMODB_ITEM_SIZE_GUARD_BYTES = 350 * 1024;
-export const REFERENCE_SEGMENT_TARGET_BYTES = 100 * 1024;
-export const DYNAMODB_TRANSACTION_MAX_ITEMS = 100;
-export const DYNAMODB_TRANSACTION_MAX_BYTES = 4 * 1024 * 1024;
 export const DYNAMODB_TRANSACTION_RESERVED_ACTIONS = 7;
 export const DYNAMODB_TRANSACTION_RESERVED_BYTES = 64 * 1024;
 
