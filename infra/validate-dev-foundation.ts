@@ -192,6 +192,12 @@ export function validateDevFoundationTemplate(
     'ContentTable.PointInTimeRecoveryEnabled',
     issues
   );
+  requireEqual(
+    table.TimeToLiveSpecification,
+    { AttributeName: 'expiresAt', Enabled: true },
+    'ContentTable.TimeToLiveSpecification',
+    issues
+  );
 
   const bucket = asRecord(
     template.Resources.ContentBucket.Properties,
@@ -220,6 +226,98 @@ export function validateDevFoundationTemplate(
     bucket.VersioningConfiguration,
     undefined,
     'ContentBucket.VersioningConfiguration',
+    issues
+  );
+  const corsConfiguration = asRecord(
+    bucket.CorsConfiguration,
+    'ContentBucket.CorsConfiguration',
+    issues
+  );
+  const corsRules = asArray(
+    corsConfiguration.CorsRules,
+    'ContentBucket.CorsConfiguration.CorsRules',
+    issues
+  );
+  const corsRule = asRecord(
+    corsRules[0],
+    'ContentBucket.CorsConfiguration.CorsRules[0]',
+    issues
+  );
+  requireEqual(
+    corsRule.AllowedOrigins,
+    { Ref: 'AllowedOrigins' },
+    'ContentBucket.Cors.AllowedOrigins',
+    issues
+  );
+  requireEqual(
+    corsRule.AllowedMethods,
+    ['GET', 'HEAD', 'PUT'],
+    'ContentBucket.Cors.AllowedMethods',
+    issues
+  );
+  requireEqual(
+    corsRule.AllowedHeaders,
+    ['content-type', 'x-amz-checksum-sha256'],
+    'ContentBucket.Cors.AllowedHeaders',
+    issues
+  );
+  requireEqual(
+    corsRule.ExposedHeaders,
+    ['etag', 'x-amz-checksum-sha256'],
+    'ContentBucket.Cors.ExposedHeaders',
+    issues
+  );
+  requireEqual(corsRule.MaxAge, 300, 'ContentBucket.Cors.MaxAge', issues);
+  requireEqual(
+    bucket.LifecycleConfiguration,
+    {
+      Rules: [
+        {
+          Id: 'ExpireAbandonedTemporaryUploads',
+          Prefix: 'temporary/',
+          Status: 'Enabled',
+          ExpirationInDays: 1,
+          AbortIncompleteMultipartUpload: { DaysAfterInitiation: 1 },
+        },
+      ],
+    },
+    'ContentBucket.LifecycleConfiguration',
+    issues
+  );
+
+  const bucketPolicy = asRecord(
+    template.Resources.ContentBucketPolicy.Properties,
+    'Resources.ContentBucketPolicy.Properties',
+    issues
+  );
+  const policyDocument = asRecord(
+    bucketPolicy.PolicyDocument,
+    'ContentBucketPolicy.PolicyDocument',
+    issues
+  );
+  const bucketStatements = asArray(
+    policyDocument.Statement,
+    'ContentBucketPolicy.PolicyDocument.Statement',
+    issues
+  );
+  const staleSignatureStatement = bucketStatements.find(statement =>
+    isRecord(statement)
+      ? statement.Sid === 'DenyStalePresignedObjectRequests'
+      : false
+  );
+  requireEqual(
+    staleSignatureStatement,
+    {
+      Sid: 'DenyStalePresignedObjectRequests',
+      Effect: 'Deny',
+      Principal: '*',
+      Action: ['s3:GetObject', 's3:PutObject'],
+      Resource: { 'Fn::Sub': '${ContentBucket.Arn}/*' },
+      Condition: {
+        NumericGreaterThan: { 's3:signatureAge': '300000' },
+      },
+    },
+    'ContentBucketPolicy.DenyStalePresignedObjectRequests',
     issues
   );
 
@@ -317,6 +415,17 @@ export function validateDevFoundationTemplate(
     'FoundationFunction.Architectures',
     issues
   );
+  requireEqual(lambda.MemorySize, 256, 'FoundationFunction.MemorySize', issues);
+  requireEqual(lambda.Timeout, 10, 'FoundationFunction.Timeout', issues);
+  const lambdaCode = asRecord(lambda.Code, 'FoundationFunction.Code', issues);
+  if (
+    typeof lambdaCode.ZipFile !== 'string' ||
+    Buffer.byteLength(lambdaCode.ZipFile, 'utf8') > 900_000
+  ) {
+    issues.push(
+      'FoundationFunction inline bundle must be at most 900000 bytes'
+    );
+  }
   requireEqual(
     lambda.ReservedConcurrentExecutions,
     undefined,
@@ -410,6 +519,66 @@ export function validateDevFoundationTemplate(
     issues
   );
 
+  const expectedMediaRoutes = {
+    PostImagesReadRoute: 'GET /posts/{id}/images',
+    PostImagePresignRoute: 'POST /posts/{id}/images/presign',
+    PostImageConfirmRoute: 'POST /posts/{id}/images/confirm',
+  } as const;
+  for (const [logicalId, routeKey] of Object.entries(expectedMediaRoutes)) {
+    const mediaRoute = asRecord(
+      template.Resources[logicalId].Properties,
+      `Resources.${logicalId}.Properties`,
+      issues
+    );
+    requireEqual(
+      mediaRoute.AuthorizationType,
+      'JWT',
+      `${logicalId}.AuthorizationType`,
+      issues
+    );
+    requireEqual(
+      mediaRoute.AuthorizationScopes,
+      ['admintonibover-api/admin'],
+      `${logicalId}.AuthorizationScopes`,
+      issues
+    );
+    requireEqual(
+      mediaRoute.AuthorizerId,
+      { Ref: 'JwtAuthorizer' },
+      `${logicalId}.AuthorizerId`,
+      issues
+    );
+    requireEqual(
+      mediaRoute.RouteKey,
+      routeKey,
+      `${logicalId}.RouteKey`,
+      issues
+    );
+  }
+
+  const httpApi = asRecord(
+    template.Resources.HttpApi.Properties,
+    'Resources.HttpApi.Properties',
+    issues
+  );
+  const apiCors = asRecord(
+    httpApi.CorsConfiguration,
+    'HttpApi.CorsConfiguration',
+    issues
+  );
+  requireEqual(
+    apiCors.AllowOrigins,
+    { Ref: 'AllowedOrigins' },
+    'HttpApi.Cors.AllowOrigins',
+    issues
+  );
+  requireEqual(
+    apiCors.AllowMethods,
+    ['GET', 'POST', 'OPTIONS'],
+    'HttpApi.Cors.AllowMethods',
+    issues
+  );
+
   const stage = asRecord(
     template.Resources.ApiStage.Properties,
     'Resources.ApiStage.Properties',
@@ -448,6 +617,29 @@ export function validateDevFoundationTemplate(
     'PostReadInvokePermission.SourceArn',
     issues
   );
+  const expectedMediaPermissions = {
+    PostImagesReadInvokePermission:
+      'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/posts/*/images',
+    PostImagePresignInvokePermission:
+      'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/POST/posts/*/images/presign',
+    PostImageConfirmInvokePermission:
+      'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/POST/posts/*/images/confirm',
+  } as const;
+  for (const [logicalId, sourceArn] of Object.entries(
+    expectedMediaPermissions
+  )) {
+    const permission = asRecord(
+      template.Resources[logicalId].Properties,
+      `Resources.${logicalId}.Properties`,
+      issues
+    );
+    requireEqual(
+      permission.SourceArn,
+      { 'Fn::Sub': sourceArn },
+      `${logicalId}.SourceArn`,
+      issues
+    );
+  }
 
   const executionRole = asRecord(
     template.Resources.LambdaExecutionRole.Properties,
@@ -468,8 +660,21 @@ export function validateDevFoundationTemplate(
       'Lambda execution role must not contain a literal wildcard resource'
     );
   }
+  for (const transactionalItemAction of [
+    'dynamodb:DeleteItem',
+    'dynamodb:GetItem',
+    'dynamodb:PutItem',
+    'dynamodb:UpdateItem',
+  ]) {
+    if (!serializedPolicies.includes(transactionalItemAction)) {
+      issues.push(
+        `Lambda execution role is missing exact-table action ${transactionalItemAction}`
+      );
+    }
+  }
   for (const forbiddenAction of [
     'dynamodb:Scan',
+    'dynamodb:TransactWriteItems',
     'logs:CreateLogGroup',
     's3:*',
   ]) {

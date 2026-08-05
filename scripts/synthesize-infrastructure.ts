@@ -1,9 +1,7 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { mkdir } from 'node:fs/promises';
 
-import { createDevFoundationTemplate } from '../infra/dev-foundation';
-import { validateDevFoundationTemplate } from '../infra/validate-dev-foundation';
+import { buildFoundationLambda } from './build-foundation-lambda';
 
 const DEFAULT_OUTPUT = resolve('infra/generated/dev-foundation.template.json');
 
@@ -67,6 +65,12 @@ async function main(): Promise<void> {
     return;
   }
 
+  const lambda = await buildFoundationLambda({ check: options.check });
+  const [{ createDevFoundationTemplate }, { validateDevFoundationTemplate }] =
+    await Promise.all([
+      import('../infra/dev-foundation'),
+      import('../infra/validate-dev-foundation'),
+    ]);
   const template = createDevFoundationTemplate();
   const summary = validateDevFoundationTemplate(template);
   const serialized = `${JSON.stringify(template, null, 2)}\n`;
@@ -86,7 +90,7 @@ async function main(): Promise<void> {
       );
     }
     console.log(
-      `infra: valid, current synthesis (${summary.resourceCount} resources)`
+      `infra: valid, current synthesis (${summary.resourceCount} resources, ${lambda.bytes} byte Lambda bundle)`
     );
     return;
   }
@@ -97,7 +101,7 @@ async function main(): Promise<void> {
     flag: 'w',
   });
   console.log(
-    `infra: synthesized ${summary.resourceCount} resources to ${options.outputPath}`
+    `infra: synthesized ${summary.resourceCount} resources with a ${lambda.bytes} byte Lambda bundle to ${options.outputPath}`
   );
 }
 

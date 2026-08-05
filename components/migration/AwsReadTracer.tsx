@@ -10,6 +10,7 @@ import {
   type TracerPost,
 } from '@/lib/aws/tracer-contract';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { AwsMediaRepair } from '@/components/migration/AwsMediaRepair';
 
 type TracerState =
   | { status: 'loading' }
@@ -82,7 +83,7 @@ export function AwsReadTracer() {
               variant="small"
               className="mt-0.5 text-xs uppercase tracking-wider text-muted"
             >
-              AWS read tracer
+              AWS migration console
             </Text>
           </div>
           <div className="flex items-center gap-4">
@@ -229,6 +230,7 @@ export function AwsReadTracer() {
             )}
           </div>
         </section>
+        <AwsMediaRepair />
       </main>
     </div>
   );
