@@ -1,5 +1,12 @@
 # Authenticated DynamoDB read tracer
 
+> **Historical-scope note:** the 18-resource counts and CLI change-set example
+> below describe the issue #9 commit. The current issue #11 synthesis contains
+> 24 resources and exceeds CloudFormation's direct template-body size limit.
+> Use the private-S3-template console flow in
+> [Private S3 image repair](s3-presigned-image-repair.md) for the current
+> template; do not run the historical `--template-body` command against it.
+
 This runbook deploys and verifies
 [issue #9](https://github.com/boversauros/admintonibover/issues/9), the smallest
 production-shaped read through the AWS administration boundary:

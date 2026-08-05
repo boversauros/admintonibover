@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 
 import {
   EXPECTED_RESOURCE_TYPE_COUNTS,
   FOUNDATION_LAMBDA_CODE,
+  LEGACY_FOUNDATION_LAMBDA_CODE,
   createDevFoundationTemplate,
 } from '../infra/dev-foundation';
 import { validateDevFoundationTemplate } from '../infra/validate-dev-foundation';
@@ -75,7 +77,7 @@ function loadFoundationHandler({
       };
     },
   };
-  runInNewContext(FOUNDATION_LAMBDA_CODE, context);
+  runInNewContext(LEGACY_FOUNDATION_LAMBDA_CODE, context);
 
   const handler = context.exports.handler;
   if (typeof handler !== 'function') {
@@ -135,8 +137,34 @@ test('development foundation passes the offline safety contract', () => {
   const template = createDevFoundationTemplate();
   const summary = validateDevFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 18);
+  assert.equal(summary.resourceCount, 24);
   assert.deepEqual(summary.resourceTypes, EXPECTED_RESOURCE_TYPE_COUNTS);
+});
+
+test('generated Lambda bundle stays inline-safe and enforces claims', async () => {
+  assert.equal(
+    Buffer.byteLength(FOUNDATION_LAMBDA_CODE, 'utf8') < 900_000,
+    true
+  );
+  const generated = createRequire(import.meta.url)(
+    '../infra/generated/foundation-lambda.cjs'
+  ) as { handler?: FoundationHandler };
+  assert.equal(typeof generated.handler, 'function');
+  assert.equal(
+    FOUNDATION_LAMBDA_CODE.includes('POST /posts/{id}/images/confirm'),
+    true
+  );
+  assert.equal(FOUNDATION_LAMBDA_CODE.includes('X-Amz-Signature='), false);
+  process.env.EXPECTED_ISSUER = 'https://issuer.example.invalid/pool';
+  process.env.EXPECTED_CLIENT_ID = 'public-client';
+  process.env.REQUIRED_ADMIN_SCOPE = 'admintonibover-api/admin';
+  const denied = await generated.handler!({
+    routeKey: 'POST /posts/{id}/images/presign',
+    pathParameters: { id: 'post-1' },
+    body: '{}',
+    requestContext: { requestId: 'generated-denial' },
+  });
+  assert.equal(denied.statusCode, 403);
 });
 
 test('committed CloudFormation synthesis is deterministic and current', async () => {

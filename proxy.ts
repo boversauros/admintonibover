@@ -12,6 +12,20 @@ const supabaseHost = (() => {
   }
 })();
 const supabaseOrigin = supabaseHost ? `https://${supabaseHost}` : '';
+const s3Origin = (() => {
+  const value = process.env.AWS_CONTENT_BUCKET_ORIGIN ?? '';
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' &&
+      parsed.pathname === '/' &&
+      parsed.username === '' &&
+      parsed.password === ''
+      ? parsed.origin
+      : '';
+  } catch {
+    return '';
+  }
+})();
 
 function buildCsp(): string {
   const supabaseSrc = supabaseOrigin || '';
@@ -25,9 +39,9 @@ function buildCsp(): string {
     `default-src 'self'`,
     scriptSrc,
     `style-src 'self' 'unsafe-inline'`,
-    `img-src 'self' data: blob: https://picsum.photos ${supabaseSrc}`.trim(),
+    `img-src 'self' data: blob: https://picsum.photos ${supabaseSrc} ${s3Origin}`.trim(),
     `font-src 'self' data:`,
-    `connect-src 'self' ${supabaseSrc} ${wsSupabase}`.trim(),
+    `connect-src 'self' ${supabaseSrc} ${wsSupabase} ${s3Origin}`.trim(),
     `frame-ancestors 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
