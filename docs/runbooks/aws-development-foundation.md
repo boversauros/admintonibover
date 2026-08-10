@@ -1,5 +1,13 @@
 # AWS development foundation
 
+> **Current-template note:** this document preserves the issue #7 foundation
+> creation evidence. After issue #11, the current synthesis has 24 resources
+> and an embedded Lambda bundle that makes the template larger than the
+> 51,200-byte direct request limit. For any current stack update, use the
+> CloudFormation private-S3-template and change-set procedure in
+> [Private S3 image repair](s3-presigned-image-repair.md). Do not pass the
+> current template through `--template-body`.
+
 This runbook deploys and verifies the development infrastructure defined by
 [issue #7](https://github.com/boversauros/admintonibover/issues/7) and
 [ADR 0001](../adr/0001-admin-only-aws-data-security-contract.md).

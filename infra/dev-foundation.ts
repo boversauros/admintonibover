@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 type CloudFormationResource = {
   Type: string;
   Properties?: Record<string, unknown>;
@@ -21,7 +23,7 @@ export const EXPECTED_RESOURCE_TYPE_COUNTS = {
   'AWS::ApiGatewayV2::Api': 1,
   'AWS::ApiGatewayV2::Authorizer': 1,
   'AWS::ApiGatewayV2::Integration': 1,
-  'AWS::ApiGatewayV2::Route': 2,
+  'AWS::ApiGatewayV2::Route': 5,
   'AWS::ApiGatewayV2::Stage': 1,
   'AWS::Cognito::UserPool': 1,
   'AWS::Cognito::UserPoolClient': 1,
@@ -30,7 +32,7 @@ export const EXPECTED_RESOURCE_TYPE_COUNTS = {
   'AWS::DynamoDB::Table': 1,
   'AWS::IAM::Role': 1,
   'AWS::Lambda::Function': 1,
-  'AWS::Lambda::Permission': 2,
+  'AWS::Lambda::Permission': 5,
   'AWS::Logs::LogGroup': 1,
   'AWS::S3::Bucket': 1,
   'AWS::S3::BucketPolicy': 1,
@@ -43,7 +45,7 @@ export const REQUIRED_TAGS = {
   Owner: 'orio',
 } as const;
 
-export const FOUNDATION_LAMBDA_CODE = String.raw`'use strict';
+export const LEGACY_FOUNDATION_LAMBDA_CODE = String.raw`'use strict';
 
 const {
   DynamoDBClient,
@@ -245,6 +247,11 @@ exports.handler = async event => {
 };
 `;
 
+export const FOUNDATION_LAMBDA_CODE = readFileSync(
+  new URL('./generated/foundation-lambda.cjs', import.meta.url),
+  'utf8'
+);
+
 const tagList = () =>
   Object.entries(REQUIRED_TAGS).map(([Key, Value]) => ({ Key, Value }));
 
@@ -254,9 +261,11 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
   return {
     AWSTemplateFormatVersion: '2010-09-09',
     Description:
-      'Cost-safe AWS development foundation for the admintonibover admin migration (issue #7).',
+      'Cost-safe AWS development foundation and private media repair flow for the admintonibover admin migration.',
     Metadata: {
       Issue: 'https://github.com/boversauros/admintonibover/issues/7',
+      MediaRepairIssue:
+        'https://github.com/boversauros/admintonibover/issues/11',
       ArchitectureDecision:
         'docs/adr/0001-admin-only-aws-data-security-contract.md',
       Runbook: 'docs/runbooks/aws-development-foundation.md',
@@ -455,6 +464,20 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
                 ],
                 Condition: {
                   Bool: { 'aws:SecureTransport': 'false' },
+                },
+              },
+              {
+                Sid: 'DenyStalePresignedObjectRequests',
+                Effect: 'Deny',
+                Principal: '*',
+                Action: ['s3:GetObject', 's3:PutObject'],
+                Resource: {
+                  'Fn::Sub': '${ContentBucket.Arn}/*',
+                },
+                Condition: {
+                  NumericGreaterThan: {
+                    's3:signatureAge': '300000',
+                  },
                 },
               },
             ],
@@ -666,13 +689,13 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
             'Fn::Sub': '${AWS::StackName}-foundation',
           },
           Description:
-            'Protected health and single-post read endpoints for the development admin.',
+            'Protected health, post read, and private image repair endpoints for the development admin.',
           PackageType: 'Zip',
           Runtime: 'nodejs24.x',
           Handler: 'index.handler',
           Architectures: ['arm64'],
-          MemorySize: 128,
-          Timeout: 5,
+          MemorySize: 256,
+          Timeout: 10,
           RecursiveLoop: 'Terminate',
           Role: {
             'Fn::GetAtt': ['LambdaExecutionRole', 'Arn'],
@@ -712,7 +735,7 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
           CorsConfiguration: {
             AllowCredentials: true,
             AllowOrigins: { Ref: 'AllowedOrigins' },
-            AllowMethods: ['GET', 'OPTIONS'],
+            AllowMethods: ['GET', 'POST', 'OPTIONS'],
             AllowHeaders: [
               'authorization',
               'content-type',
@@ -747,14 +770,14 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
         Properties: {
           ApiId: { Ref: 'HttpApi' },
           Description:
-            'Lambda proxy integration for protected development admin reads.',
+            'Lambda proxy integration for protected development admin operations.',
           IntegrationType: 'AWS_PROXY',
           IntegrationMethod: 'POST',
           IntegrationUri: {
             'Fn::GetAtt': ['FoundationFunction', 'Arn'],
           },
           PayloadFormatVersion: '2.0',
-          TimeoutInMillis: 5000,
+          TimeoutInMillis: 10000,
         },
       },
       FoundationRoute: {
@@ -783,6 +806,57 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
           AuthorizationType: 'JWT',
           AuthorizerId: { Ref: 'JwtAuthorizer' },
           RouteKey: 'GET /posts/{id}',
+          Target: {
+            'Fn::Join': [
+              '/',
+              ['integrations', { Ref: 'FoundationIntegration' }],
+            ],
+          },
+        },
+      },
+      PostImagesReadRoute: {
+        Type: 'AWS::ApiGatewayV2::Route',
+        DependsOn: 'AdminResourceServer',
+        Properties: {
+          ApiId: { Ref: 'HttpApi' },
+          AuthorizationScopes: ['admintonibover-api/admin'],
+          AuthorizationType: 'JWT',
+          AuthorizerId: { Ref: 'JwtAuthorizer' },
+          RouteKey: 'GET /posts/{id}/images',
+          Target: {
+            'Fn::Join': [
+              '/',
+              ['integrations', { Ref: 'FoundationIntegration' }],
+            ],
+          },
+        },
+      },
+      PostImagePresignRoute: {
+        Type: 'AWS::ApiGatewayV2::Route',
+        DependsOn: 'AdminResourceServer',
+        Properties: {
+          ApiId: { Ref: 'HttpApi' },
+          AuthorizationScopes: ['admintonibover-api/admin'],
+          AuthorizationType: 'JWT',
+          AuthorizerId: { Ref: 'JwtAuthorizer' },
+          RouteKey: 'POST /posts/{id}/images/presign',
+          Target: {
+            'Fn::Join': [
+              '/',
+              ['integrations', { Ref: 'FoundationIntegration' }],
+            ],
+          },
+        },
+      },
+      PostImageConfirmRoute: {
+        Type: 'AWS::ApiGatewayV2::Route',
+        DependsOn: 'AdminResourceServer',
+        Properties: {
+          ApiId: { Ref: 'HttpApi' },
+          AuthorizationScopes: ['admintonibover-api/admin'],
+          AuthorizationType: 'JWT',
+          AuthorizerId: { Ref: 'JwtAuthorizer' },
+          RouteKey: 'POST /posts/{id}/images/confirm',
           Target: {
             'Fn::Join': [
               '/',
@@ -826,6 +900,42 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
           SourceArn: {
             'Fn::Sub':
               'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/posts/*',
+          },
+        },
+      },
+      PostImagesReadInvokePermission: {
+        Type: 'AWS::Lambda::Permission',
+        Properties: {
+          Action: 'lambda:InvokeFunction',
+          FunctionName: { Ref: 'FoundationFunction' },
+          Principal: 'apigateway.amazonaws.com',
+          SourceArn: {
+            'Fn::Sub':
+              'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/posts/*/images',
+          },
+        },
+      },
+      PostImagePresignInvokePermission: {
+        Type: 'AWS::Lambda::Permission',
+        Properties: {
+          Action: 'lambda:InvokeFunction',
+          FunctionName: { Ref: 'FoundationFunction' },
+          Principal: 'apigateway.amazonaws.com',
+          SourceArn: {
+            'Fn::Sub':
+              'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/POST/posts/*/images/presign',
+          },
+        },
+      },
+      PostImageConfirmInvokePermission: {
+        Type: 'AWS::Lambda::Permission',
+        Properties: {
+          Action: 'lambda:InvokeFunction',
+          FunctionName: { Ref: 'FoundationFunction' },
+          Principal: 'apigateway.amazonaws.com',
+          SourceArn: {
+            'Fn::Sub':
+              'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/POST/posts/*/images/confirm',
           },
         },
       },

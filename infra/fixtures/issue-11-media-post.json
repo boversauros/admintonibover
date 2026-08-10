@@ -1,0 +1,54 @@
+{
+  "PK": { "S": "POST#issue-11-media-fixture" },
+  "SK": { "S": "POST#issue-11-media-fixture" },
+  "entityType": { "S": "POST" },
+  "schemaVersion": { "N": "1" },
+  "id": { "S": "issue-11-media-fixture" },
+  "category": {
+    "M": {
+      "id": { "S": "fixture-category" },
+      "slug": { "S": "fixture-category" }
+    }
+  },
+  "sortOrder": { "N": "11" },
+  "published": { "BOOL": false },
+  "date": { "S": "2026-08-04" },
+  "author": { "S": "Fictional test author" },
+  "createdAt": { "S": "2026-08-04T00:00:00.000Z" },
+  "updatedAt": { "S": "2026-08-04T00:00:00.000Z" },
+  "translations": {
+    "M": {
+      "ca": {
+        "M": {
+          "legacyId": { "S": "issue-11-ca" },
+          "title": { "S": "Prova privada d'imatges" },
+          "content": {
+            "S": "Contingut fictici per validar la reparació manual d'imatges."
+          },
+          "slug": { "S": "prova-privada-imatges" },
+          "keywords": { "L": [] },
+          "references": { "L": [] },
+          "translationStatus": { "S": "complete" }
+        }
+      },
+      "en": {
+        "M": {
+          "legacyId": { "S": "issue-11-en" },
+          "title": { "S": "Private image test" },
+          "content": {
+            "S": "Fictional content for validating manual image repair."
+          },
+          "slug": { "S": "private-image-test" },
+          "keywords": { "L": [] },
+          "references": { "L": [] },
+          "translationStatus": { "S": "complete" }
+        }
+      }
+    }
+  },
+  "referenceStorage": { "S": "inline" },
+  "mainImage": { "NULL": true },
+  "thumbImage": { "NULL": true },
+  "version": { "N": "1" },
+  "migration": { "NULL": true }
+}

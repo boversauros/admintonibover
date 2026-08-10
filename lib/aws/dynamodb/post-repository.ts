@@ -1,3 +1,5 @@
+import { MediaUploadConflictError } from '@/lib/domain/media/errors';
+import type { ImageRole } from '@/lib/domain/media/contracts';
 import {
   PostAggregateTooLargeError,
   PostDataIntegrityError,
@@ -14,6 +16,7 @@ import type {
 } from '@/lib/domain/posts/repository';
 import type {
   Post,
+  PostImage,
   PostLanguage,
   PostListItem,
 } from '@/lib/domain/posts/types';
@@ -46,6 +49,18 @@ type Clock = () => Date;
 export type DynamoDbPostRepositoryOptions = {
   queryPageSize?: number;
   clock?: Clock;
+};
+
+export type ReplaceImageInput = {
+  postId: string;
+  role: ImageRole;
+  image: PostImage;
+  confirmedIntentItem: DynamoItem;
+};
+
+export type ReplaceImageResult = {
+  version: number;
+  previousImageKey: string | null;
 };
 
 type CursorPayload = DynamoKey & {
@@ -398,6 +413,51 @@ export class DynamoDbPostRepository implements PostRepository {
     return clonePost(post);
   }
 
+  async replaceImage(
+    input: ReplaceImageInput,
+    expectedVersion: number
+  ): Promise<ReplaceImageResult> {
+    if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+      throw validationError(
+        'expectedVersion',
+        'INVALID_VERSION',
+        'Expected version must be an integer of at least 1'
+      );
+    }
+    const current = await this.getById(input.postId);
+    if (!current) throw new PostNotFoundError(input.postId);
+    if (current.version !== expectedVersion) {
+      throw new PostVersionConflictError(input.postId, expectedVersion);
+    }
+
+    const timestamp = this.clock().toISOString();
+    const field = input.role === 'main' ? 'mainImage' : 'thumbImage';
+    const previousImageKey = current[field]?.key ?? null;
+    const post: Post = {
+      ...clonePost(current),
+      [field]: { ...input.image },
+      version: expectedVersion + 1,
+      updatedAt: timestamp,
+    };
+    const previous = preparePostItems(current);
+    const next = preparePostItems(post);
+    const actions = this.updateActions(previous, next, post, expectedVersion);
+    actions.push({
+      type: 'put',
+      label: 'media-intent:confirm',
+      item: input.confirmedIntentItem,
+      condition: { type: 'equals', attribute: 'status', value: 'pending' },
+    });
+    assertTransactionWithinLimits(actions);
+
+    try {
+      await this.dynamodb.transactWrite(actions);
+    } catch (error) {
+      this.mapTransactionError(error, actions, input.postId, expectedVersion);
+    }
+    return { version: post.version, previousImageKey };
+  }
+
   async delete(id: string, expectedVersion: number): Promise<DeletePostResult> {
     if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
       throw validationError(
@@ -575,6 +635,14 @@ export class DynamoDbPostRepository implements PostRepository {
         throw new PostSlugConflictError(slugMatch[1] as PostLanguage);
       if (label.startsWith('aggregate:')) {
         throw new PostVersionConflictError(postId, expectedVersion);
+      }
+      if (label === 'media-intent:confirm') {
+        const uploadId = String(
+          actions[index]?.type === 'put'
+            ? (actions[index].item.uploadId ?? 'unknown')
+            : 'unknown'
+        );
+        throw new MediaUploadConflictError(uploadId);
       }
       if (label.includes(':release')) {
         throw new PostDataIntegrityError('slug-lock-owner-mismatch');

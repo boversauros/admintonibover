@@ -65,31 +65,35 @@ The tests exercise SDK command construction with a fake document client and all
 repository behavior with an in-memory DynamoDB port. Any request for AWS
 credentials during these tests is a failure.
 
-## Manual AWS work deferred to issue #12
+## Manual AWS work added by issue #11
 
-Issue #12 will package this repository into the authenticated Lambda and add the
-admin API routes. That issue must update IaC before deployment, including the
-least-privilege `dynamodb:TransactWriteItems` permission that the current tracer
-role intentionally does not have.
+Issue #11 packages the repository into the authenticated Lambda for one narrow
+image-replacement transaction. AWS authorizes its transactional item operations
+through the role's existing exact-table `GetItem`, `PutItem`, `UpdateItem`, and
+`DeleteItem` actions; `dynamodb:TransactWriteItems` is not an IAM action. The
+integration does not expose general post CRUD. Use the reviewed CloudFormation
+Console procedure in
+[Private S3 image repair](s3-presigned-image-repair.md); never edit the role
+manually.
 
-At that later deployment checkpoint, the operator will:
+At that deployment checkpoint, the operator will:
 
 1. Sign in with the approved daily-use AWS operator and MFA; verify the exact
    account and Region before continuing.
-2. Generate a CloudFormation change set from the reviewed issue #12 commit.
+2. Generate a CloudFormation change set from the reviewed issue #11 commit.
 3. Confirm that the change set updates only the approved Lambda/API/IAM
    resources and does not replace or delete the DynamoDB table or S3 bucket.
 4. Confirm the table remains on-demand with the existing `PK`/`SK` schema and no
    unapproved index, Stream, backup, DAX, global-table, or provisioned-capacity
    feature.
-5. Confirm the Lambda role receives only the exact table transaction permission
-   needed by the integrated routes. Never edit the role manually in IAM.
-6. Deploy the reviewed change set, run authenticated CRUD/conflict tests with
-   non-sensitive development data, and inspect redacted Lambda logs.
+5. Confirm the Lambda role is unchanged and its underlying item permissions
+   remain limited to the exact table. Never edit the role manually in IAM.
+6. Deploy the reviewed change set, run authenticated image replacement and
+   conflict tests with the fictional fixture, and inspect redacted Lambda logs.
 7. Review Bills/Cost Explorer after the test and stop if any unexpected resource
    or charge appears.
 
-If that future change set differs from the reviewed template, stop without
+If that change set differs from the reviewed template, stop without
 deploying and capture the diff. Do not repair drift through the console.
 
 ## Security, cost, and rollback evidence
@@ -97,8 +101,8 @@ deploying and capture the diff. Do not repair drift through the console.
 - **Security:** no tokens, post bodies, slugs, image URLs, credentials, account
   IDs, or table contents are logged by this layer. Conditional transactions
   prevent lost updates and partial slug-lock changes.
-- **Cost:** this issue deploys nothing, so it has no direct AWS cost impact. The
-  future transactional requests are billable usage and are reviewed with issue
-  #12 deployment evidence.
-- **Rollback:** before integration, revert this code and lockfile change. The
-  currently deployed stack and DynamoDB data are untouched.
+- **Cost:** issue #10 deploys nothing. The issue #11 transactional image
+  requests are billable usage and are reviewed with its deployment evidence.
+- **Rollback:** before issue #11 integration, revert the issue #10 code and
+  lockfile change. After integration, follow the issue #11 CloudFormation and
+  application rollback procedure without replacing the table.

@@ -47,11 +47,14 @@ AWS_COGNITO_ISSUER=stack-output-user-pool-issuer
 AWS_COGNITO_LOGIN_URL=stack-output-login-url
 AWS_COGNITO_CALLBACK_URL=http://localhost:3000/
 AWS_COGNITO_LOGOUT_URL=http://localhost:3000/
+AWS_CONTENT_BUCKET_ORIGIN=https://<BucketName>.s3.eu-west-1.amazonaws.com
 ```
 
 Use only the non-secret outputs from the named development stack. Never commit
-the real values or Cognito tokens. The exact deployment, fixture, and
-integration procedure is in the authenticated-read tracer runbook below.
+the real values, generated names, presigned URLs, or Cognito tokens. The bucket
+origin is a CSP allowlist origin, not a public bucket URL; it must use the exact
+regional S3 API origin with no trailing path or wildcard. The deployment,
+fixture, and integration procedures are in the runbooks below.
 
 3. Set up the database:
 
@@ -75,6 +78,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `pnpm test` - Run cloud-free unit tests
 - `pnpm check:secrets` - Reject repository `.env*` files and high-confidence
   AWS, GitHub, and privileged Supabase credentials
+- `pnpm lambda:build` - Bundle the deployable foundation Lambda into the
+  generated infrastructure artifact
+- `pnpm lambda:validate` - Confirm the committed Lambda bundle is current
 - `pnpm backup:validate -- --input <path>` - Validate a Supabase JSON backup
   offline without modifying it or contacting a cloud service
 - `pnpm infra:synth` - Generate the reviewable native CloudFormation template
@@ -100,6 +106,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [Single Cognito administrator](docs/runbooks/cognito-single-administrator.md)
 - [Authenticated DynamoDB read tracer](docs/runbooks/authenticated-read-tracer.md)
 - [DynamoDB post repository boundary](docs/runbooks/dynamodb-post-repository.md)
+- [Private S3 image repair](docs/runbooks/s3-presigned-image-repair.md)
 - [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
 - [Offline Supabase backup validation](docs/runbooks/backup-validation.md)
 
