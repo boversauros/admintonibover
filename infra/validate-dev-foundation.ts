@@ -635,7 +635,6 @@ export function validateDevFoundationTemplate(
     'dynamodb:GetItem',
     'dynamodb:PutItem',
     'dynamodb:Scan',
-    'dynamodb:TransactWriteItems',
     'dynamodb:UpdateItem',
   ]) {
     if (!serializedPolicies.includes(transactionalItemAction)) {

@@ -658,7 +658,6 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
                       'dynamodb:PutItem',
                       'dynamodb:Query',
                       'dynamodb:Scan',
-                      'dynamodb:TransactWriteItems',
                       'dynamodb:UpdateItem',
                     ],
                     Resource: {
