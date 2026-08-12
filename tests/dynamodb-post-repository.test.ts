@@ -385,7 +385,12 @@ test('oversized base aggregate fails before any DynamoDB request', async () => {
     repository.create(oversized),
     PostAggregateTooLargeError
   );
-  assert.deepEqual(port.requests, { gets: 0, queries: 0, transactions: 0 });
+  assert.deepEqual(port.requests, {
+    gets: 0,
+    queries: 0,
+    scans: 0,
+    transactions: 0,
+  });
   assert.deepEqual(port.snapshot(), []);
 });
 

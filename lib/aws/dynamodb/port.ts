@@ -58,9 +58,20 @@ export type DynamoQueryPage = {
   lastEvaluatedKey?: DynamoKey;
 };
 
+export type DynamoScanInput = {
+  exclusiveStartKey?: DynamoKey;
+  limit: number;
+};
+
+export type DynamoScanPage = {
+  items: DynamoItem[];
+  lastEvaluatedKey?: DynamoKey;
+};
+
 export interface DynamoDbPort {
   get(key: DynamoKey, consistentRead: boolean): Promise<DynamoItem | null>;
   query(input: DynamoQueryInput): Promise<DynamoQueryPage>;
+  scan(input: DynamoScanInput): Promise<DynamoScanPage>;
   transactWrite(actions: DynamoTransactionAction[]): Promise<void>;
 }
 

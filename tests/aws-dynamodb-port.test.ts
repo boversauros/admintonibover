@@ -17,7 +17,7 @@ function fakeDocumentClient(
   return { send } as unknown as DynamoDBDocumentClient;
 }
 
-test('AWS port maps strong get and paginated query requests without network', async () => {
+test('AWS port maps strong get plus paginated query and scan requests without network', async () => {
   const commands: CommandLike[] = [];
   const client = fakeDocumentClient(async command => {
     commands.push(command);
@@ -44,8 +44,16 @@ test('AWS port maps strong get and paginated query requests without network', as
     exclusiveStartKey: { PK: 'POST#1', SK: 'REFS#ca#000001' },
     limit: 25,
   });
+  const scanPage = await port.scan({
+    exclusiveStartKey: { PK: 'POSTS', SK: 'ORDER#1' },
+    limit: 100,
+  });
 
   assert.deepEqual(page.lastEvaluatedKey, { PK: 'POSTS', SK: 'ORDER#1' });
+  assert.deepEqual(scanPage.lastEvaluatedKey, {
+    PK: 'POSTS',
+    SK: 'ORDER#1',
+  });
   assert.deepEqual(commands[0].input, {
     TableName: 'content-table',
     Key: { PK: 'POST#1', SK: 'POST#1' },
@@ -60,6 +68,12 @@ test('AWS port maps strong get and paginated query requests without network', as
     ScanIndexForward: true,
     ExclusiveStartKey: { PK: 'POST#1', SK: 'REFS#ca#000001' },
     Limit: 25,
+  });
+  assert.deepEqual(commands[2].input, {
+    TableName: 'content-table',
+    ConsistentRead: true,
+    ExclusiveStartKey: { PK: 'POSTS', SK: 'ORDER#1' },
+    Limit: 100,
   });
 });
 

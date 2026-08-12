@@ -6,6 +6,8 @@ import {
   type DynamoKey,
   type DynamoQueryInput,
   type DynamoQueryPage,
+  type DynamoScanInput,
+  type DynamoScanPage,
   type DynamoTransactionAction,
 } from './port';
 
@@ -39,6 +41,7 @@ export class InMemoryDynamoDbPort implements DynamoDbPort {
   readonly requests = {
     gets: 0,
     queries: 0,
+    scans: 0,
     transactions: 0,
   };
 
@@ -80,6 +83,33 @@ export class InMemoryDynamoDbPort implements DynamoDbPort {
     const pageItems = ordered.slice(safeStartIndex, safeStartIndex + pageSize);
     const hasMore = safeStartIndex + pageItems.length < ordered.length;
 
+    return {
+      items: pageItems.map(clone),
+      ...(hasMore && pageItems.length > 0
+        ? {
+            lastEvaluatedKey: {
+              PK: pageItems.at(-1)!.PK,
+              SK: pageItems.at(-1)!.SK,
+            },
+          }
+        : {}),
+    };
+  }
+
+  async scan(input: DynamoScanInput): Promise<DynamoScanPage> {
+    this.requests.scans += 1;
+    const ordered = [...this.items.values()].sort((left, right) =>
+      itemKey(left).localeCompare(itemKey(right))
+    );
+    const startIndex = input.exclusiveStartKey
+      ? ordered.findIndex(
+          item => itemKey(item) === itemKey(input.exclusiveStartKey!)
+        ) + 1
+      : 0;
+    const safeStartIndex = Math.max(0, startIndex);
+    const pageSize = Math.max(1, Math.min(input.limit, this.maximumPageSize));
+    const pageItems = ordered.slice(safeStartIndex, safeStartIndex + pageSize);
+    const hasMore = safeStartIndex + pageItems.length < ordered.length;
     return {
       items: pageItems.map(clone),
       ...(hasMore && pageItems.length > 0

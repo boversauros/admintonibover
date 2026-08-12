@@ -416,7 +416,7 @@ export function validateDevFoundationTemplate(
     issues
   );
   requireEqual(lambda.MemorySize, 256, 'FoundationFunction.MemorySize', issues);
-  requireEqual(lambda.Timeout, 10, 'FoundationFunction.Timeout', issues);
+  requireEqual(lambda.Timeout, 30, 'FoundationFunction.Timeout', issues);
   const lambdaCode = asRecord(lambda.Code, 'FoundationFunction.Code', issues);
   if (
     typeof lambdaCode.ZipFile !== 'string' ||
@@ -457,104 +457,97 @@ export function validateDevFoundationTemplate(
     issues
   );
 
-  const route = asRecord(
-    template.Resources.FoundationRoute.Properties,
-    'Resources.FoundationRoute.Properties',
-    issues
-  );
-  requireEqual(
-    route.AuthorizationType,
-    'JWT',
-    'FoundationRoute.AuthorizationType',
-    issues
-  );
-  requireEqual(
-    route.AuthorizationScopes,
-    ['admintonibover-api/admin'],
-    'FoundationRoute.AuthorizationScopes',
-    issues
-  );
-  requireEqual(
-    route.RouteKey,
-    'GET /health',
-    'FoundationRoute.RouteKey',
-    issues
-  );
-
-  const postReadRoute = asRecord(
-    template.Resources.PostReadRoute.Properties,
-    'Resources.PostReadRoute.Properties',
-    issues
-  );
-  requireEqual(
-    postReadRoute.AuthorizationType,
-    'JWT',
-    'PostReadRoute.AuthorizationType',
-    issues
-  );
-  requireEqual(
-    postReadRoute.AuthorizationScopes,
-    ['admintonibover-api/admin'],
-    'PostReadRoute.AuthorizationScopes',
-    issues
-  );
-  requireEqual(
-    postReadRoute.AuthorizerId,
-    { Ref: 'JwtAuthorizer' },
-    'PostReadRoute.AuthorizerId',
-    issues
-  );
-  requireEqual(
-    postReadRoute.RouteKey,
-    'GET /posts/{id}',
-    'PostReadRoute.RouteKey',
-    issues
-  );
-  requireEqual(
-    postReadRoute.Target,
-    {
-      'Fn::Join': ['/', ['integrations', { Ref: 'FoundationIntegration' }]],
-    },
-    'PostReadRoute.Target',
-    issues
-  );
-
-  const expectedMediaRoutes = {
+  const expectedProtectedRoutes = {
+    FoundationRoute: 'GET /health',
+    PostsListRoute: 'GET /posts',
+    PostCreateRoute: 'POST /posts',
+    PostsBulkPublicationRoute: 'POST /posts/publication/bulk',
+    PostReadRoute: 'GET /posts/{id}',
+    PostUpdateRoute: 'PUT /posts/{id}',
+    PostDeleteRoute: 'DELETE /posts/{id}',
+    PostPublicationRoute: 'PUT /posts/{id}/publication',
     PostImagesReadRoute: 'GET /posts/{id}/images',
     PostImagePresignRoute: 'POST /posts/{id}/images/presign',
     PostImageConfirmRoute: 'POST /posts/{id}/images/confirm',
+    CategoriesListRoute: 'GET /categories',
+    CategoryCreateRoute: 'POST /categories',
+    CategoryUpdateRoute: 'PUT /categories/{id}',
+    CategoryDeleteRoute: 'DELETE /categories/{id}',
+    KeywordsListRoute: 'GET /keywords',
+    KeywordCreateRoute: 'POST /keywords',
+    KeywordUpdateRoute: 'PUT /keywords/{id}',
+    KeywordDeleteRoute: 'DELETE /keywords/{id}',
+    BackupDownloadRoute: 'GET /backup',
   } as const;
-  for (const [logicalId, routeKey] of Object.entries(expectedMediaRoutes)) {
-    const mediaRoute = asRecord(
+  for (const [logicalId, routeKey] of Object.entries(expectedProtectedRoutes)) {
+    const protectedRoute = asRecord(
       template.Resources[logicalId].Properties,
       `Resources.${logicalId}.Properties`,
       issues
     );
     requireEqual(
-      mediaRoute.AuthorizationType,
+      protectedRoute.AuthorizationType,
       'JWT',
       `${logicalId}.AuthorizationType`,
       issues
     );
     requireEqual(
-      mediaRoute.AuthorizationScopes,
+      protectedRoute.AuthorizationScopes,
       ['admintonibover-api/admin'],
       `${logicalId}.AuthorizationScopes`,
       issues
     );
     requireEqual(
-      mediaRoute.AuthorizerId,
+      protectedRoute.AuthorizerId,
       { Ref: 'JwtAuthorizer' },
       `${logicalId}.AuthorizerId`,
       issues
     );
     requireEqual(
-      mediaRoute.RouteKey,
+      protectedRoute.RouteKey,
       routeKey,
       `${logicalId}.RouteKey`,
       issues
     );
+    requireEqual(
+      protectedRoute.Target,
+      {
+        'Fn::Join': ['/', ['integrations', { Ref: 'FoundationIntegration' }]],
+      },
+      `${logicalId}.Target`,
+      issues
+    );
   }
+
+  const jwtAuthorizer = asRecord(
+    template.Resources.JwtAuthorizer.Properties,
+    'Resources.JwtAuthorizer.Properties',
+    issues
+  );
+  requireEqual(
+    jwtAuthorizer.AuthorizerType,
+    'JWT',
+    'JwtAuthorizer.AuthorizerType',
+    issues
+  );
+  requireEqual(
+    jwtAuthorizer.IdentitySource,
+    ['$request.header.Authorization'],
+    'JwtAuthorizer.IdentitySource',
+    issues
+  );
+  requireEqual(
+    jwtAuthorizer.JwtConfiguration,
+    {
+      Audience: [{ Ref: 'UserPoolClient' }],
+      Issuer: {
+        'Fn::Sub':
+          'https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}',
+      },
+    },
+    'JwtAuthorizer.JwtConfiguration',
+    issues
+  );
 
   const httpApi = asRecord(
     template.Resources.HttpApi.Properties,
@@ -574,7 +567,7 @@ export function validateDevFoundationTemplate(
   );
   requireEqual(
     apiCors.AllowMethods,
-    ['GET', 'POST', 'OPTIONS'],
+    ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     'HttpApi.Cors.AllowMethods',
     issues
   );
@@ -603,43 +596,20 @@ export function validateDevFoundationTemplate(
     issues
   );
 
-  const postReadPermission = asRecord(
-    template.Resources.PostReadInvokePermission.Properties,
-    'Resources.PostReadInvokePermission.Properties',
+  const apiInvokePermission = asRecord(
+    template.Resources.ApiInvokePermission.Properties,
+    'Resources.ApiInvokePermission.Properties',
     issues
   );
   requireEqual(
-    postReadPermission.SourceArn,
+    apiInvokePermission.SourceArn,
     {
       'Fn::Sub':
-        'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/posts/*',
+        'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*',
     },
-    'PostReadInvokePermission.SourceArn',
+    'ApiInvokePermission.SourceArn',
     issues
   );
-  const expectedMediaPermissions = {
-    PostImagesReadInvokePermission:
-      'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/posts/*/images',
-    PostImagePresignInvokePermission:
-      'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/POST/posts/*/images/presign',
-    PostImageConfirmInvokePermission:
-      'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/POST/posts/*/images/confirm',
-  } as const;
-  for (const [logicalId, sourceArn] of Object.entries(
-    expectedMediaPermissions
-  )) {
-    const permission = asRecord(
-      template.Resources[logicalId].Properties,
-      `Resources.${logicalId}.Properties`,
-      issues
-    );
-    requireEqual(
-      permission.SourceArn,
-      { 'Fn::Sub': sourceArn },
-      `${logicalId}.SourceArn`,
-      issues
-    );
-  }
 
   const executionRole = asRecord(
     template.Resources.LambdaExecutionRole.Properties,
@@ -664,6 +634,8 @@ export function validateDevFoundationTemplate(
     'dynamodb:DeleteItem',
     'dynamodb:GetItem',
     'dynamodb:PutItem',
+    'dynamodb:Scan',
+    'dynamodb:TransactWriteItems',
     'dynamodb:UpdateItem',
   ]) {
     if (!serializedPolicies.includes(transactionalItemAction)) {
@@ -672,12 +644,7 @@ export function validateDevFoundationTemplate(
       );
     }
   }
-  for (const forbiddenAction of [
-    'dynamodb:Scan',
-    'dynamodb:TransactWriteItems',
-    'logs:CreateLogGroup',
-    's3:*',
-  ]) {
+  for (const forbiddenAction of ['logs:CreateLogGroup', 's3:*']) {
     if (serializedPolicies.includes(forbiddenAction)) {
       issues.push(
         `Lambda execution role contains forbidden action ${forbiddenAction}`
