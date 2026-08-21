@@ -3,6 +3,7 @@ import {
   DynamoDBDocumentClient,
   GetCommand,
   QueryCommand,
+  ScanCommand,
   TransactWriteCommand,
   type TransactWriteCommandInput,
 } from '@aws-sdk/lib-dynamodb';
@@ -15,6 +16,8 @@ import {
   type DynamoKey,
   type DynamoQueryInput,
   type DynamoQueryPage,
+  type DynamoScanInput,
+  type DynamoScanPage,
   type DynamoTransactionAction,
 } from './port';
 
@@ -127,6 +130,23 @@ export class AwsDynamoDbPort implements DynamoDbPort {
         },
         ConsistentRead: input.consistentRead,
         ScanIndexForward: input.scanIndexForward,
+        ExclusiveStartKey: input.exclusiveStartKey,
+        Limit: input.limit,
+      })
+    );
+    return {
+      items: (result.Items ?? []).map(value => item(value)!),
+      ...(result.LastEvaluatedKey
+        ? { lastEvaluatedKey: key(result.LastEvaluatedKey)! }
+        : {}),
+    };
+  }
+
+  async scan(input: DynamoScanInput): Promise<DynamoScanPage> {
+    const result = await this.client.send(
+      new ScanCommand({
+        TableName: this.tableName,
+        ConsistentRead: true,
         ExclusiveStartKey: input.exclusiveStartKey,
         Limit: input.limit,
       })

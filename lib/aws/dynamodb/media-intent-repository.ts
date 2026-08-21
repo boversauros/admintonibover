@@ -18,6 +18,7 @@ import {
 } from './port';
 
 const UPLOAD_KEY_PREFIX = 'MEDIA_UPLOAD#';
+const SYSTEM_REVISION_KEY: DynamoKey = { PK: 'SYSTEM', SK: 'REVISION' };
 
 function uploadKey(uploadId: string): DynamoKey {
   const value = `${UPLOAD_KEY_PREFIX}${uploadId}`;
@@ -127,6 +128,19 @@ export class DynamoDbMediaIntentRepository {
           label: 'media-intent:create',
           item: toItem(intent),
           condition: { type: 'attributeNotExists', attribute: 'PK' },
+        },
+        {
+          type: 'increment',
+          label: 'revision',
+          key: SYSTEM_REVISION_KEY,
+          attribute: 'revision',
+          by: 1,
+          initialValue: 0,
+          set: {
+            entityType: 'DATA_REVISION',
+            schemaVersion: 1,
+            updatedAt: intent.createdAt,
+          },
         },
       ]);
       return intent;

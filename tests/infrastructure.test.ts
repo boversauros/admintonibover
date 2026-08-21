@@ -137,7 +137,7 @@ test('development foundation passes the offline safety contract', () => {
   const template = createDevFoundationTemplate();
   const summary = validateDevFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 24);
+  assert.equal(summary.resourceCount, 35);
   assert.deepEqual(summary.resourceTypes, EXPECTED_RESOURCE_TYPE_COUNTS);
 });
 
@@ -158,13 +158,15 @@ test('generated Lambda bundle stays inline-safe and enforces claims', async () =
   process.env.EXPECTED_ISSUER = 'https://issuer.example.invalid/pool';
   process.env.EXPECTED_CLIENT_ID = 'public-client';
   process.env.REQUIRED_ADMIN_SCOPE = 'admintonibover-api/admin';
+  process.env.CONTENT_TABLE_NAME = 'fixture-table';
+  process.env.CONTENT_BUCKET_NAME = 'fixture-bucket';
   const denied = await generated.handler!({
     routeKey: 'POST /posts/{id}/images/presign',
     pathParameters: { id: 'post-1' },
     body: '{}',
     requestContext: { requestId: 'generated-denial' },
   });
-  assert.equal(denied.statusCode, 403);
+  assert.equal(denied.statusCode, 401);
 });
 
 test('committed CloudFormation synthesis is deterministic and current', async () => {
