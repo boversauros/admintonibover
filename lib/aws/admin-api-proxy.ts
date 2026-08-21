@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getCognitoConfig } from '@/lib/auth/cognito/config';
-import { setCognitoSessionCookies } from '@/lib/auth/cognito/cookies';
+import {
+  clearCognitoSessionCookies,
+  setCognitoSessionCookies,
+} from '@/lib/auth/cognito/cookies';
+import { isJsonRequest, isSameOriginMutation } from '@/lib/auth/cognito/http';
 import { readCognitoSession } from '@/lib/auth/cognito/session';
 import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
@@ -43,9 +47,34 @@ export async function proxyAwsAdminApi(
   if (getAdminDataBackend() !== 'aws') {
     return jsonError(404, 'NOT_FOUND', 'Route not found', requestId);
   }
-  const session = await readCognitoSession();
+  const config = getCognitoConfig();
+  if (method === 'POST' && !isSameOriginMutation(request, config)) {
+    return jsonError(
+      403,
+      'CSRF_REJECTED',
+      'Cross-origin request rejected',
+      requestId
+    );
+  }
+  if (method === 'POST' && !isJsonRequest(request)) {
+    return jsonError(
+      415,
+      'UNSUPPORTED_MEDIA_TYPE',
+      'Content-Type must be application/json',
+      requestId
+    );
+  }
+
+  const session = await readCognitoSession(config);
   if (!session) {
-    return jsonError(401, 'UNAUTHORIZED', 'Sign-in required', requestId);
+    const response = jsonError(
+      401,
+      'UNAUTHORIZED',
+      'Sign-in required',
+      requestId
+    );
+    clearCognitoSessionCookies(response);
+    return response;
   }
 
   let body: string | undefined;
@@ -62,7 +91,6 @@ export async function proxyAwsAdminApi(
   }
 
   try {
-    const config = getCognitoConfig();
     const apiUrl = new URL(config.apiUrl);
     apiUrl.pathname = `${apiUrl.pathname.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
     const idempotencyKey = request.headers.get('idempotency-key');
@@ -90,7 +118,7 @@ export async function proxyAwsAdminApi(
       },
     });
     if (session.refreshedTokens) {
-      setCognitoSessionCookies(response, session.refreshedTokens);
+      await setCognitoSessionCookies(response, session.refreshedTokens);
     }
     return response;
   } catch {

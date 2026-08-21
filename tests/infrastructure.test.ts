@@ -179,7 +179,7 @@ test('committed CloudFormation synthesis is deterministic and current', async ()
   assert.equal(committed, expected);
 });
 
-test('example Cognito callback and logout URLs use identical application roots', async () => {
+test('example Cognito URLs use exact callback paths and matching origins', async () => {
   const parameters = JSON.parse(
     await readFile(
       new URL('../infra/parameters/dev.example.json', import.meta.url),
@@ -195,10 +195,15 @@ test('example Cognito callback and logout URLs use identical application roots',
   const callbackUrls = parameterValues.CallbackUrls?.split(',') ?? [];
   const logoutUrls = parameterValues.LogoutUrls?.split(',') ?? [];
 
-  assert.deepEqual(logoutUrls, callbackUrls);
+  assert.equal(logoutUrls.length, callbackUrls.length);
   assert.equal(callbackUrls.length > 0, true);
   assert.equal(
-    callbackUrls.every(value => new URL(value).pathname === '/'),
+    callbackUrls.every(
+      (value, index) =>
+        new URL(value).pathname === '/auth/callback' &&
+        new URL(value).origin === new URL(logoutUrls[index]).origin &&
+        new URL(logoutUrls[index]).pathname === '/'
+    ),
     true
   );
 });

@@ -5,38 +5,50 @@ import { getCognitoConfig } from '@/lib/auth/cognito/config';
 import {
   COGNITO_COOKIE_NAMES,
   clearCognitoSessionCookies,
+  readCognitoRefreshToken,
 } from '@/lib/auth/cognito/cookies';
+import {
+  buildManagedLogoutUrl,
+  isSameOriginMutation,
+} from '@/lib/auth/cognito/http';
 import { revokeRefreshToken } from '@/lib/auth/cognito/oauth';
 import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest): Promise<Response> {
+export async function POST(request: NextRequest): Promise<Response> {
   if (getAdminDataBackend() !== 'aws') {
-    return NextResponse.redirect(new URL('/', request.url));
+    return Response.json({ error: 'Not found' }, { status: 404 });
   }
 
   const config = getCognitoConfig();
+  if (!isSameOriginMutation(request, config)) {
+    return Response.json(
+      { error: 'Cross-origin request rejected' },
+      { status: 403, headers: { 'cache-control': 'no-store' } }
+    );
+  }
+
   const cookieStore = await cookies();
-  const refreshToken = cookieStore.get(
+  const sealedRefreshToken = cookieStore.get(
     COGNITO_COOKIE_NAMES.refreshToken
   )?.value;
+  const refreshToken = sealedRefreshToken
+    ? await readCognitoRefreshToken(sealedRefreshToken)
+    : null;
 
   if (refreshToken) {
     try {
       await revokeRefreshToken(config, refreshToken);
     } catch {
-      // Local cookies are still cleared; the one-day token expires naturally.
+      // Continue local and managed logout without logging token material.
     }
   }
 
-  const managedLogout = new URL('/logout', `${config.loginUrl}/`);
-  managedLogout.search = new URLSearchParams({
-    client_id: config.clientId,
-    logout_uri: config.logoutUrl,
-  }).toString();
-
-  const response = NextResponse.redirect(managedLogout);
+  const response = NextResponse.json(
+    { logoutUrl: buildManagedLogoutUrl(config) },
+    { headers: { 'cache-control': 'no-store' } }
+  );
   clearCognitoSessionCookies(response);
   return response;
 }

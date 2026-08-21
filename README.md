@@ -45,8 +45,9 @@ AWS_ADMIN_API_URL=stack-output-api-url
 AWS_COGNITO_CLIENT_ID=stack-output-client-id
 AWS_COGNITO_ISSUER=stack-output-user-pool-issuer
 AWS_COGNITO_LOGIN_URL=stack-output-login-url
-AWS_COGNITO_CALLBACK_URL=http://localhost:3000/
+AWS_COGNITO_CALLBACK_URL=http://localhost:3000/auth/callback
 AWS_COGNITO_LOGOUT_URL=http://localhost:3000/
+AWS_COGNITO_SESSION_SECRET=base64url-encoded-32-byte-random-value
 AWS_CONTENT_BUCKET_ORIGIN=https://<BucketName>.s3.eu-west-1.amazonaws.com
 ```
 
@@ -55,6 +56,10 @@ the real values, generated names, presigned URLs, or Cognito tokens. The bucket
 origin is a CSP allowlist origin, not a public bucket URL; it must use the exact
 regional S3 API origin with no trailing path or wildcard. The deployment,
 fixture, and integration procedures are in the runbooks below.
+The session secret is the only secret in this block: generate a different value
+for each environment, keep it server-only, and never prefix it with
+`NEXT_PUBLIC_`. See the Cognito admin-session runbook for generation, callback,
+preview, Vercel, and rollback procedures.
 
 3. Set up the database:
 
@@ -104,6 +109,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [AWS account guardrails](docs/runbooks/aws-account-guardrails.md)
 - [AWS development foundation](docs/runbooks/aws-development-foundation.md)
 - [Single Cognito administrator](docs/runbooks/cognito-single-administrator.md)
+- [Secure Cognito admin session](docs/runbooks/cognito-admin-session.md)
 - [Authenticated DynamoDB read tracer](docs/runbooks/authenticated-read-tracer.md)
 - [DynamoDB post repository boundary](docs/runbooks/dynamodb-post-repository.md)
 - [Private S3 image repair](docs/runbooks/s3-presigned-image-repair.md)

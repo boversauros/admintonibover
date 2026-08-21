@@ -10,12 +10,13 @@ import {
   matchesState,
   refreshCognitoTokens,
   validateCognitoClaims,
+  verifyCognitoTokenActive,
 } from '../lib/auth/cognito/oauth';
 import { parseAdminDataBackend } from '../lib/config/adminBackend';
 
 const config: CognitoConfig = {
   apiUrl: 'https://api.example.invalid',
-  callbackUrl: 'https://admin.example.invalid/',
+  callbackUrl: 'https://admin.example.invalid/auth/callback',
   clientId: 'public-client',
   issuer: 'https://issuer.example.invalid/pool',
   loginUrl: 'https://login.example.invalid',
@@ -118,12 +119,16 @@ test('refresh grant retains the public-client contract', async () => {
 
 test('session claims require access-token use, admin scope, nonce, and verified email', () => {
   const access = {
+    iss: config.issuer,
     token_use: 'access',
     client_id: config.clientId,
     scope: `openid ${config.requiredScope}`,
+    sub: 'admin-subject',
     exp: 2_000_000_000,
   };
   const identity = {
+    iss: config.issuer,
+    aud: config.clientId,
     token_use: 'id',
     sub: 'admin-subject',
     email: 'admin@example.invalid',
@@ -158,6 +163,78 @@ test('session claims require access-token use, admin scope, nonce, and verified 
       access,
       { ...identity, email_verified: false },
       'expected-nonce'
+    )
+  );
+  assert.throws(() =>
+    validateCognitoClaims(
+      config,
+      { ...access, iss: 'https://wrong-issuer.example.invalid' },
+      identity,
+      'expected-nonce'
+    )
+  );
+  assert.throws(() =>
+    validateCognitoClaims(
+      config,
+      access,
+      { ...identity, aud: 'wrong-client' },
+      'expected-nonce'
+    )
+  );
+  assert.throws(() =>
+    validateCognitoClaims(
+      config,
+      access,
+      { ...identity, sub: 'different-subject' },
+      'expected-nonce'
+    )
+  );
+});
+
+test('authorization code exchange requires a durable refresh token', async () => {
+  await assert.rejects(() =>
+    exchangeAuthorizationCode(
+      config,
+      'authorization-code',
+      'code-verifier',
+      async () =>
+        Response.json({
+          access_token: 'access-token',
+          id_token: 'id-token',
+          token_type: 'Bearer',
+          expires_in: 900,
+        })
+    )
+  );
+});
+
+test('Cognito userInfo rejects revoked sessions and binds the active subject', async () => {
+  let authorization = '';
+  await verifyCognitoTokenActive(
+    config,
+    'access-token',
+    'admin-subject',
+    async (_input, init) => {
+      authorization = new Headers(init?.headers).get('authorization') ?? '';
+      return Response.json({ sub: 'admin-subject' });
+    }
+  );
+  assert.equal(authorization, 'Bearer access-token');
+
+  await assert.rejects(() =>
+    verifyCognitoTokenActive(
+      config,
+      'revoked-access-token',
+      'admin-subject',
+      async () => new Response(null, { status: 401 })
+    )
+  );
+  await assert.rejects(() =>
+    verifyCognitoTokenActive(
+      config,
+      'access-token',
+      'admin-subject',
+      async () => Response.json({ sub: 'different-subject' })
     )
   );
 });

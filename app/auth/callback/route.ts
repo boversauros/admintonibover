@@ -6,8 +6,10 @@ import {
   COGNITO_COOKIE_NAMES,
   clearCognitoSessionCookies,
   clearCognitoTransientCookies,
+  readCognitoTransientCookie,
   setCognitoSessionCookies,
 } from '@/lib/auth/cognito/cookies';
+import { getApplicationOrigin } from '@/lib/auth/cognito/http';
 import {
   exchangeAuthorizationCode,
   matchesState,
@@ -17,8 +19,12 @@ import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
 export const dynamic = 'force-dynamic';
 
-function failedCallback(request: NextRequest): NextResponse {
-  const response = NextResponse.redirect(new URL('/?auth=failed', request.url));
+function failedCallback(
+  config: ReturnType<typeof getCognitoConfig>
+): NextResponse {
+  const response = NextResponse.redirect(
+    new URL('/?auth=failed', `${getApplicationOrigin(config)}/`)
+  );
   clearCognitoSessionCookies(response);
   return response;
 }
@@ -27,36 +33,40 @@ export async function GET(request: NextRequest): Promise<Response> {
   if (getAdminDataBackend() !== 'aws') {
     return Response.json({ error: 'Not found' }, { status: 404 });
   }
+  const config = getCognitoConfig();
 
   const code = request.nextUrl.searchParams.get('code');
   const returnedState = request.nextUrl.searchParams.get('state');
   if (!code || !returnedState || request.nextUrl.searchParams.has('error')) {
-    return failedCallback(request);
+    return failedCallback(config);
   }
 
   const cookieStore = await cookies();
-  const expectedState = cookieStore.get(COGNITO_COOKIE_NAMES.state)?.value;
-  const verifier = cookieStore.get(COGNITO_COOKIE_NAMES.verifier)?.value;
-  const nonce = cookieStore.get(COGNITO_COOKIE_NAMES.nonce)?.value;
-  if (
-    !expectedState ||
-    !verifier ||
-    !nonce ||
-    !matchesState(returnedState, expectedState)
-  ) {
-    return failedCallback(request);
+  const sealedRequest = cookieStore.get(
+    COGNITO_COOKIE_NAMES.oauthRequest
+  )?.value;
+  const oauthRequest = sealedRequest
+    ? await readCognitoTransientCookie(sealedRequest)
+    : null;
+  if (!oauthRequest || !matchesState(returnedState, oauthRequest.state)) {
+    return failedCallback(config);
   }
 
   try {
-    const config = getCognitoConfig();
-    const tokens = await exchangeAuthorizationCode(config, code, verifier);
-    await verifyCognitoSession(config, tokens, nonce);
+    const tokens = await exchangeAuthorizationCode(
+      config,
+      code,
+      oauthRequest.verifier
+    );
+    await verifyCognitoSession(config, tokens, oauthRequest.nonce);
 
-    const response = NextResponse.redirect(new URL('/', request.url));
-    setCognitoSessionCookies(response, tokens);
+    const response = NextResponse.redirect(
+      new URL(oauthRequest.returnTo, `${getApplicationOrigin(config)}/`)
+    );
+    await setCognitoSessionCookies(response, tokens);
     clearCognitoTransientCookies(response);
     return response;
   } catch {
-    return failedCallback(request);
+    return failedCallback(config);
   }
 }

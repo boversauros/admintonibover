@@ -32,7 +32,8 @@ The issue acceptance text records this decision.
 | Stack              | `admintonibover-dev`                                |
 | User pool          | The stack's `UserPoolId` output                     |
 | App client         | The stack's `UserPoolClientId` output               |
-| Callback/logout    | `https://admin.tonibover.cat/`                      |
+| Callback           | `https://admin.tonibover.cat/auth/callback`         |
+| Logout             | `https://admin.tonibover.cat/`                      |
 | User-pool tier     | `LITE`                                              |
 | Administrators     | Exactly one confirmed, enabled, verified-email user |
 | Application MFA    | `OFF`, with no user MFA preference                  |
@@ -185,97 +186,16 @@ documented enable/reset operations below.
 
 ## Complete first sign-in
 
-Until the application callback is implemented, use a private one-time PKCE
-verification session. Generate a verifier, state, and nonce in CloudShell:
+Follow the [secure Cognito admin-session runbook](cognito-admin-session.md),
+open the Next.js application, and choose **Continue to secure sign-in**. Use the
+emailed temporary password, choose and save a permanent password, and confirm
+that no MFA enrollment appears. Cognito must return to the exact
+`/auth/callback` path, and Next.js must establish the encrypted server session
+without exposing a bearer token to browser JavaScript.
 
-```bash
-export ADMINTONIBOVER_CODE_VERIFIER="$(
-  openssl rand -base64 96 |
-  tr -d '\n' |
-  tr '+/' '-_' |
-  tr -d '='
-)"
-
-export ADMINTONIBOVER_CODE_CHALLENGE="$(
-  printf '%s' "$ADMINTONIBOVER_CODE_VERIFIER" |
-  openssl dgst -binary -sha256 |
-  openssl base64 -A |
-  tr '+/' '-_' |
-  tr -d '='
-)"
-
-export ADMINTONIBOVER_OAUTH_STATE="$(openssl rand -hex 16)"
-export ADMINTONIBOVER_OAUTH_NONCE="$(openssl rand -hex 16)"
-
-printf '%s\n' \
-"${ADMINTONIBOVER_LOGIN_URL}/oauth2/authorize?response_type=code&client_id=${ADMINTONIBOVER_CLIENT_ID}&redirect_uri=https%3A%2F%2Fadmin.tonibover.cat%2F&scope=openid+email+profile+admintonibover-api%2Fadmin&code_challenge=${ADMINTONIBOVER_CODE_CHALLENGE}&code_challenge_method=S256&state=${ADMINTONIBOVER_OAUTH_STATE}&nonce=${ADMINTONIBOVER_OAUTH_NONCE}"
-```
-
-Open only the newly printed URL. Use the emailed temporary password, choose and
-save a permanent password, and confirm that no MFA enrollment appears. Cognito
-redirects to the exact callback with one-time `code` and `state` parameters.
-
-Run the input command separately so it waits for the operator instead of
-consuming a later pasted shell command:
-
-```bash
-read -r -p "Paste complete redirect URL: " ADMINTONIBOVER_REDIRECT_URL
-```
-
-Extract and validate the response without printing its secrets:
-
-```bash
-ADMINTONIBOVER_AUTH_CODE="$(
-  printf '%s' "$ADMINTONIBOVER_REDIRECT_URL" |
-  sed -n 's/.*[?&]code=\([^&]*\).*/\1/p'
-)"
-
-ADMINTONIBOVER_RETURNED_STATE="$(
-  printf '%s' "$ADMINTONIBOVER_REDIRECT_URL" |
-  sed -n 's/.*[?&]state=\([^&]*\).*/\1/p'
-)"
-
-test -n "$ADMINTONIBOVER_AUTH_CODE"
-test "$ADMINTONIBOVER_RETURNED_STATE" = "$ADMINTONIBOVER_OAUTH_STATE"
-```
-
-Stop and start a fresh authorization request if either test fails. Exchange a
-matching code immediately:
-
-```bash
-umask 077
-
-ADMINTONIBOVER_TOKEN_HTTP_STATUS="$(
-  curl -sS \
-    -o /tmp/admintonibover-tokens.json \
-    -w '%{http_code}' \
-    -X POST \
-    "${ADMINTONIBOVER_LOGIN_URL}/oauth2/token" \
-    -H 'Content-Type: application/x-www-form-urlencoded' \
-    --data-urlencode 'grant_type=authorization_code' \
-    --data-urlencode "client_id=$ADMINTONIBOVER_CLIENT_ID" \
-    --data-urlencode "code=$ADMINTONIBOVER_AUTH_CODE" \
-    --data-urlencode 'redirect_uri=https://admin.tonibover.cat/' \
-    --data-urlencode "code_verifier=$ADMINTONIBOVER_CODE_VERIFIER"
-)"
-
-test "$ADMINTONIBOVER_TOKEN_HTTP_STATUS" = "200"
-```
-
-The token response must contain bearer access, ID, and refresh tokens. Decode
-only selected claims; never print or retain the raw tokens. Verify:
-
-- issuer is the exact pool issuer;
-- access-token `client_id` and ID-token `aud` equal the public client;
-- token uses are `access` and `id`;
-- `sub` exists and email is verified;
-- access-token scope contains `admintonibover-api/admin`;
-- the ID-token nonce matches the generated nonce; and
-- access and ID expiration are approximately 15 minutes after issuance.
-
-Call the protected health route with the access token. It must return `200`.
-The same call without a token must return `401`, with the ID token must return
-`401` or `403`, and with a modified access-token signature must return `401`.
+The pre-issue-13 private CloudShell PKCE rehearsal remains recorded in the
+redacted evidence below, but it is no longer an operational sign-in path. Do
+not manually copy an authorization code or token from the application callback.
 
 ## Recovery and disable-user rehearsal
 
@@ -314,11 +234,10 @@ aws cognito-idp admin-enable-user \
 ```
 
 The API Gateway HTTP API authorizer verifies self-contained JWT signatures and
-expiration. Cognito token revocation prevents refresh and Cognito API use, but
-a third-party JWT verifier can still accept a revoked access token until its
-15-minute expiry. The short access-token lifetime bounds this residual window.
-Changing this to immediate revocation requires a separately reviewed,
-revocation-aware authorizer.
+expiration, so direct third-party JWT verification can retain a residual window
+after revocation. The Next.js BFF closes that local-session window by checking
+the access token with Cognito `userInfo` on every accepted session. The
+15-minute access-token lifetime remains defense in depth for direct API checks.
 
 ## Final state and cleanup
 
@@ -350,22 +269,10 @@ aws cognito-idp admin-get-user \
   --output json
 ```
 
-Delete temporary token files and clear sensitive session variables:
+Clear the private administrator email from the CloudShell session:
 
 ```bash
-rm -- \
-  /tmp/admintonibover-tokens.json \
-  /tmp/admintonibover-auth-health.json \
-  /tmp/admintonibover-refresh-after-signout.json
-
 unset ADMINTONIBOVER_ADMIN_EMAIL
-unset ADMINTONIBOVER_AUTH_CODE
-unset ADMINTONIBOVER_REDIRECT_URL
-unset ADMINTONIBOVER_RETURNED_STATE
-unset ADMINTONIBOVER_CODE_VERIFIER
-unset ADMINTONIBOVER_CODE_CHALLENGE
-unset ADMINTONIBOVER_OAUTH_STATE
-unset ADMINTONIBOVER_OAUTH_NONCE
 ```
 
 ## Redacted acceptance evidence

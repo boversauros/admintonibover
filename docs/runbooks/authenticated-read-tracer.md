@@ -107,12 +107,12 @@ the [AWS development foundation](aws-development-foundation.md). Use the
 current committed synthesis and the already-reviewed private development
 parameters.
 
-The exact callback and logout values must remain the approved application root
-for each environment. The Next.js proxy internally routes Cognito's root
-callback to the server-only callback handler. Before creating the change set,
-confirm that both `CallbackUrls` and `LogoutUrls` in the private
-`dev.parameters.json` contain those same exact roots; update both together if
-either still contains `/auth/callback` or `/login`.
+The current issue #13 application contract uses the exact `/auth/callback`
+path, while logout returns to the application root. Before creating a new
+change set, follow the
+[secure Cognito admin-session runbook](cognito-admin-session.md) and confirm
+that each callback and logout entry has a matching, explicitly allow-listed
+origin. Never add a wildcard Vercel preview domain.
 
 Create an update change set without executing it:
 
@@ -235,8 +235,9 @@ AWS_ADMIN_API_URL=<ApiUrl output>
 AWS_COGNITO_CLIENT_ID=<UserPoolClientId output>
 AWS_COGNITO_ISSUER=<UserPoolIssuer output>
 AWS_COGNITO_LOGIN_URL=<CognitoLoginUrl output>
-AWS_COGNITO_CALLBACK_URL=<exact registered application root>
+AWS_COGNITO_CALLBACK_URL=<exact registered /auth/callback URL>
 AWS_COGNITO_LOGOUT_URL=<exact registered application root>
+AWS_COGNITO_SESSION_SECRET=<uncommitted base64url-encoded 32-byte value>
 ```
 
 There is no Cognito client secret. Do not add AWS credentials to Next.js.

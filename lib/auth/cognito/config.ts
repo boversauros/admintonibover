@@ -1,5 +1,7 @@
 import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
+import { getCognitoSessionKey } from './seal';
+
 export type CognitoConfig = {
   apiUrl: string;
   callbackUrl: string;
@@ -23,7 +25,13 @@ function requireEnvironmentValue(name: string): string {
 function requireHttpsUrl(name: string): string {
   const value = requireEnvironmentValue(name);
   const url = new URL(value);
-  if (url.protocol !== 'https:') {
+  if (
+    url.protocol !== 'https:' ||
+    url.username !== '' ||
+    url.password !== '' ||
+    url.search !== '' ||
+    url.hash !== ''
+  ) {
     throw new Error(`${name} must use HTTPS`);
   }
   return url.toString().replace(/\/$/, '');
@@ -39,6 +47,14 @@ function requireCallbackUrl(name: string): string {
   if (url.protocol !== 'https:' && !isLocalhost) {
     throw new Error(`${name} must use HTTPS except on localhost`);
   }
+  if (
+    url.username !== '' ||
+    url.password !== '' ||
+    url.search !== '' ||
+    url.hash !== ''
+  ) {
+    throw new Error(`${name} must not contain credentials, a query, or a hash`);
+  }
 
   return url.toString();
 }
@@ -48,7 +64,7 @@ export function getCognitoConfig(): CognitoConfig {
     throw new Error('Cognito configuration is disabled');
   }
 
-  return {
+  const config = {
     apiUrl: requireHttpsUrl('AWS_ADMIN_API_URL'),
     callbackUrl: requireCallbackUrl('AWS_COGNITO_CALLBACK_URL'),
     clientId: requireEnvironmentValue('AWS_COGNITO_CLIENT_ID'),
@@ -57,4 +73,23 @@ export function getCognitoConfig(): CognitoConfig {
     logoutUrl: requireCallbackUrl('AWS_COGNITO_LOGOUT_URL'),
     requiredScope: REQUIRED_SCOPE,
   };
+
+  if (new URL(config.callbackUrl).pathname !== '/auth/callback') {
+    throw new Error(
+      'AWS_COGNITO_CALLBACK_URL must use the exact /auth/callback path'
+    );
+  }
+  if (new URL(config.callbackUrl).origin !== new URL(config.logoutUrl).origin) {
+    throw new Error(
+      'AWS_COGNITO_CALLBACK_URL and AWS_COGNITO_LOGOUT_URL must share an origin'
+    );
+  }
+  if (new URL(config.logoutUrl).pathname !== '/') {
+    throw new Error(
+      'AWS_COGNITO_LOGOUT_URL must use the exact application root'
+    );
+  }
+  getCognitoSessionKey();
+
+  return config;
 }
