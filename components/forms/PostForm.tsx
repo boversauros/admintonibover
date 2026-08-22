@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useForm, FormProvider, Controller } from 'react-hook-form';
-import { Select, Input } from '@/components/ui';
+import { useEffect, useRef, useState } from 'react';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
+import { Button, Select, Input, Text } from '@/components/ui';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { useKeywords } from '@/lib/hooks/useKeywords';
 import { PostFormData, StoredPost, Language } from '@/lib/types/post';
 import { slugify, generateUniqueSlug } from '@/lib/utils/slugify';
 import { savePost, getExistingSlugs, getPostsCount } from '@/lib/api/posts';
@@ -11,7 +13,7 @@ import {
   deleteImageCompletely,
   updateImageRecord,
 } from '@/lib/api/images';
-import { getCategories, type Category } from '@/lib/api/categories';
+import { getAdminCategories, type AdminCategory } from '@/lib/api/adminReads';
 import { LanguageTabs } from './LanguageTabs';
 import { TranslationSection } from './TranslationSection';
 import { KeywordsSection } from './KeywordsSection';
@@ -29,12 +31,26 @@ function convertToMarkdownParagraphs(content: string): string {
 interface PostFormProps {
   initialData?: StoredPost;
   onSuccess?: () => void;
+  readOnly?: boolean;
 }
 
-export function PostForm({ initialData, onSuccess }: PostFormProps) {
+export function PostForm({
+  initialData,
+  onSuccess,
+  readOnly = false,
+}: PostFormProps) {
+  const { backend } = useAuth();
+  const {
+    keywords,
+    isLoading: areKeywordsLoading,
+    error: keywordsError,
+    refetch: refetchKeywords,
+  } = useKeywords();
   const [activeLanguage, setActiveLanguage] = useState<Language>('ca');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [categoryRetry, setCategoryRetry] = useState(0);
   const [existingThumbnailId, setExistingThumbnailId] = useState<string | null>(
     initialData?.thumbnail_id || null
   );
@@ -53,16 +69,27 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
 
   // Load categories on mount
   useEffect(() => {
+    const controller = new AbortController();
     async function loadCategories() {
       try {
-        const fetchedCategories = await getCategories();
+        setCategoryError(null);
+        const fetchedCategories = await getAdminCategories(
+          backend,
+          controller.signal
+        );
         setCategories(fetchedCategories);
       } catch (error) {
-        console.error('Failed to load categories:', error);
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setCategoryError(
+          error instanceof Error
+            ? error.message
+            : 'No s’han pogut carregar les categories.'
+        );
       }
     }
-    loadCategories();
-  }, []);
+    void loadCategories();
+    return () => controller.abort();
+  }, [backend, categoryRetry]);
 
   const methods = useForm<PostFormData>({
     defaultValues: initialData
@@ -126,49 +153,60 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
   });
 
   const {
-    watch,
     setValue,
     handleSubmit,
-    reset,
     register,
     formState: { errors },
   } = methods;
 
   // On create, default sort_order to total posts + 1
   useEffect(() => {
-    if (initialData) return;
+    if (initialData || readOnly || backend === 'aws') return;
     getPostsCount()
       .then(count => setValue('sort_order', count + 1))
       .catch(error => console.error('Failed to load posts count:', error));
-  }, [initialData, setValue]);
+  }, [backend, initialData, readOnly, setValue]);
 
   // Auto-generate slugs from titles
-  const titleCA = watch('translations.ca.title');
-  const titleEN = watch('translations.en.title');
-  const slugCA = watch('translations.ca.slug');
-  const slugEN = watch('translations.en.slug');
+  const [titleCA, titleEN, slugCA, slugEN, isPublished] = useWatch({
+    control: methods.control,
+    name: [
+      'translations.ca.title',
+      'translations.en.title',
+      'translations.ca.slug',
+      'translations.en.slug',
+      'is_published',
+    ],
+  });
+  const previousAutoSlugCA = useRef(
+    initialData ? slugify(initialData.translations.ca.title) : ''
+  );
+  const previousAutoSlugEN = useRef(
+    initialData ? slugify(initialData.translations.en.title) : ''
+  );
 
   useEffect(() => {
     if (titleCA) {
       const generatedSlug = slugify(titleCA);
-      // Only update if slug is empty or matches the previously generated slug
-      if (!slugCA || slugCA === slugify(watch('translations.ca.title'))) {
+      if (!slugCA || slugCA === previousAutoSlugCA.current) {
         setValue('translations.ca.slug', generatedSlug);
       }
+      previousAutoSlugCA.current = generatedSlug;
     }
-  }, [titleCA]);
+  }, [setValue, slugCA, titleCA]);
 
   useEffect(() => {
     if (titleEN) {
       const generatedSlug = slugify(titleEN);
-      if (!slugEN || slugEN === slugify(watch('translations.en.title'))) {
+      if (!slugEN || slugEN === previousAutoSlugEN.current) {
         setValue('translations.en.slug', generatedSlug);
       }
+      previousAutoSlugEN.current = generatedSlug;
     }
-  }, [titleEN]);
+  }, [setValue, slugEN, titleEN]);
 
   const onSubmit = async (data: PostFormData) => {
-    if (isSubmitting) return; // Prevent multiple submissions
+    if (isSubmitting || readOnly) return; // Prevent multiple submissions and AWS writes
 
     setIsSubmitting(true);
 
@@ -313,16 +351,16 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
       }
 
       setIsSubmitting(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving post:', error);
-      alert(error.message || 'Failed to save post');
+      alert(error instanceof Error ? error.message : 'Failed to save post');
       setIsSubmitting(false);
     }
   };
 
   const categoryOptions = categories.map(cat => ({
-    value: cat.id.toString(),
-    label: cat.name_ca,
+    value: cat.id,
+    label: cat.nameCa,
   }));
 
   const handlePublishToggle = (checked: boolean) => {
@@ -344,11 +382,65 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
         className="min-h-screen bg-background"
       >
         {/* Sticky Header */}
-        <FormHeader isSubmitting={isSubmitting} isEditMode={!!initialData} />
+        <FormHeader
+          isSubmitting={isSubmitting}
+          isEditMode={!!initialData}
+          readOnly={readOnly}
+        />
+
+        {readOnly && (
+          <div
+            id="aws-read-only-notice"
+            className="max-w-6xl mx-auto mt-6 px-4 sm:px-6"
+            role="status"
+          >
+            <div className="border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+              <Text variant="small">
+                Les dades provenen de l’API d’AWS. L’edició estarà disponible
+                quan s’activin les operacions d’escriptura.
+              </Text>
+            </div>
+          </div>
+        )}
+
+        {categoryError || keywordsError ? (
+          <div className="max-w-6xl mx-auto mt-4 space-y-3 px-4 sm:px-6">
+            {categoryError ? (
+              <div
+                className="flex flex-wrap items-center justify-between gap-3 border border-amber-500/30 bg-amber-500/10 px-4 py-3"
+                role="alert"
+              >
+                <Text variant="small">{categoryError}</Text>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setCategoryRetry(value => value + 1)}
+                >
+                  Reintentar categories
+                </Button>
+              </div>
+            ) : null}
+            {keywordsError ? (
+              <div
+                className="flex flex-wrap items-center justify-between gap-3 border border-amber-500/30 bg-amber-500/10 px-4 py-3"
+                role="alert"
+              >
+                <Text variant="small">{keywordsError.message}</Text>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void refetchKeywords()}
+                >
+                  Reintentar paraules clau
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Form Content */}
-        <main className="max-w-6xl mx-auto px-6 py-8">
-          {/* Language Tabs */}
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+          {/* Language navigation remains available in read-only mode. */}
           <LanguageTabs
             active={activeLanguage}
             onChange={setActiveLanguage}
@@ -356,86 +448,103 @@ export function PostForm({ initialData, onSuccess }: PostFormProps) {
             hasENContent={!!titleEN}
           />
 
-          {/* 2+1 Grid Layout */}
-          <div className="grid grid-cols-3 gap-8">
-            {/* Main Content - 2 columns */}
-            <div className="col-span-2 space-y-6">
-              {/* Translation Section (Title + Content) */}
-              <TranslationSection language={activeLanguage} />
+          <fieldset
+            disabled={readOnly}
+            aria-describedby={readOnly ? 'aws-read-only-notice' : undefined}
+            className="m-0 min-w-0 border-0 p-0 disabled:opacity-80"
+          >
+            {/* 2+1 Grid Layout */}
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+              {/* Main Content - 2 columns */}
+              <div className="space-y-6 lg:col-span-2">
+                {/* Translation Section (Title + Content) */}
+                <TranslationSection language={activeLanguage} />
 
-              {/* Keywords Section */}
-              <KeywordsSection language={activeLanguage} />
-
-              {/* References Section - Collapsible */}
-              <CollapsibleSection title="Referències i cites">
-                <ReferencesSection language={activeLanguage} />
-              </CollapsibleSection>
-            </div>
-
-            {/* Sidebar - 1 column */}
-            <div className="space-y-6">
-              <Input
-                type="number"
-                label="Ordre"
-                min={0}
-                step={1}
-                helperText="Nombre més baix = més amunt al lloc públic (ordenació ascendent)"
-                className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
-                {...register('sort_order', { valueAsNumber: true })}
-              />
-
-              {/* Publication Status Panel */}
-              <PublicationStatusPanel
-                isPublished={watch('is_published')}
-                onToggle={handlePublishToggle}
-              />
-
-              {/* Featured Image */}
-              <ImageSelector
-                label="Imatge destacada"
-                aspectRatio="video"
-                hint="16:9"
-                value={existingMainImageUrl || null}
-                onFileSelect={handleMainImageSelect}
-                error={errors.main_image_file?.message as string}
-              />
-              <Input
-                {...register('main_image_alt')}
-                label="Text alternatiu de la imatge destacada"
-                placeholder="Descriu la imatge per a l'accessibilitat"
-                error={errors.main_image_alt?.message as string}
-              />
-
-              {/* Thumbnail */}
-              <ImageSelector
-                label="Miniatura"
-                aspectRatio="thumbnail"
-                hint="4:3 · Per llistats"
-                value={existingThumbnailUrl || null}
-                onFileSelect={handleThumbnailSelect}
-                error={errors.thumbnail_file?.message as string}
-              />
-
-              {/* Category */}
-              <div className="space-y-2">
-                <label className="block text-xs text-muted uppercase tracking-wider">
-                  Categoria
-                </label>
-                <Select
-                  {...register('category_id')}
-                  options={categoryOptions}
-                  placeholder="Selecciona..."
-                  error={errors.category_id?.message as string}
+                {/* Keywords Section */}
+                <KeywordsSection
+                  language={activeLanguage}
+                  suggestions={keywords[activeLanguage]}
+                  isLoading={areKeywordsLoading}
                 />
+
+                {/* References Section - Collapsible */}
+                <CollapsibleSection
+                  title="Referències i cites"
+                  defaultOpen={readOnly}
+                >
+                  <ReferencesSection language={activeLanguage} />
+                </CollapsibleSection>
               </div>
 
-              {/* Translation Status Panel */}
-              <TranslationStatusPanel
-                hasCATitle={!!titleCA}
-                hasENTitle={!!titleEN}
-              />
+              {/* Sidebar - 1 column */}
+              <div className="space-y-6">
+                <Input
+                  type="number"
+                  label="Ordre"
+                  min={0}
+                  step={1}
+                  helperText="Nombre més baix = més amunt al lloc públic (ordenació ascendent)"
+                  className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
+                  {...register('sort_order', { valueAsNumber: true })}
+                />
+
+                {/* Publication Status Panel */}
+                <PublicationStatusPanel
+                  isPublished={isPublished}
+                  onToggle={handlePublishToggle}
+                />
+
+                {/* Featured Image */}
+                <ImageSelector
+                  label="Imatge destacada"
+                  aspectRatio="video"
+                  hint="16:9"
+                  value={existingMainImageUrl || null}
+                  onFileSelect={handleMainImageSelect}
+                  error={errors.main_image_file?.message as string}
+                />
+                <Input
+                  {...register('main_image_alt')}
+                  label="Text alternatiu de la imatge destacada"
+                  placeholder="Descriu la imatge per a l'accessibilitat"
+                  error={errors.main_image_alt?.message as string}
+                />
+
+                {/* Thumbnail */}
+                <ImageSelector
+                  label="Miniatura"
+                  aspectRatio="thumbnail"
+                  hint="4:3 · Per llistats"
+                  value={existingThumbnailUrl || null}
+                  onFileSelect={handleThumbnailSelect}
+                  error={errors.thumbnail_file?.message as string}
+                />
+
+                {/* Category */}
+                <div className="space-y-2">
+                  <label className="block text-xs text-muted uppercase tracking-wider">
+                    Categoria
+                  </label>
+                  <Select
+                    {...register('category_id')}
+                    options={categoryOptions}
+                    placeholder={
+                      categoryError
+                        ? 'Categories no disponibles'
+                        : 'Selecciona...'
+                    }
+                    error={errors.category_id?.message as string}
+                  />
+                </div>
+
+                {/* Translation Status Panel */}
+                <TranslationStatusPanel
+                  hasCATitle={!!titleCA}
+                  hasENTitle={!!titleEN}
+                />
+              </div>
             </div>
-          </div>
+          </fieldset>
         </main>
       </form>
     </FormProvider>

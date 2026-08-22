@@ -7,7 +7,7 @@ import type { AuthUser } from '@/lib/auth/AuthContext';
 
 interface UserMenuProps {
   user: AuthUser;
-  onBackup: () => void | Promise<void>;
+  onBackup?: () => void | Promise<void>;
   onLogout: () => void | Promise<void>;
   isBackingUp?: boolean;
 }
@@ -144,7 +144,7 @@ export function UserMenu({
   }, [isOpen]);
 
   const handleBackup = async () => {
-    await onBackup();
+    await onBackup?.();
   };
 
   const handleLogout = async () => {
@@ -223,18 +223,20 @@ export function UserMenu({
           </div>
 
           {/* Actions */}
-          <div className="py-1.5">
-            <MenuItem
-              icon="download"
-              label={
-                isBackingUp
-                  ? 'Generant còpia...'
-                  : 'Descarregar còpia de seguretat'
-              }
-              onClick={handleBackup}
-              loading={isBackingUp}
-            />
-          </div>
+          {onBackup ? (
+            <div className="py-1.5">
+              <MenuItem
+                icon="download"
+                label={
+                  isBackingUp
+                    ? 'Generant còpia...'
+                    : 'Descarregar còpia de seguretat'
+                }
+                onClick={handleBackup}
+                loading={isBackingUp}
+              />
+            </div>
+          ) : null}
 
           <div className="border-t border-subtle py-1.5">
             <MenuItem

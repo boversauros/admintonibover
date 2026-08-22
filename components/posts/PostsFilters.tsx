@@ -3,8 +3,13 @@
 import { Icon, Text, Input, Dropdown } from '@/components/ui';
 
 export type FilterStatus = 'all' | 'published' | 'draft';
-export type FilterCategory = 'all' | '1' | '2' | '3';
+export type FilterCategory = string;
 export type SortDirection = 'desc' | 'asc';
+
+export type CategoryFilterOption = {
+  value: string;
+  label: string;
+};
 
 interface PostsFiltersProps {
   searchQuery: string;
@@ -15,19 +20,13 @@ interface PostsFiltersProps {
   onCategoryChange: (category: FilterCategory) => void;
   sortDirection: SortDirection;
   onSortChange: (dir: SortDirection) => void;
+  categories?: CategoryFilterOption[];
 }
 
 const statusOptions: { value: FilterStatus; label: string }[] = [
   { value: 'all', label: 'Tots els estats' },
   { value: 'published', label: 'Publicats' },
   { value: 'draft', label: 'Esborranys' },
-];
-
-const categoryOptions: { value: FilterCategory; label: string }[] = [
-  { value: 'all', label: 'Totes les categories' },
-  { value: '1', label: 'Vivències' },
-  { value: '2', label: 'Influències' },
-  { value: '3', label: 'Perspectives' },
 ];
 
 const sortOptions: { value: SortDirection; label: string }[] = [
@@ -44,7 +43,12 @@ export function PostsFilters({
   onCategoryChange,
   sortDirection,
   onSortChange,
+  categories = [],
 }: PostsFiltersProps) {
+  const categoryOptions: CategoryFilterOption[] = [
+    { value: 'all', label: 'Totes les categories' },
+    ...categories,
+  ];
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       {/* Search Input */}

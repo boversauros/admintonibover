@@ -3,7 +3,8 @@ export type ReferenceType = 'image' | 'text';
 
 export interface Image {
   id: string;
-  url: string;
+  key?: string;
+  url?: string;
   title: string;
   alt: string;
   created_at: string;
@@ -57,6 +58,7 @@ export interface StoredPost {
   author: string;
   created_at: string;
   updated_at: string;
+  version?: number;
   translations: {
     ca: PostTranslation & { post_id: string };
     en: PostTranslation & { post_id: string };

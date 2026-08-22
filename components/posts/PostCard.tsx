@@ -1,6 +1,6 @@
 'use client';
 
-import { StoredPost } from '@/lib/types/post';
+import type { AdminPostSummary } from '@/lib/api/adminReads';
 import {
   StatusBadge,
   LanguageIndicator,
@@ -12,10 +12,10 @@ import {
 } from '@/components/ui';
 
 interface PostCardProps {
-  post: StoredPost;
+  post: AdminPostSummary;
   categoryLabel: string;
-  onEdit: (post: StoredPost) => void;
-  onDelete: (post: StoredPost) => void;
+  onEdit: (postId: string) => void;
+  onDelete?: (post: AdminPostSummary) => void;
 }
 
 export function PostCard({
@@ -24,20 +24,16 @@ export function PostCard({
   onEdit,
   onDelete,
 }: PostCardProps) {
-  const title = post.translations.ca?.title || post.translations.en?.title;
-  const content =
-    post.translations.ca?.content || post.translations.en?.content;
+  const title = post.titles.ca || post.titles.en;
+  const content = post.excerpts.ca || post.excerpts.en;
   const excerpt = content
     ? content.slice(0, 120).trim() + (content.length > 120 ? '…' : '')
     : '';
-  const keywords = [
-    ...(post.translations.ca?.keywords || []),
-    ...(post.translations.en?.keywords || []),
-  ]
+  const keywords = [...post.keywords.ca, ...post.keywords.en]
     .filter((kw, idx, arr) => arr.indexOf(kw) === idx)
     .slice(0, 4);
 
-  const thumbnailUrl = post.thumbnail?.url;
+  const thumbnailUrl = post.thumbnailUrl;
 
   return (
     <article className="group">
@@ -78,10 +74,10 @@ export function PostCard({
                 {' '}
               </Text>
               <LanguageIndicator
-                hasCA={!!post.translations.ca?.title}
-                hasEN={!!post.translations.en?.title}
+                hasCA={!!post.titles.ca}
+                hasEN={!!post.titles.en}
               />
-              <StatusBadge published={post.is_published} />
+              <StatusBadge published={post.published} />
             </div>
 
             {/* Title - clearly clickable with arrow hint */}
@@ -92,7 +88,7 @@ export function PostCard({
               className="text-lg font-serif text-primary leading-snug inline mb-0"
             >
               <span className="text-primary tabular-nums">
-                {post.sort_order}
+                {post.sortOrder}
               </span>
               <span className="text-primary-30 mx-1.5" aria-hidden="true">
                 ·
@@ -134,23 +130,25 @@ export function PostCard({
             variant="icon"
             onClick={e => {
               e.stopPropagation();
-              onEdit(post);
+              onEdit(post.id);
             }}
             aria-label="Edit post"
           >
             <Icon name="edit" />
           </Button>
-          <Button
-            variant="icon"
-            onClick={e => {
-              e.stopPropagation();
-              onDelete(post);
-            }}
-            className="hover:text-red-400 hover:bg-red-500/10"
-            aria-label="Delete post"
-          >
-            <Icon name="trash" />
-          </Button>
+          {onDelete ? (
+            <Button
+              variant="icon"
+              onClick={e => {
+                e.stopPropagation();
+                onDelete(post);
+              }}
+              className="hover:text-red-400 hover:bg-red-500/10"
+              aria-label="Delete post"
+            >
+              <Icon name="trash" />
+            </Button>
+          ) : null}
         </div>
       </div>
     </article>

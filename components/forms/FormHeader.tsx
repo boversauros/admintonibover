@@ -1,14 +1,19 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Button, Icon, Text } from '@/components/ui';
+import { Badge, Button, Icon, Text } from '@/components/ui';
 
 interface FormHeaderProps {
   isSubmitting: boolean;
   isEditMode: boolean;
+  readOnly?: boolean;
 }
 
-export function FormHeader({ isSubmitting, isEditMode }: FormHeaderProps) {
+export function FormHeader({
+  isSubmitting,
+  isEditMode,
+  readOnly = false,
+}: FormHeaderProps) {
   const router = useRouter();
 
   const handleBack = () => {
@@ -25,14 +30,20 @@ export function FormHeader({ isSubmitting, isEditMode }: FormHeaderProps) {
           </Text>
         </Button>
 
-        <Button
-          type="submit"
-          variant="primary"
-          loading={isSubmitting}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (isEditMode ? 'Desant...' : 'Creant...') : 'Desar'}
-        </Button>
+        {readOnly ? (
+          <Badge variant="accent" size="md">
+            Només lectura
+          </Badge>
+        ) : (
+          <Button
+            type="submit"
+            variant="primary"
+            loading={isSubmitting}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (isEditMode ? 'Desant...' : 'Creant...') : 'Desar'}
+          </Button>
+        )}
       </div>
     </header>
   );
