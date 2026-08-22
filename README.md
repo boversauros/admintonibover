@@ -113,6 +113,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [Authenticated DynamoDB read tracer](docs/runbooks/authenticated-read-tracer.md)
 - [DynamoDB post repository boundary](docs/runbooks/dynamodb-post-repository.md)
 - [Private S3 image repair](docs/runbooks/s3-presigned-image-repair.md)
+- [AWS admin post mutations](docs/runbooks/aws-admin-post-mutations.md)
 - [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
 - [Offline Supabase backup validation](docs/runbooks/backup-validation.md)
 

@@ -239,6 +239,7 @@ export function adaptAwsPost(post: Post): StoredPost {
     created_at: post.createdAt,
     updated_at: post.updatedAt,
     version: post.version,
+    aws_post: structuredClone(post),
     translations: {
       ca: {
         language: 'ca',
