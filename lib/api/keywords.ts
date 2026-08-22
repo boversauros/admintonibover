@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { createClient } from '../supabase';
 import { Language } from '../types/post';
 
 export interface KeywordsByLanguage {
@@ -10,6 +10,7 @@ export interface KeywordsByLanguage {
  * Fetch all unique keywords from the database, grouped by language
  */
 export async function getKeywords(): Promise<KeywordsByLanguage> {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('keywords')
     .select('keyword, language_id')
@@ -42,6 +43,7 @@ export async function getKeywords(): Promise<KeywordsByLanguage> {
 export async function getKeywordsByLanguage(
   language: Language
 ): Promise<string[]> {
+  const supabase = createClient();
   const languageId = language === 'ca' ? 1 : 2;
 
   const { data, error } = await supabase

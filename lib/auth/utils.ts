@@ -1,11 +1,12 @@
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../supabase';
+import { createClient } from '../supabase';
 
 /**
  * Get current authenticated user
  * Returns null if not authenticated
  */
 export async function getCurrentUser(): Promise<User | null> {
+  const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

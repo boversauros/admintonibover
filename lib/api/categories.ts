@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { createClient } from '../supabase';
 
 export interface Category {
   id: number;
@@ -12,6 +12,7 @@ export interface Category {
  */
 export async function getCategories(): Promise<Category[]> {
   try {
+    const supabase = createClient();
     const { data: categories, error: categoriesError } = await supabase
       .from('categories')
       .select(
