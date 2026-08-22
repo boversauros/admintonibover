@@ -68,9 +68,7 @@ export async function proxy(request: NextRequest) {
   const backend = getAdminDataBackend();
   let response: NextResponse;
 
-  if (backend === 'aws' && request.nextUrl.pathname === '/reflexions/new') {
-    response = NextResponse.redirect(new URL('/', request.url));
-  } else if (backend === 'aws') {
+  if (backend === 'aws') {
     response = NextResponse.next({ request });
   } else {
     const { updateSession } = await import('@/lib/supabase/middleware');
