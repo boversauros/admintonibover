@@ -74,7 +74,10 @@ export function matchesState(actual: string, expected: string): boolean {
   );
 }
 
-function parseTokenResponse(value: CognitoTokenResponse): CognitoTokenSet {
+function parseTokenResponse(
+  value: CognitoTokenResponse,
+  requireRefreshToken: boolean
+): CognitoTokenSet {
   if (
     typeof value.access_token !== 'string' ||
     typeof value.id_token !== 'string' ||
@@ -82,6 +85,9 @@ function parseTokenResponse(value: CognitoTokenResponse): CognitoTokenSet {
     value.token_type !== 'Bearer'
   ) {
     throw new Error('Cognito returned an invalid token response');
+  }
+  if (requireRefreshToken && typeof value.refresh_token !== 'string') {
+    throw new Error('Cognito did not return the required refresh token');
   }
 
   return {
@@ -96,6 +102,7 @@ function parseTokenResponse(value: CognitoTokenResponse): CognitoTokenSet {
 async function requestTokens(
   config: CognitoConfig,
   body: URLSearchParams,
+  requireRefreshToken: boolean,
   fetchImplementation: typeof fetch = fetch
 ): Promise<CognitoTokenSet> {
   const response = await fetchImplementation(
@@ -118,7 +125,10 @@ async function requestTokens(
     );
   }
 
-  return parseTokenResponse((await response.json()) as CognitoTokenResponse);
+  return parseTokenResponse(
+    (await response.json()) as CognitoTokenResponse,
+    requireRefreshToken
+  );
 }
 
 export function exchangeAuthorizationCode(
@@ -136,6 +146,7 @@ export function exchangeAuthorizationCode(
       code_verifier: verifier,
       redirect_uri: config.callbackUrl,
     }),
+    true,
     fetchImplementation
   );
 }
@@ -152,6 +163,7 @@ export function refreshCognitoTokens(
       client_id: config.clientId,
       refresh_token: refreshToken,
     }),
+    false,
     fetchImplementation
   );
 }
@@ -198,6 +210,12 @@ function claimContains(value: unknown, required: string): boolean {
     .includes(required);
 }
 
+function audienceContains(value: unknown, required: string): boolean {
+  return Array.isArray(value)
+    ? value.some(audience => audience === required)
+    : value === required;
+}
+
 export async function verifyCognitoSession(
   config: CognitoConfig,
   tokens: Pick<CognitoTokenSet, 'accessToken' | 'idToken'>,
@@ -226,6 +244,35 @@ export async function verifyCognitoSession(
   );
 }
 
+export async function verifyCognitoTokenActive(
+  config: CognitoConfig,
+  accessToken: string,
+  expectedSubject: string,
+  fetchImplementation: typeof fetch = fetch
+): Promise<void> {
+  const response = await fetchImplementation(
+    new URL('/oauth2/userInfo', `${config.loginUrl}/`),
+    {
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${accessToken}`,
+      },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8_000),
+    }
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Cognito rejected the session with HTTP ${response.status}`
+    );
+  }
+
+  const userInfo = (await response.json()) as { sub?: unknown };
+  if (userInfo.sub !== expectedSubject) {
+    throw new Error('Cognito userInfo subject does not match the session');
+  }
+}
+
 export function validateCognitoClaims(
   config: CognitoConfig,
   access: JWTPayload,
@@ -233,13 +280,18 @@ export function validateCognitoClaims(
   expectedNonce?: string
 ): VerifiedCognitoSession {
   if (
+    access.iss !== config.issuer ||
     access.token_use !== 'access' ||
     access.client_id !== config.clientId ||
     !claimContains(access.scope, config.requiredScope)
   ) {
     throw new Error('Cognito access token claims are invalid');
   }
-  if (identity.token_use !== 'id') {
+  if (
+    identity.iss !== config.issuer ||
+    !audienceContains(identity.aud, config.clientId) ||
+    identity.token_use !== 'id'
+  ) {
     throw new Error('Cognito ID token claims are invalid');
   }
   if (expectedNonce && identity.nonce !== expectedNonce) {
@@ -247,6 +299,12 @@ export function validateCognitoClaims(
   }
   if (identity.email_verified !== true) {
     throw new Error('Cognito administrator email is not verified');
+  }
+
+  const accessSubject = requireStringClaim(access, 'sub');
+  const identitySubject = requireStringClaim(identity, 'sub');
+  if (accessSubject !== identitySubject) {
+    throw new Error('Cognito token subjects do not match');
   }
 
   const accessExpiresAt = access.exp;
@@ -257,7 +315,7 @@ export function validateCognitoClaims(
   return {
     accessExpiresAt,
     user: {
-      id: requireStringClaim(identity, 'sub'),
+      id: identitySubject,
       email: requireStringClaim(identity, 'email'),
     },
   };

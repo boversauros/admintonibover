@@ -35,7 +35,7 @@ export async function GET(): Promise<Response> {
     { headers: { 'cache-control': 'no-store' } }
   );
   if (session.refreshedTokens) {
-    setCognitoSessionCookies(response, session.refreshedTokens);
+    await setCognitoSessionCookies(response, session.refreshedTokens);
   }
   return response;
 }

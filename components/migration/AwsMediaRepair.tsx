@@ -20,6 +20,7 @@ import {
   type PresignedImageUpload,
 } from '@/lib/domain/media/contracts';
 import { validateUploadDescriptor } from '@/lib/domain/media/validation';
+import { redirectIfSessionExpired } from '@/lib/auth/client-session';
 
 type LoadState =
   | { status: 'idle' }
@@ -38,6 +39,7 @@ type UploadStage =
 const ACCEPTED_IMAGE_TYPES = ALLOWED_IMAGE_MIME_TYPES.join(',');
 
 async function responsePayload<T>(response: Response): Promise<T> {
+  redirectIfSessionExpired(response);
   const payload = (await response.json()) as MediaApiSuccess<T> | MediaApiError;
   if (!response.ok || !('data' in payload)) {
     throw new Error(

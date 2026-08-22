@@ -10,6 +10,7 @@ import {
   type TracerPost,
 } from '@/lib/aws/tracer-contract';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { redirectIfSessionExpired } from '@/lib/auth/client-session';
 import { AwsMediaRepair } from '@/components/migration/AwsMediaRepair';
 
 type TracerState =
@@ -32,6 +33,7 @@ async function loadTracerPost(signal: AbortSignal): Promise<TracerState> {
       signal,
     }
   );
+  redirectIfSessionExpired(response);
   const payload = (await response.json()) as TracerApiResponse;
 
   if (response.ok && isTracerSuccessResponse(payload)) {
