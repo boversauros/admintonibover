@@ -1,20 +1,58 @@
-import { useState, useEffect } from 'react';
-import { getKeywords, KeywordsByLanguage } from '../api/keywords';
+'use client';
 
-const CACHE_KEY = 'keywords_cache';
-const CACHE_DURATION = 1000 * 60 * 60; // 1 hour in milliseconds
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import {
+  getAdminKeywords,
+  type AdminKeywordsByLanguage,
+} from '@/lib/api/adminReads';
+import { useAuth } from '@/lib/auth/AuthContext';
+
+const CACHE_KEY_PREFIX = 'admin_keywords:v2';
+const CACHE_DURATION = 1000 * 60 * 60;
 
 interface CachedData {
-  keywords: KeywordsByLanguage;
+  keywords: AdminKeywordsByLanguage;
   timestamp: number;
 }
 
-/**
- * Custom hook to fetch and cache keywords with localStorage
- * Automatically refetches if cache is older than CACHE_DURATION
- */
+function readCache(cacheKey: string): CachedData | null {
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (!cached) return null;
+
+    const value = JSON.parse(cached) as Partial<CachedData>;
+    if (
+      typeof value.timestamp === 'number' &&
+      value.keywords &&
+      Array.isArray(value.keywords.ca) &&
+      Array.isArray(value.keywords.en) &&
+      Date.now() - value.timestamp < CACHE_DURATION
+    ) {
+      return value as CachedData;
+    }
+    localStorage.removeItem(cacheKey);
+  } catch {
+    // Storage can be unavailable in private/restricted browser contexts.
+  }
+  return null;
+}
+
+function writeCache(cacheKey: string, keywords: AdminKeywordsByLanguage) {
+  try {
+    localStorage.setItem(
+      cacheKey,
+      JSON.stringify({ keywords, timestamp: Date.now() } satisfies CachedData)
+    );
+  } catch {
+    // Keyword suggestions still work without the optional local cache.
+  }
+}
+
 export function useKeywords() {
-  const [keywords, setKeywords] = useState<KeywordsByLanguage>({
+  const { backend } = useAuth();
+  const cacheKey = useMemo(() => `${CACHE_KEY_PREFIX}:${backend}`, [backend]);
+  const [keywords, setKeywords] = useState<AdminKeywordsByLanguage>({
     ca: [],
     en: [],
   });
@@ -22,92 +60,66 @@ export function useKeywords() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    async function fetchKeywords() {
-      try {
-        // Check localStorage for cached data
-        const cached = localStorage.getItem(CACHE_KEY);
-
-        if (cached) {
-          try {
-            const cachedData = JSON.parse(cached) as Partial<CachedData>;
-            const now = Date.now();
-
-            if (
-              cachedData &&
-              typeof cachedData.timestamp === 'number' &&
-              cachedData.keywords &&
-              Array.isArray(cachedData.keywords.ca) &&
-              Array.isArray(cachedData.keywords.en) &&
-              now - cachedData.timestamp < CACHE_DURATION
-            ) {
-              setKeywords(cachedData.keywords as KeywordsByLanguage);
-              setIsLoading(false);
-              return;
-            }
-          } catch {
-            localStorage.removeItem(CACHE_KEY);
-          }
-        }
-
-        // Fetch fresh data from database
-        const freshKeywords = await getKeywords();
-
-        // Update state
-        setKeywords(freshKeywords);
-
-        // Cache in localStorage
-        const cacheData: CachedData = {
-          keywords: freshKeywords,
-          timestamp: Date.now(),
-        };
-        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-
+    const controller = new AbortController();
+    void Promise.resolve().then(async () => {
+      if (controller.signal.aborted) return;
+      const cached = readCache(cacheKey);
+      if (cached) {
+        setKeywords(cached.keywords);
         setIsLoading(false);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to fetch keywords'));
-        setIsLoading(false);
+        setError(null);
+        return;
       }
-    }
 
-    fetchKeywords();
-  }, []);
+      setIsLoading(true);
+      setError(null);
+      try {
+        const freshKeywords = await getAdminKeywords(
+          backend,
+          controller.signal
+        );
+        setKeywords(freshKeywords);
+        writeCache(cacheKey, freshKeywords);
+      } catch (reason) {
+        if (reason instanceof Error && reason.name === 'AbortError') return;
+        setError(
+          reason instanceof Error
+            ? reason
+            : new Error('No s’han pogut carregar les paraules clau.')
+        );
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
+      }
+    });
 
-  /**
-   * Force refetch keywords and update cache
-   */
-  const refetch = async () => {
+    return () => controller.abort();
+  }, [backend, cacheKey]);
+
+  const refetch = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-
     try {
-      const freshKeywords = await getKeywords();
+      const freshKeywords = await getAdminKeywords(backend);
       setKeywords(freshKeywords);
-
-      const cacheData: CachedData = {
-        keywords: freshKeywords,
-        timestamp: Date.now(),
-      };
-      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-
-      setIsLoading(false);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch keywords'));
+      writeCache(cacheKey, freshKeywords);
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason
+          : new Error('No s’han pogut carregar les paraules clau.')
+      );
+    } finally {
       setIsLoading(false);
     }
-  };
+  }, [backend, cacheKey]);
 
-  /**
-   * Clear the cache
-   */
-  const clearCache = () => {
-    localStorage.removeItem(CACHE_KEY);
-  };
+  const clearCache = useCallback(() => {
+    try {
+      localStorage.removeItem(cacheKey);
+    } catch {
+      // Clearing an optional cache is best-effort.
+    }
+  }, [cacheKey]);
 
-  return {
-    keywords,
-    isLoading,
-    error,
-    refetch,
-    clearCache,
-  };
+  return { keywords, isLoading, error, refetch, clearCache };
 }

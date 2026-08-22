@@ -6,7 +6,8 @@ import { Text } from './Text';
 
 interface PaginationProps {
   currentPage: number;
-  totalPages: number;
+  totalPages?: number;
+  hasNextPage?: boolean;
   onPageChange: (page: number) => void;
   className?: string;
 }
@@ -14,16 +15,18 @@ interface PaginationProps {
 export function Pagination({
   currentPage,
   totalPages,
+  hasNextPage = false,
   onPageChange,
   className = '',
 }: PaginationProps) {
   // Don't render if only one page
-  if (totalPages <= 1) {
+  if (currentPage === 1 && !hasNextPage && (totalPages ?? 1) <= 1) {
     return null;
   }
 
   const isFirstPage = currentPage === 1;
-  const isLastPage = currentPage === totalPages;
+  const isLastPage =
+    totalPages === undefined ? !hasNextPage : currentPage === totalPages;
 
   return (
     <nav
@@ -47,7 +50,9 @@ export function Pagination({
 
       {/* Page indicator */}
       <Text as="span" variant="small" className="text-muted">
-        {currentPage} / {totalPages}
+        {totalPages === undefined
+          ? `Pàgina ${currentPage}`
+          : `${currentPage} / ${totalPages}`}
       </Text>
 
       {/* Next Button */}

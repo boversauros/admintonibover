@@ -3,34 +3,42 @@
 import { useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Select, Heading, Text } from '@/components/ui';
-import { getCategories, type Category } from '@/lib/api/categories';
+import { getAdminCategories, type AdminCategory } from '@/lib/api/adminReads';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export function PostMetadataSection() {
+  const { backend } = useAuth();
   const {
     register,
     formState: { errors },
   } = useFormContext();
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
     async function loadCategories() {
       try {
-        const fetchedCategories = await getCategories();
+        const fetchedCategories = await getAdminCategories(
+          backend,
+          controller.signal
+        );
         setCategories(fetchedCategories);
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
         console.error('Failed to load categories:', error);
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     }
 
     loadCategories();
-  }, []);
+    return () => controller.abort();
+  }, [backend]);
 
   const categoryOptions = categories.map(cat => ({
-    value: cat.id.toString(),
-    label: `${cat.name_ca} / ${cat.name_en}`,
+    value: cat.id,
+    label: `${cat.nameCa} / ${cat.nameEn}`,
   }));
 
   return (

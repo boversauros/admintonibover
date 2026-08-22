@@ -57,7 +57,8 @@ export function AuthProvider({
     }
 
     void import('../supabase')
-      .then(({ supabase }) => {
+      .then(({ createClient }) => {
+        const supabase = createClient();
         void supabase.auth.getSession().then(({ data: { session } }) => {
           if (!active) return;
           setSession(
@@ -105,7 +106,8 @@ export function AuthProvider({
       return;
     }
 
-    const { supabase } = await import('../supabase');
+    const { createClient } = await import('../supabase');
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -132,7 +134,8 @@ export function AuthProvider({
       return;
     }
 
-    const { supabase } = await import('../supabase');
+    const { createClient } = await import('../supabase');
+    const supabase = createClient();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };

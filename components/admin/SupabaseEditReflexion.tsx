@@ -2,42 +2,53 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { PostForm } from '@/components/forms/PostForm';
-import { getPostById } from '@/lib/api/posts';
-import { StoredPost } from '@/lib/types/post';
-import { Container, Heading, Text, Link } from '@/components/ui';
+import { Badge, Button, Container, Heading, Text, Link } from '@/components/ui';
+import { AdminReadError, getAdminPostById } from '@/lib/api/adminReads';
+import { useAuth } from '@/lib/auth/AuthContext';
+import type { StoredPost } from '@/lib/types/post';
+
+type EditLoadState =
+  | { status: 'loading' }
+  | { status: 'not-found' }
+  | { status: 'error'; error: AdminReadError }
+  | { status: 'ready'; post: StoredPost };
 
 function EditReflexionContent() {
-  const params = useParams();
+  const params = useParams<{ id: string }>();
   const router = useRouter();
-  const [post, setPost] = useState<StoredPost | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  const { backend } = useAuth();
+  const [state, setState] = useState<EditLoadState>({ status: 'loading' });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    const fetchPost = async () => {
-      try {
-        const postId = params.id as string;
-        const foundPost = await getPostById(postId);
+    const controller = new AbortController();
+    void getAdminPostById(backend, params.id, controller.signal)
+      .then(post => {
+        setState(post ? { status: 'ready', post } : { status: 'not-found' });
+      })
+      .catch(error => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setState({
+          status: 'error',
+          error:
+            error instanceof AdminReadError
+              ? error
+              : new AdminReadError(
+                  'No s’ha pogut carregar l’article.',
+                  500,
+                  'DETAIL_FAILED'
+                ),
+        });
+      });
+    return () => controller.abort();
+  }, [attempt, backend, params.id]);
 
-        if (foundPost) {
-          setPost(foundPost);
-        } else {
-          setNotFound(true);
-        }
-      } catch (error) {
-        console.error('Error loading post:', error);
-        setNotFound(true);
-      }
-    };
-    fetchPost();
-  }, [params.id]);
+  const handleSuccess = () => router.push('/');
 
-  const handleSuccess = () => {
-    router.push('/');
-  };
-
-  if (notFound) {
+  if (state.status === 'not-found') {
     return (
       <div className="min-h-screen bg-background p-8">
         <Container size="default" spacing="none">
@@ -45,7 +56,7 @@ function EditReflexionContent() {
             Article no trobat
           </Heading>
           <Text variant="muted" className="mb-4">
-            L'article que busques no existeix.
+            L’article que busques no existeix.
           </Text>
           <Link href="/" variant="accent-border">
             ← Tornar
@@ -55,15 +66,67 @@ function EditReflexionContent() {
     );
   }
 
-  if (!post) {
+  if (state.status === 'error') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Text variant="muted">Carregant...</Text>
+      <div className="min-h-screen bg-background p-6 sm:p-10">
+        <Container size="default" spacing="none">
+          <section
+            role="alert"
+            className="border border-red-500/20 bg-red-500/5 px-6 py-10 sm:px-10"
+          >
+            <Badge variant="error" className="mb-5">
+              Lectura interrompuda
+            </Badge>
+            <Heading as="h1" size="3xl" className="mb-3">
+              No s’ha pogut obrir l’article
+            </Heading>
+            <Text variant="muted" className="mb-2">
+              {state.error.message}
+            </Text>
+            {state.error.requestId ? (
+              <Text variant="small" className="mb-6 text-subtle">
+                Correlació: {state.error.requestId}
+              </Text>
+            ) : null}
+            <div className="flex flex-wrap gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setState({ status: 'loading' });
+                  setAttempt(value => value + 1);
+                }}
+              >
+                Tornar-ho a provar
+              </Button>
+              <Button variant="ghost" onClick={() => router.push('/')}>
+                Tornar al llistat
+              </Button>
+            </div>
+          </section>
+        </Container>
       </div>
     );
   }
 
-  return <PostForm initialData={post} onSuccess={handleSuccess} />;
+  if (state.status === 'loading') {
+    return (
+      <div
+        aria-busy="true"
+        aria-live="polite"
+        className="flex min-h-screen items-center justify-center bg-background"
+      >
+        <Text variant="muted">Carregant l’article…</Text>
+      </div>
+    );
+  }
+
+  return (
+    <PostForm
+      initialData={state.post}
+      onSuccess={handleSuccess}
+      readOnly={backend === 'aws'}
+    />
+  );
 }
 
 export function SupabaseEditReflexion() {

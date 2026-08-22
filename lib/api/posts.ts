@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { createClient } from '../supabase';
 import { StoredPost, Language, Reference, Image } from '../types/post';
 import { getUserId } from '../auth/utils';
 
@@ -138,6 +138,7 @@ function groupReferences(rows: any[] | null): Map<number, Reference[]> {
  */
 export async function getPosts(): Promise<StoredPost[]> {
   try {
+    const supabase = createClient();
     const { data: posts, error: postsError } = await supabase
       .from('posts')
       .select(POST_SELECT)
@@ -179,6 +180,7 @@ export async function getPosts(): Promise<StoredPost[]> {
  */
 export async function getPostById(id: string): Promise<StoredPost | null> {
   try {
+    const supabase = createClient();
     const postId = parseInt(id);
     if (Number.isNaN(postId)) return null;
 
@@ -191,8 +193,7 @@ export async function getPostById(id: string): Promise<StoredPost | null> {
     if (postError) throw postError;
     if (!post) return null;
 
-    const translationIds =
-      post.post_translations?.map((t: any) => t.id) || [];
+    const translationIds = post.post_translations?.map((t: any) => t.id) || [];
 
     const [keywordsResult, referencesResult] = await Promise.all([
       supabase
@@ -224,6 +225,7 @@ export async function getPostById(id: string): Promise<StoredPost | null> {
  * Returns total post count (used to default sort_order on create)
  */
 export async function getPostsCount(): Promise<number> {
+  const supabase = createClient();
   const { count, error } = await supabase
     .from('posts')
     .select('*', { count: 'exact', head: true });
@@ -255,6 +257,7 @@ export async function savePost(post: StoredPost): Promise<void> {
  * Creates a new post with translations, keywords, and references
  */
 async function createPost(post: StoredPost): Promise<void> {
+  const supabase = createClient();
   const userId = await getUserId();
 
   if (!userId) {
@@ -290,6 +293,7 @@ async function createPost(post: StoredPost): Promise<void> {
  * Updates an existing post
  */
 async function updatePost(post: StoredPost): Promise<void> {
+  const supabase = createClient();
   const postId = parseInt(post.id);
 
   // Update post
@@ -323,6 +327,7 @@ async function insertTranslation(
   language: Language,
   translation: StoredPost['translations']['ca']
 ): Promise<void> {
+  const supabase = createClient();
   const languageId = LANGUAGE_IDS[language];
 
   // Insert translation
@@ -355,6 +360,7 @@ async function updateTranslation(
   language: Language,
   translation: StoredPost['translations']['ca']
 ): Promise<void> {
+  const supabase = createClient();
   const languageId = LANGUAGE_IDS[language];
 
   // Get existing translation
@@ -406,6 +412,7 @@ async function insertKeywords(
   keywords: string[]
 ): Promise<void> {
   if (!keywords || keywords.length === 0) return;
+  const supabase = createClient();
 
   // Insert or get existing keywords
   const keywordRecords = await Promise.all(
@@ -443,6 +450,7 @@ async function insertReferences(
   references: Reference[]
 ): Promise<void> {
   if (!references || references.length === 0) return;
+  const supabase = createClient();
 
   const { error } = await supabase.from('post_references').insert(
     references.map((ref, index) => ({
@@ -462,6 +470,7 @@ async function insertReferences(
  */
 export async function deletePost(id: string): Promise<void> {
   try {
+    const supabase = createClient();
     const postId = parseInt(id);
     const { error } = await supabase.from('posts').delete().eq('id', postId);
 
@@ -477,6 +486,7 @@ export async function deletePost(id: string): Promise<void> {
  * Returns the number of posts that were published.
  */
 export async function publishAllPosts(): Promise<number> {
+  const supabase = createClient();
   const { data, error } = await supabase
     .from('posts')
     .update({ is_published: true })
@@ -498,6 +508,7 @@ export async function getExistingSlugs(
   excludePostId?: string
 ): Promise<string[]> {
   try {
+    const supabase = createClient();
     const languageId = LANGUAGE_IDS[language];
     let query = supabase
       .from('post_translations')

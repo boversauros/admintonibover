@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { createClient } from '../supabase';
 
 export type StorageBucket = 'post-thumbnails' | 'post-images';
 
@@ -90,6 +90,7 @@ export async function uploadImageToStorage(
   fileName?: string
 ): Promise<string> {
   try {
+    const supabase = createClient();
     const validationError = validateImageFile(file);
     if (validationError) {
       throw new Error(validationError);
@@ -133,6 +134,7 @@ export async function createImageRecord(
   alt: string = ''
 ): Promise<Image> {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .from('images')
       .insert({
@@ -170,6 +172,7 @@ export async function deleteImageFromStorage(
   bucket: StorageBucket
 ): Promise<void> {
   try {
+    const supabase = createClient();
     const filePath = extractPathFromUrl(url, bucket);
 
     const { error } = await supabase.storage.from(bucket).remove([filePath]);
@@ -189,6 +192,7 @@ export async function deleteImageFromStorage(
  */
 export async function deleteImageRecord(imageId: string): Promise<void> {
   try {
+    const supabase = createClient();
     const { error } = await supabase
       .from('images')
       .delete()
@@ -209,6 +213,7 @@ export async function deleteImageRecord(imageId: string): Promise<void> {
  */
 export async function getImageById(imageId: string): Promise<Image | null> {
   try {
+    const supabase = createClient();
     const { data, error } = await supabase
       .from('images')
       .select('*')
@@ -250,6 +255,7 @@ export async function updateImageRecord(
   title?: string
 ): Promise<Image> {
   try {
+    const supabase = createClient();
     const updateData: { alt: string; title?: string; updated_at: string } = {
       alt,
       updated_at: new Date().toISOString(),

@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { createClient } from '../supabase';
 import type { Database } from '../types/database';
 
 const PAGE_SIZE = 1000;
@@ -38,6 +38,7 @@ type PublicTableName = keyof Database['public']['Tables'];
 async function fetchAllRows(
   table: PublicTableName
 ): Promise<Record<string, unknown>[]> {
+  const supabase = createClient();
   const rows: Record<string, unknown>[] = [];
   let from = 0;
 
@@ -75,8 +76,7 @@ export async function exportFullBackup(): Promise<Backup> {
         tables[tableName] = rows;
         row_counts[tableName] = rows.length;
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : String(err);
+        const message = err instanceof Error ? err.message : String(err);
         failures.push(`${tableName}: ${message}`);
         tables[tableName] = [];
         row_counts[tableName] = 0;
@@ -90,8 +90,7 @@ export async function exportFullBackup(): Promise<Backup> {
     );
   }
 
-  const sourceUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'unknown';
+  const sourceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'unknown';
 
   return {
     manifest: {
@@ -106,10 +105,7 @@ export async function exportFullBackup(): Promise<Backup> {
 }
 
 function backupFilename(): string {
-  const stamp = new Date()
-    .toISOString()
-    .replace(/[:.]/g, '-')
-    .slice(0, 19);
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   return `tonibover-backup-${stamp}.json`;
 }
 
