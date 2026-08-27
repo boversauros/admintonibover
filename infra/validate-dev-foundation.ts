@@ -469,6 +469,7 @@ export function validateDevFoundationTemplate(
     PostImagesReadRoute: 'GET /posts/{id}/images',
     PostImagePresignRoute: 'POST /posts/{id}/images/presign',
     PostImageConfirmRoute: 'POST /posts/{id}/images/confirm',
+    PostImageDetachRoute: 'DELETE /posts/{id}/images/{role}',
     CategoriesListRoute: 'GET /categories',
     CategoryCreateRoute: 'POST /categories',
     CategoryUpdateRoute: 'PUT /categories/{id}',

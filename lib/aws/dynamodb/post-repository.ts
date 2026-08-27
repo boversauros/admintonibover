@@ -1,5 +1,8 @@
 import { MediaUploadConflictError } from '@/lib/domain/media/errors';
-import type { ImageRole } from '@/lib/domain/media/contracts';
+import {
+  imageInventoryStatus,
+  type ImageRole,
+} from '@/lib/domain/media/contracts';
 import {
   PostAggregateTooLargeError,
   PostDataIntegrityError,
@@ -10,6 +13,7 @@ import {
 } from '@/lib/domain/posts/errors';
 import type {
   DeletePostResult,
+  DetachImageResult,
   ListPostsOptions,
   PostListPage,
   PostRepository,
@@ -153,6 +157,12 @@ function matchesListFilters(
   if (
     options.categoryId !== undefined &&
     item.category.id !== options.categoryId
+  ) {
+    return false;
+  }
+  if (
+    options.imageStatus !== undefined &&
+    imageInventoryStatus(item) !== options.imageStatus
   ) {
     return false;
   }
@@ -352,6 +362,16 @@ export class DynamoDbPostRepository implements PostRepository {
       for (let index = 0; index < page.items.length; index += 1) {
         const raw = page.items[index];
         const item = postListItemFromItem(raw);
+        if (raw.mainImage === undefined) {
+          const canonical = await this.getById(item.id);
+          if (!canonical) {
+            throw new PostDataIntegrityError(
+              `legacy-summary-without-aggregate:${item.id}`
+            );
+          }
+          item.mainImage = canonical.mainImage;
+          item.thumbImage = canonical.thumbImage;
+        }
         if (!matchesListFilters(item, options)) continue;
         items.push(item);
         if (items.length === options.limit) {
@@ -456,6 +476,61 @@ export class DynamoDbPostRepository implements PostRepository {
       this.mapTransactionError(error, actions, input.postId, expectedVersion);
     }
     return { version: post.version, previousImageKey };
+  }
+
+  async detachImage(
+    postId: string,
+    role: ImageRole,
+    expectedVersion: number
+  ): Promise<DetachImageResult> {
+    if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+      throw validationError(
+        'expectedVersion',
+        'INVALID_VERSION',
+        'Expected version must be an integer of at least 1'
+      );
+    }
+    const current = await this.getById(postId);
+    if (!current) throw new PostNotFoundError(postId);
+    if (current.version !== expectedVersion) {
+      throw new PostVersionConflictError(postId, expectedVersion);
+    }
+
+    const field = role === 'main' ? 'mainImage' : 'thumbImage';
+    const previousImageKey = current[field]?.key ?? null;
+    if (!previousImageKey) {
+      return {
+        postId,
+        role,
+        version: current.version,
+        previousImageKey: null,
+        detached: false,
+      };
+    }
+
+    const post: Post = {
+      ...clonePost(current),
+      [field]: null,
+      version: expectedVersion + 1,
+      updatedAt: this.clock().toISOString(),
+    };
+    const previous = preparePostItems(current);
+    const next = preparePostItems(post);
+    const actions = this.updateActions(previous, next, post, expectedVersion);
+    assertTransactionWithinLimits(actions);
+
+    try {
+      await this.dynamodb.transactWrite(actions);
+    } catch (error) {
+      this.mapTransactionError(error, actions, postId, expectedVersion);
+    }
+    return {
+      postId,
+      role,
+      version: post.version,
+      previousImageKey,
+      detached: true,
+    };
   }
 
   async delete(id: string, expectedVersion: number): Promise<DeletePostResult> {

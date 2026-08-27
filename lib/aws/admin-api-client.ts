@@ -120,6 +120,7 @@ export class AdminApiClient {
       query.set('published', String(options.published));
     }
     if (options.categoryId) query.set('categoryId', options.categoryId);
+    if (options.imageStatus) query.set('imageStatus', options.imageStatus);
     return this.request(`posts?${query.toString()}`, parsePostListEnvelope);
   }
 

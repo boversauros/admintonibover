@@ -94,6 +94,7 @@ export type PostSummaryItem = DynamoItem & {
   titles: Record<PostLanguage, string>;
   excerpts: Record<PostLanguage, string>;
   keywords: Record<PostLanguage, string[]>;
+  mainImage: PostImage | null;
   thumbImage: PostImage | null;
 };
 
@@ -291,6 +292,7 @@ function summaryItem(post: Post): PostSummaryItem {
       ca: post.translations.ca.keywords.map(keyword => keyword.value),
       en: post.translations.en.keywords.map(keyword => keyword.value),
     },
+    mainImage: post.mainImage ? { ...post.mainImage } : null,
     thumbImage: post.thumbImage ? { ...post.thumbImage } : null,
   };
 }
@@ -662,6 +664,10 @@ export function postListItemFromItem(item: DynamoItem): PostListItem {
         stringValue(value, `summary.keywords.en.${index}`)
       ),
     },
+    mainImage:
+      item.mainImage === undefined
+        ? null
+        : parseImage(item.mainImage, 'summary.mainImage'),
     thumbImage: parseImage(item.thumbImage, 'summary.thumbImage'),
   };
   if (item.SK !== postSummaryKey(result).SK) dataError('summary:key');

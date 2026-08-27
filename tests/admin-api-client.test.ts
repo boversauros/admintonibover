@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   adaptAwsPost,
   getAdminCategories,
+  getAdminImageInventory,
   getAdminPostsPage,
 } from '../lib/api/adminReads';
 import { AdminApiClient } from '../lib/aws/admin-api-client';
@@ -42,6 +43,7 @@ function listItem(id: string, sortOrder: number): PostListItem {
     titles: { ca: `Títol ${id}`, en: `Title ${id}` },
     excerpts: { ca: `Resum ${id}`, en: `Excerpt ${id}` },
     keywords: { ca: ['filosofia'], en: ['philosophy'] },
+    mainImage: null,
     thumbImage: null,
   };
 }
@@ -132,6 +134,7 @@ test('list reads attach the server token, forward filters, and make one request 
     title: 'reflexió',
     published: true,
     categoryId: 'category-1',
+    imageStatus: 'missing-both',
   });
   assert.equal(first.ok, true);
   assert.equal(first.ok && first.envelope.data.nextCursor, 'page-2');
@@ -143,6 +146,7 @@ test('list reads attach the server token, forward filters, and make one request 
     title: 'reflexió',
     published: true,
     categoryId: 'category-1',
+    imageStatus: 'missing-both',
   });
   assert.equal(second.ok, true);
 
@@ -152,6 +156,7 @@ test('list reads attach the server token, forward filters, and make one request 
   assert.match(requestedUrls[0] ?? '', /title=reflexi%C3%B3/);
   assert.match(requestedUrls[0] ?? '', /published=true/);
   assert.match(requestedUrls[0] ?? '', /categoryId=category-1/);
+  assert.match(requestedUrls[0] ?? '', /imageStatus=missing-both/);
   assert.match(requestedUrls[1] ?? '', /cursor=page-2/);
   assert.deepEqual(authorizationHeaders, [
     `Bearer ${ACCESS_TOKEN}`,
@@ -208,6 +213,42 @@ test('the browser AWS adapter makes one same-origin request without a bearer tok
   assert.equal(credentials, 'same-origin');
   assert.equal(requestHeaders.get('authorization'), null);
   assert.match(requestHeaders.get('x-correlation-id') ?? '', /^[0-9a-f-]{36}$/);
+});
+
+test('the browser inventory count covers all four image combinations', async () => {
+  const originalFetch = globalThis.fetch;
+  const complete = {
+    ...listItem('complete', 4),
+    mainImage: image('main'),
+    thumbImage: image('thumb'),
+  };
+  const missingMain = {
+    ...listItem('missing-main', 3),
+    thumbImage: image('thumb'),
+  };
+  const missingThumbnail = {
+    ...listItem('missing-thumbnail', 2),
+    mainImage: image('main'),
+  };
+  const missingBoth = listItem('missing-both', 1);
+  globalThis.fetch = async () =>
+    Response.json(
+      successEnvelope<AdminPostListPage>({
+        items: [complete, missingMain, missingThumbnail, missingBoth],
+        nextCursor: null,
+      })
+    );
+
+  try {
+    assert.deepEqual(await getAdminImageInventory('aws'), {
+      complete: 1,
+      'missing-main': 1,
+      'missing-thumbnail': 1,
+      'missing-both': 1,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('AWS categories include the three original Supabase categories when its catalog is empty', async () => {
