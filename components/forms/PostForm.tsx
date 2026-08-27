@@ -1,7 +1,13 @@
 'use client';
 
 import { type BaseSyntheticEvent, useEffect, useRef, useState } from 'react';
-import { FormProvider, useForm, useWatch } from 'react-hook-form';
+import {
+  Controller,
+  FormProvider,
+  useForm,
+  useWatch,
+  type SubmitErrorHandler,
+} from 'react-hook-form';
 import { Button, Select, Input, Modal, Text } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useKeywords } from '@/lib/hooks/useKeywords';
@@ -23,6 +29,10 @@ import {
   type AdminCategory,
 } from '@/lib/api/adminReads';
 import type { Post } from '@/lib/domain/posts/types';
+import {
+  postFormResolver,
+  type PostFormValidationContext,
+} from '@/lib/validation/postSchema';
 import { LanguageTabs } from './LanguageTabs';
 import { TranslationSection } from './TranslationSection';
 import { KeywordsSection } from './KeywordsSection';
@@ -127,6 +137,11 @@ export function PostForm({
           controller.signal
         );
         setCategories(fetchedCategories);
+        if (fetchedCategories.length === 0) {
+          setCategoryError(
+            'No hi ha categories disponibles. Cal crear-ne una abans de desar un article.'
+          );
+        }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
         setCategoryError(
@@ -164,7 +179,9 @@ export function PostForm({
     return () => controller.abort();
   }, [activeAwsPostId, backend]);
 
-  const methods = useForm<PostFormData>({
+  const methods = useForm<PostFormData, PostFormValidationContext>({
+    resolver: postFormResolver,
+    context: { requireCompleteTranslations: backend === 'aws' },
     defaultValues: initialData
       ? {
           category_id: initialData.category_id,
@@ -222,11 +239,15 @@ export function PostForm({
             },
           },
         },
-    mode: 'onChange',
+    mode: 'onSubmit',
+    reValidateMode: 'onBlur',
+    shouldFocusError: false,
   });
 
   const {
+    control,
     setValue,
+    setFocus,
     handleSubmit,
     register,
     formState: { errors },
@@ -563,6 +584,30 @@ export function PostForm({
     }
   };
 
+  const onInvalid: SubmitErrorHandler<PostFormData> = validationErrors => {
+    const caErrors = validationErrors.translations?.ca;
+    const enErrors = validationErrors.translations?.en;
+    const language = caErrors ? 'ca' : enErrors ? 'en' : null;
+    const field = language
+      ? validationErrors.translations?.[language]?.title
+        ? 'title'
+        : 'content'
+      : null;
+
+    if (language && field) {
+      setActiveLanguage(language);
+      window.requestAnimationFrame(() =>
+        setFocus(`translations.${language}.${field}`)
+      );
+    } else if (validationErrors.category_id) {
+      setFocus('category_id');
+    }
+
+    setSubmissionError(
+      'Revisa els camps obligatoris indicats abans de crear l’article.'
+    );
+  };
+
   const categoryOptions = categories.map(cat => ({
     value: cat.id,
     label: cat.nameCa,
@@ -600,7 +645,7 @@ export function PostForm({
   return (
     <FormProvider {...methods}>
       <form
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
         className="min-h-screen bg-background"
       >
         {/* Sticky Header */}
@@ -775,15 +820,21 @@ export function PostForm({
                   <label className="block text-xs text-muted uppercase tracking-wider">
                     Categoria
                   </label>
-                  <Select
-                    {...register('category_id')}
-                    options={categoryOptions}
-                    placeholder={
-                      categoryError
-                        ? 'Categories no disponibles'
-                        : 'Selecciona...'
-                    }
-                    error={errors.category_id?.message as string}
+                  <Controller
+                    control={control}
+                    name="category_id"
+                    render={({ field, fieldState }) => (
+                      <Select
+                        {...field}
+                        options={categoryOptions}
+                        placeholder={
+                          categoryError
+                            ? 'Categories no disponibles'
+                            : 'Selecciona...'
+                        }
+                        error={fieldState.error?.message}
+                      />
+                    )}
                   />
                 </div>
 

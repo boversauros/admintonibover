@@ -1,4 +1,5 @@
 import type { AdminDataBackend } from '@/lib/config/adminBackend';
+import { INITIAL_CATEGORY_CATALOG } from '@/lib/domain/categories/catalog';
 import type { Post, PostImage, PostListItem } from '@/lib/domain/posts/types';
 import {
   parseAdminApiErrorEnvelope,
@@ -11,6 +12,8 @@ import {
 import type { StoredPost } from '@/lib/types/post';
 
 import { redirectIfSessionExpired } from '../auth/client-session';
+
+export const AWS_ADMIN_POST_PAGE_LIMIT = 50;
 
 export type AdminPostSummary = {
   id: string;
@@ -371,12 +374,13 @@ export async function getAdminCategories(
       parseCategoriesEnvelope,
       signal
     );
-    return response.data.items.map(category => ({
+    const categories = response.data.items.map(category => ({
       id: category.id,
       slug: category.slug,
       nameCa: category.names.ca,
       nameEn: category.names.en,
     }));
+    return mergeInitialCategories(categories);
   }
   const { getCategories } = await import('./categories');
   const categories = await getCategories();
@@ -387,6 +391,30 @@ export async function getAdminCategories(
     nameCa: category.name_ca,
     nameEn: category.name_en,
   }));
+}
+
+function mergeInitialCategories(
+  storedCategories: AdminCategory[]
+): AdminCategory[] {
+  const unmatchedStoredCategories = [...storedCategories];
+  const initialCategories = INITIAL_CATEGORY_CATALOG.map(initialCategory => {
+    const storedIndex = unmatchedStoredCategories.findIndex(
+      storedCategory =>
+        storedCategory.id === initialCategory.id ||
+        storedCategory.slug === initialCategory.slug
+    );
+    if (storedIndex >= 0) {
+      return unmatchedStoredCategories.splice(storedIndex, 1)[0];
+    }
+    return {
+      id: initialCategory.id,
+      slug: initialCategory.slug,
+      nameCa: initialCategory.names.ca,
+      nameEn: initialCategory.names.en,
+    };
+  });
+
+  return [...initialCategories, ...unmatchedStoredCategories];
 }
 
 export async function getAdminKeywords(

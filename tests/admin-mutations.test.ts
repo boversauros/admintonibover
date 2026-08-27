@@ -135,6 +135,7 @@ test('AWS post adapter preserves canonical IDs, images, migration state, and eve
   });
 
   assert.equal(adapted.id, current.id);
+  assert.deepEqual(adapted.category, current.category);
   assert.equal(adapted.version, 7);
   assert.equal(adapted.published, false);
   assert.deepEqual(adapted.mainImage, current.mainImage);
@@ -318,6 +319,14 @@ test('AWS count helpers paginate exact list and draft counts without credentials
   }
 
   assert.equal(paths.length, 4);
+  assert.equal(
+    paths.every(path => path.includes('limit=50')),
+    true
+  );
+  assert.equal(
+    paths.some(path => path.includes('limit=100')),
+    false
+  );
   assert.equal(
     paths.filter(path => path.includes('published=false')).length,
     2

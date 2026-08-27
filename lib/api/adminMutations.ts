@@ -24,7 +24,7 @@ import type {
 } from '@/lib/domain/posts/types';
 import type { StoredPost } from '@/lib/types/post';
 
-import { getAdminPostsPage } from './adminReads';
+import { AWS_ADMIN_POST_PAGE_LIMIT, getAdminPostsPage } from './adminReads';
 
 const RETRYABLE_GATEWAY_STATUSES = new Set([502, 503, 504]);
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
@@ -600,7 +600,7 @@ export async function countDraftPosts(
   const seenCursors = new Set<string>();
   do {
     const page = await getAdminPostsPage('aws', {
-      limit: MAX_BULK_POSTS,
+      limit: AWS_ADMIN_POST_PAGE_LIMIT,
       cursor,
       direction: 'ascending',
       published: false,
@@ -645,7 +645,7 @@ export async function countAdminPosts(
   const seenCursors = new Set<string>();
   do {
     const page = await getAdminPostsPage('aws', {
-      limit: 100,
+      limit: AWS_ADMIN_POST_PAGE_LIMIT,
       cursor,
       direction: 'ascending',
       signal,

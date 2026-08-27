@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-25
+- Amended: 2026-08-27 (admin UI continuity contract)
 - Decision owner: project owner
 - Related issues:
   [#2](https://github.com/boversauros/admintonibover/issues/2),
@@ -38,6 +39,37 @@ recoverability, security, and a low idle cost rather than for unneeded scale.
 - No unauthenticated admin data route exists. API Gateway applies the JWT
   authorizer to every application route. Gateway-managed CORS preflight, if
   enabled, returns no application data.
+
+### Admin UI continuity contract
+
+The Supabase-to-AWS migration changes the administration application's
+authentication, data, and storage adapters. It is not an admin redesign. The
+accepted end state must preserve the same administration UI before and after
+`ADMIN_DATA_BACKEND` changes from `supabase` to `aws`.
+
+In particular:
+
+- both backends use the same Next.js routes and shared list, create, and edit
+  components;
+- the information architecture, page layout, field labels, controls, and normal
+  content-management workflows remain equivalent across the backend switch;
+- an AWS-specific duplicate or replacement of the administration UI is not
+  permitted as part of this migration;
+- a visual or interaction redesign requires a separate issue, explicit product
+  approval, and its own acceptance evidence; and
+- legacy component names containing `Supabase` may be renamed during cleanup,
+  but such a rename does not authorize a visual or workflow change.
+
+Backend-specific behavior is allowed only where the platform boundary requires
+it, including Cognito sign-in, optimistic-conflict recovery, retry and
+correlation feedback, and private S3 image upload or preview states. These
+states must use the existing design system and must not change the normal admin
+workflow unnecessarily.
+
+AWS badges, migration-status banners, tracer screens, and read-only migration
+notices are temporary verification aids. They are not part of the final admin
+interface and must be removed from the normal workflow, or moved to an explicit
+diagnostic route, before the migration is considered complete.
 
 ### Environments, configuration, and infrastructure ownership
 

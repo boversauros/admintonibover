@@ -93,3 +93,30 @@ When an issue requires proof that a guard fails, push a safe intentional failure
 to the draft PR, link the failing Actions run, then revert the failure in the
 same PR and link the passing run. Never use a real secret or cloud resource for
 negative testing.
+
+## Admin UI continuity evidence
+
+The backend migration must satisfy the
+[admin UI continuity contract](../adr/0001-admin-only-aws-data-security-contract.md#admin-ui-continuity-contract).
+Changing the backend flag must select an adapter, not a separate administration
+interface.
+
+For every migration PR that changes an admin read, mutation, authentication, or
+storage workflow:
+
+1. Exercise the affected workflow with `ADMIN_DATA_BACKEND=supabase` and again
+   with `ADMIN_DATA_BACKEND=aws` using equivalent non-sensitive test data.
+2. Confirm that both modes use the same route and shared UI component.
+3. Compare the visible layout, labels, controls, validation placement, and
+   success path. Record any unavoidable platform-specific state separately.
+4. Attach redacted screenshots for both modes when visible UI changed or a new
+   backend-specific state was introduced.
+5. Treat an unexplained visual or workflow difference as a regression that
+   blocks acceptance.
+6. Mark migration-only badges, banners, read-only notices, and diagnostic views
+   for removal or relocation before final cutover acceptance.
+
+Authentication-provider screens themselves do not need pixel parity, but after
+successful authentication the administrator must return to the same shared
+application workflow. A future redesign must be tracked outside the migration
+and must not be bundled into backend parity work.
