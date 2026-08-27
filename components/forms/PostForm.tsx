@@ -1,19 +1,38 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { FormProvider, useForm, useWatch } from 'react-hook-form';
-import { Button, Select, Input, Text } from '@/components/ui';
+import { type BaseSyntheticEvent, useEffect, useRef, useState } from 'react';
+import {
+  Controller,
+  FormProvider,
+  useForm,
+  useWatch,
+  type SubmitErrorHandler,
+} from 'react-hook-form';
+import { Button, Select, Input, Modal, Text } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useKeywords } from '@/lib/hooks/useKeywords';
 import { PostFormData, StoredPost, Language } from '@/lib/types/post';
 import { slugify, generateUniqueSlug } from '@/lib/utils/slugify';
-import { savePost, getExistingSlugs, getPostsCount } from '@/lib/api/posts';
 import {
-  uploadAndCreateImage,
-  deleteImageCompletely,
-  updateImageRecord,
-} from '@/lib/api/images';
-import { getAdminCategories, type AdminCategory } from '@/lib/api/adminReads';
+  AdminMutationError,
+  buildAwsPost,
+  countAdminPosts,
+  createAwsPost,
+  getAwsMediaInspection,
+  setAwsPostPublication,
+  updateAwsPost,
+  uploadAwsPostImage,
+} from '@/lib/api/adminMutations';
+import {
+  adaptAwsPost,
+  getAdminCategories,
+  type AdminCategory,
+} from '@/lib/api/adminReads';
+import type { Post } from '@/lib/domain/posts/types';
+import {
+  postFormResolver,
+  type PostFormValidationContext,
+} from '@/lib/validation/postSchema';
 import { LanguageTabs } from './LanguageTabs';
 import { TranslationSection } from './TranslationSection';
 import { KeywordsSection } from './KeywordsSection';
@@ -27,6 +46,36 @@ import { CollapsibleSection } from './CollapsibleSection';
 function convertToMarkdownParagraphs(content: string): string {
   return content.trim().replace(/\n+/g, '\n\n');
 }
+
+function recoveryDraft(data: PostFormData): string {
+  return JSON.stringify(
+    {
+      ...data,
+      thumbnail_file: data.thumbnail_file
+        ? {
+            name: data.thumbnail_file.name,
+            size: data.thumbnail_file.size,
+            type: data.thumbnail_file.type,
+          }
+        : null,
+      main_image_file: data.main_image_file
+        ? {
+            name: data.main_image_file.name,
+            size: data.main_image_file.size,
+            type: data.main_image_file.type,
+          }
+        : null,
+    },
+    null,
+    2
+  );
+}
+
+type ConflictState = {
+  message: string;
+  recovery: string;
+  requestId?: string;
+};
 
 interface PostFormProps {
   initialData?: StoredPost;
@@ -51,6 +100,14 @@ export function PostForm({
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [categoryRetry, setCategoryRetry] = useState(0);
+  const [savedAwsPost, setSavedAwsPost] = useState<Post | null>(
+    initialData?.aws_post ?? null
+  );
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [conflict, setConflict] = useState<ConflictState | null>(null);
+  const [recoveryCopied, setRecoveryCopied] = useState(false);
+  const [newAwsPostId, setNewAwsPostId] = useState<string | null>(null);
   const [existingThumbnailId, setExistingThumbnailId] = useState<string | null>(
     initialData?.thumbnail_id || null
   );
@@ -67,6 +124,8 @@ export function PostForm({
     initialData?.image?.alt || ''
   );
 
+  const activeAwsPostId = savedAwsPost?.id ?? initialData?.id;
+
   // Load categories on mount
   useEffect(() => {
     const controller = new AbortController();
@@ -78,6 +137,11 @@ export function PostForm({
           controller.signal
         );
         setCategories(fetchedCategories);
+        if (fetchedCategories.length === 0) {
+          setCategoryError(
+            'No hi ha categories disponibles. Cal crear-ne una abans de desar un article.'
+          );
+        }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
         setCategoryError(
@@ -91,7 +155,33 @@ export function PostForm({
     return () => controller.abort();
   }, [backend, categoryRetry]);
 
-  const methods = useForm<PostFormData>({
+  useEffect(() => {
+    if (backend !== 'aws' || !activeAwsPostId) return;
+    const controller = new AbortController();
+    void getAwsMediaInspection(activeAwsPostId, controller.signal)
+      .then(inspection => {
+        const main = inspection.images.main;
+        const thumb = inspection.images.thumb;
+        setExistingMainImageId(main?.image.key ?? null);
+        setExistingMainImageUrl(main?.previewUrl ?? '');
+        setExistingMainImageAlt(main?.image.alt ?? '');
+        setExistingThumbnailId(thumb?.image.key ?? null);
+        setExistingThumbnailUrl(thumb?.previewUrl ?? '');
+      })
+      .catch(error => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setSubmissionError(
+          error instanceof Error
+            ? error.message
+            : 'No s’han pogut carregar les imatges privades.'
+        );
+      });
+    return () => controller.abort();
+  }, [activeAwsPostId, backend]);
+
+  const methods = useForm<PostFormData, PostFormValidationContext>({
+    resolver: postFormResolver,
+    context: { requireCompleteTranslations: backend === 'aws' },
     defaultValues: initialData
       ? {
           category_id: initialData.category_id,
@@ -149,11 +239,15 @@ export function PostForm({
             },
           },
         },
-    mode: 'onChange',
+    mode: 'onSubmit',
+    reValidateMode: 'onBlur',
+    shouldFocusError: false,
   });
 
   const {
+    control,
     setValue,
+    setFocus,
     handleSubmit,
     register,
     formState: { errors },
@@ -161,10 +255,15 @@ export function PostForm({
 
   // On create, default sort_order to total posts + 1
   useEffect(() => {
-    if (initialData || readOnly || backend === 'aws') return;
-    getPostsCount()
+    if (initialData || readOnly) return;
+    const controller = new AbortController();
+    void countAdminPosts(backend, controller.signal)
       .then(count => setValue('sort_order', count + 1))
-      .catch(error => console.error('Failed to load posts count:', error));
+      .catch(error => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setSubmissionError('No s’ha pogut calcular l’ordre inicial.');
+      });
+    return () => controller.abort();
   }, [backend, initialData, readOnly, setValue]);
 
   // Auto-generate slugs from titles
@@ -205,157 +304,308 @@ export function PostForm({
     }
   }, [setValue, slugEN, titleEN]);
 
-  const onSubmit = async (data: PostFormData) => {
-    if (isSubmitting || readOnly) return; // Prevent multiple submissions and AWS writes
-
-    setIsSubmitting(true);
-
-    try {
-      const now = new Date().toISOString();
-      const isEditMode = !!initialData;
-
-      // 1. Handle thumbnail upload
-      let thumbnailId = existingThumbnailId;
-      let newThumbnailUrl = existingThumbnailUrl;
-      // Auto-generate thumbnail alt text from post title
-      const postTitle =
-        data.translations.ca.title || data.translations.en.title || 'post';
-      const thumbnailAlt = `Miniatura per a ${postTitle}`;
-
-      if (data.thumbnail_file) {
-        // Upload new thumbnail with auto-generated alt text
-        const uploadedThumbnail = await uploadAndCreateImage(
-          data.thumbnail_file,
-          'post-thumbnails',
-          'Post Thumbnail',
-          thumbnailAlt
-        );
-
-        thumbnailId = uploadedThumbnail.id;
-        newThumbnailUrl = uploadedThumbnail.url;
-
-        // Delete old thumbnail if exists
-        if (existingThumbnailId && existingThumbnailUrl) {
-          await deleteImageCompletely(
-            existingThumbnailId,
-            existingThumbnailUrl,
-            'post-thumbnails'
-          );
-        }
-      } else if (existingThumbnailId) {
-        // Update alt text for existing thumbnail (no new file uploaded)
-        // Always update since alt text is auto-generated from title which may have changed
-        const existingThumbnailAlt = initialData?.thumbnail?.alt || '';
-        if (thumbnailAlt !== existingThumbnailAlt) {
-          await updateImageRecord(existingThumbnailId, thumbnailAlt);
-        }
-      }
-
-      // 2. Handle main image upload
-      let mainImageId = existingMainImageId;
-      let newMainImageUrl = existingMainImageUrl;
-      const mainImageAlt = data.main_image_alt || '';
-
-      if (data.main_image_file) {
-        // Upload new main image with alt text
-        const uploadedMainImage = await uploadAndCreateImage(
-          data.main_image_file,
-          'post-images',
-          'Post Main Image',
-          mainImageAlt
-        );
-
-        mainImageId = uploadedMainImage.id;
-        newMainImageUrl = uploadedMainImage.url;
-
-        // Delete old main image if exists
-        if (existingMainImageId && existingMainImageUrl) {
-          await deleteImageCompletely(
-            existingMainImageId,
-            existingMainImageUrl,
-            'post-images'
-          );
-        }
-      } else if (existingMainImageId && mainImageAlt !== existingMainImageAlt) {
-        // Update alt text for existing main image (no new file uploaded)
-        await updateImageRecord(existingMainImageId, mainImageAlt);
-      }
-
-      // 3. Get existing slugs for uniqueness check (exclude current post if editing)
-      const [existingSlugsCA, existingSlugsEN] = await Promise.all([
-        getExistingSlugs('ca', isEditMode ? initialData.id : undefined),
-        getExistingSlugs('en', isEditMode ? initialData.id : undefined),
-      ]);
-
-      const uniqueSlugCA = generateUniqueSlug(
-        data.translations.ca.slug,
-        existingSlugsCA
-      );
-      const uniqueSlugEN = generateUniqueSlug(
-        data.translations.en.slug,
-        existingSlugsEN
-      );
-
-      // Note: user_id is handled automatically by the API layer for new posts
-      // It gets the authenticated user from the session
-      const authorName = data.author || 'Admin';
-
-      const sortOrder =
+  function formStoredPost(
+    data: PostFormData,
+    base: StoredPost | undefined,
+    now: string,
+    slugs: { ca: string; en: string }
+  ): StoredPost {
+    const postId = base?.id ?? '';
+    return {
+      id: postId,
+      user_id: base?.user_id ?? '',
+      category_id: data.category_id,
+      sort_order:
         typeof data.sort_order === 'number' && Number.isFinite(data.sort_order)
           ? data.sort_order
-          : 0;
-
-      const storedPost: StoredPost = {
-        id: isEditMode ? initialData.id : '', // Empty string for new posts (DB will auto-generate)
-        user_id: isEditMode ? initialData.user_id : '', // API will set this for new posts
-        category_id: data.category_id,
-        sort_order: sortOrder,
-        thumbnail_id: thumbnailId,
-        image_id: mainImageId,
-        is_published: data.is_published,
-        date: isEditMode ? initialData.date : now.split('T')[0],
-        author: isEditMode ? initialData.author : authorName,
-        created_at: isEditMode ? initialData.created_at : now,
-        updated_at: now,
-        translations: {
-          ca: {
-            ...data.translations.ca,
-            content: convertToMarkdownParagraphs(data.translations.ca.content),
-            slug: uniqueSlugCA,
-            post_id: isEditMode ? initialData.id : '',
-          },
-          en: {
-            ...data.translations.en,
-            content: convertToMarkdownParagraphs(data.translations.en.content),
-            slug: uniqueSlugEN,
-            post_id: isEditMode ? initialData.id : '',
-          },
+          : 0,
+      thumbnail_id: base?.thumbnail_id ?? existingThumbnailId,
+      thumbnail: base?.thumbnail,
+      image_id: base?.image_id ?? existingMainImageId,
+      image: base?.image,
+      is_published: data.is_published,
+      date: base?.date ?? now.split('T')[0],
+      author: base?.author ?? (data.author || 'Admin'),
+      created_at: base?.created_at ?? now,
+      updated_at: now,
+      version: base?.version,
+      aws_post: base?.aws_post,
+      translations: {
+        ca: {
+          ...data.translations.ca,
+          content: convertToMarkdownParagraphs(data.translations.ca.content),
+          slug: slugs.ca,
+          post_id: postId,
         },
-      };
+        en: {
+          ...data.translations.en,
+          content: convertToMarkdownParagraphs(data.translations.en.content),
+          slug: slugs.en,
+          post_id: postId,
+        },
+      },
+    };
+  }
 
-      // 5. Save post (handles both create and update)
-      await savePost(storedPost);
+  async function submitSupabase(data: PostFormData): Promise<void> {
+    const now = new Date().toISOString();
+    const isEditMode = !!initialData;
+    const [{ savePost, getExistingSlugs }, imageApi] = await Promise.all([
+      import('@/lib/api/posts'),
+      import('@/lib/api/images'),
+    ]);
+    let thumbnailId = existingThumbnailId;
+    let newThumbnailUrl = existingThumbnailUrl;
+    const postTitle =
+      data.translations.ca.title || data.translations.en.title || 'post';
+    const thumbnailAlt = `Miniatura per a ${postTitle}`;
 
-      // 6. Update existing image IDs, URLs, and alt text for next edit
-      setExistingThumbnailId(thumbnailId);
-      setExistingThumbnailUrl(newThumbnailUrl);
-      setExistingMainImageId(mainImageId);
-      setExistingMainImageUrl(newMainImageUrl);
-      setExistingMainImageAlt(mainImageAlt);
-
-      console.log(`Post ${isEditMode ? 'updated' : 'saved'} successfully`);
-
-      // Call onSuccess callback if provided (will redirect to home page)
-      if (onSuccess) {
-        onSuccess();
+    if (data.thumbnail_file) {
+      const uploadedThumbnail = await imageApi.uploadAndCreateImage(
+        data.thumbnail_file,
+        'post-thumbnails',
+        'Post Thumbnail',
+        thumbnailAlt
+      );
+      thumbnailId = uploadedThumbnail.id;
+      newThumbnailUrl = uploadedThumbnail.url;
+      if (existingThumbnailId && existingThumbnailUrl) {
+        await imageApi.deleteImageCompletely(
+          existingThumbnailId,
+          existingThumbnailUrl,
+          'post-thumbnails'
+        );
       }
+    } else if (existingThumbnailId) {
+      const existingThumbnailAlt = initialData?.thumbnail?.alt || '';
+      if (thumbnailAlt !== existingThumbnailAlt) {
+        await imageApi.updateImageRecord(existingThumbnailId, thumbnailAlt);
+      }
+    }
 
-      setIsSubmitting(false);
+    let mainImageId = existingMainImageId;
+    let newMainImageUrl = existingMainImageUrl;
+    const mainImageAlt = data.main_image_alt || '';
+    if (data.main_image_file) {
+      const uploadedMainImage = await imageApi.uploadAndCreateImage(
+        data.main_image_file,
+        'post-images',
+        'Post Main Image',
+        mainImageAlt
+      );
+      mainImageId = uploadedMainImage.id;
+      newMainImageUrl = uploadedMainImage.url;
+      if (existingMainImageId && existingMainImageUrl) {
+        await imageApi.deleteImageCompletely(
+          existingMainImageId,
+          existingMainImageUrl,
+          'post-images'
+        );
+      }
+    } else if (existingMainImageId && mainImageAlt !== existingMainImageAlt) {
+      await imageApi.updateImageRecord(existingMainImageId, mainImageAlt);
+    }
+
+    const [existingSlugsCA, existingSlugsEN] = await Promise.all([
+      getExistingSlugs('ca', isEditMode ? initialData.id : undefined),
+      getExistingSlugs('en', isEditMode ? initialData.id : undefined),
+    ]);
+    const storedPost = formStoredPost(data, initialData, now, {
+      ca: generateUniqueSlug(data.translations.ca.slug, existingSlugsCA),
+      en: generateUniqueSlug(data.translations.en.slug, existingSlugsEN),
+    });
+    storedPost.thumbnail_id = thumbnailId;
+    storedPost.image_id = mainImageId;
+    await savePost(storedPost);
+
+    setExistingThumbnailId(thumbnailId);
+    setExistingThumbnailUrl(newThumbnailUrl);
+    setExistingMainImageId(mainImageId);
+    setExistingMainImageUrl(newMainImageUrl);
+    setExistingMainImageAlt(mainImageAlt);
+  }
+
+  async function submitAws(data: PostFormData): Promise<void> {
+    const now = new Date().toISOString();
+    const current = savedAwsPost ?? initialData?.aws_post;
+    const base = current ? adaptAwsPost(current) : initialData;
+    const category = categories.find(item => item.id === data.category_id);
+    if (!category) {
+      throw new AdminMutationError(
+        'Selecciona una categoria vàlida abans de desar.',
+        400,
+        'INVALID_CATEGORY'
+      );
+    }
+    if (
+      current?.mainImage &&
+      !data.main_image_file &&
+      (data.main_image_alt ?? '') !== current.mainImage.alt
+    ) {
+      throw new AdminMutationError(
+        'Per canviar el text alternatiu a AWS, selecciona també una imatge de substitució.',
+        400,
+        'IMAGE_REPLACEMENT_REQUIRED'
+      );
+    }
+
+    const storedPost = formStoredPost(data, base, now, {
+      ca: data.translations.ca.slug,
+      en: data.translations.en.slug,
+    });
+    const stablePostId = newAwsPostId ?? `post-${crypto.randomUUID()}`;
+    if (!newAwsPostId) setNewAwsPostId(stablePostId);
+    let canonical = buildAwsPost(storedPost, {
+      categorySlug: category.slug,
+      postId: stablePostId,
+      published: current?.published ?? false,
+      now,
+    });
+
+    if (current) {
+      canonical = await updateAwsPost(canonical, current.version);
+    } else {
+      canonical = await createAwsPost(canonical);
+      window.history.replaceState(
+        null,
+        '',
+        `/reflexions/${encodeURIComponent(canonical.id)}/edit`
+      );
+    }
+    setSavedAwsPost(canonical);
+    setSaveNotice(
+      'El text ja està desat. Si una imatge falla, podràs continuar des d’aquest article.'
+    );
+
+    if (!data.is_published && canonical.published) {
+      canonical = await setAwsPostPublication(
+        canonical.id,
+        canonical.version,
+        false
+      );
+      setSavedAwsPost(canonical);
+    }
+
+    const postTitle =
+      data.translations.ca.title || data.translations.en.title || 'post';
+    if (data.main_image_file) {
+      const confirmed = await uploadAwsPostImage({
+        postId: canonical.id,
+        postVersion: canonical.version,
+        role: 'main',
+        file: data.main_image_file,
+        title: 'Post Main Image',
+        alt: data.main_image_alt || '',
+      });
+      canonical = {
+        ...canonical,
+        mainImage: confirmed.image.image,
+        version: confirmed.postVersion,
+        updatedAt: confirmed.image.image.updatedAt,
+      };
+      setSavedAwsPost(canonical);
+      setExistingMainImageId(confirmed.image.image.key);
+      setExistingMainImageUrl(confirmed.image.previewUrl ?? '');
+      setExistingMainImageAlt(confirmed.image.image.alt);
+      setValue('main_image_file', null);
+    }
+
+    if (data.thumbnail_file) {
+      const confirmed = await uploadAwsPostImage({
+        postId: canonical.id,
+        postVersion: canonical.version,
+        role: 'thumb',
+        file: data.thumbnail_file,
+        title: 'Post Thumbnail',
+        alt: `Miniatura per a ${postTitle}`,
+      });
+      canonical = {
+        ...canonical,
+        thumbImage: confirmed.image.image,
+        version: confirmed.postVersion,
+        updatedAt: confirmed.image.image.updatedAt,
+      };
+      setSavedAwsPost(canonical);
+      setExistingThumbnailId(confirmed.image.image.key);
+      setExistingThumbnailUrl(confirmed.image.previewUrl ?? '');
+      setValue('thumbnail_file', null);
+    }
+
+    if (data.is_published && !canonical.published) {
+      canonical = await setAwsPostPublication(
+        canonical.id,
+        canonical.version,
+        true
+      );
+      setSavedAwsPost(canonical);
+    }
+    setSaveNotice(null);
+  }
+
+  const onSubmit = async (data: PostFormData, event?: BaseSyntheticEvent) => {
+    const form =
+      event?.currentTarget instanceof HTMLFormElement
+        ? event.currentTarget
+        : null;
+    if (isSubmitting || readOnly || form?.dataset.submitting === 'true') return;
+    if (form) form.dataset.submitting = 'true';
+    setIsSubmitting(true);
+    setSubmissionError(null);
+    setConflict(null);
+    setRecoveryCopied(false);
+    try {
+      if (backend === 'aws') {
+        await submitAws(data);
+      } else {
+        await submitSupabase(data);
+      }
+      onSuccess?.();
     } catch (error) {
-      console.error('Error saving post:', error);
-      alert(error instanceof Error ? error.message : 'Failed to save post');
+      if (error instanceof AdminMutationError && error.status === 409) {
+        setConflict({
+          message: error.message,
+          recovery: recoveryDraft(data),
+          requestId: error.requestId,
+        });
+      } else {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'No s’ha pogut desar l’article.';
+        const requestId =
+          error instanceof AdminMutationError ? error.requestId : undefined;
+        setSubmissionError(
+          requestId ? `${message} Correlació: ${requestId}` : message
+        );
+      }
+    } finally {
+      if (form) delete form.dataset.submitting;
       setIsSubmitting(false);
     }
+  };
+
+  const onInvalid: SubmitErrorHandler<PostFormData> = validationErrors => {
+    const caErrors = validationErrors.translations?.ca;
+    const enErrors = validationErrors.translations?.en;
+    const language = caErrors ? 'ca' : enErrors ? 'en' : null;
+    const field = language
+      ? validationErrors.translations?.[language]?.title
+        ? 'title'
+        : 'content'
+      : null;
+
+    if (language && field) {
+      setActiveLanguage(language);
+      window.requestAnimationFrame(() =>
+        setFocus(`translations.${language}.${field}`)
+      );
+    } else if (validationErrors.category_id) {
+      setFocus('category_id');
+    }
+
+    setSubmissionError(
+      'Revisa els camps obligatoris indicats abans de crear l’article.'
+    );
   };
 
   const categoryOptions = categories.map(cat => ({
@@ -375,18 +625,58 @@ export function PostForm({
     setValue('main_image_file', file);
   };
 
+  const handleCopyRecovery = async () => {
+    if (!conflict) return;
+    try {
+      await navigator.clipboard.writeText(conflict.recovery);
+      setRecoveryCopied(true);
+    } catch {
+      setSubmissionError(
+        'No s’ha pogut copiar automàticament. Selecciona el text de recuperació manualment.'
+      );
+    }
+  };
+
+  const handleConflictReload = () => {
+    const postId = savedAwsPost?.id ?? initialData?.id ?? newAwsPostId;
+    window.location.assign(postId ? `/reflexions/${postId}/edit` : '/');
+  };
+
   return (
     <FormProvider {...methods}>
       <form
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
         className="min-h-screen bg-background"
       >
         {/* Sticky Header */}
         <FormHeader
           isSubmitting={isSubmitting}
-          isEditMode={!!initialData}
+          isEditMode={!!initialData || !!savedAwsPost}
           readOnly={readOnly}
         />
+
+        {saveNotice || submissionError ? (
+          <div className="mx-auto mt-4 max-w-6xl space-y-3 px-4 sm:px-6">
+            {saveNotice ? (
+              <div
+                className="border border-emerald-500/30 bg-emerald-500/10 px-4 py-3"
+                role="status"
+              >
+                <Text variant="small">{saveNotice}</Text>
+              </div>
+            ) : null}
+            {submissionError ? (
+              <div
+                className="border border-red-500/30 bg-red-500/10 px-4 py-3"
+                role="alert"
+              >
+                <Text variant="small" className="text-red-200">
+                  {submissionError}
+                </Text>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {readOnly && (
           <div
@@ -507,6 +797,11 @@ export function PostForm({
                   {...register('main_image_alt')}
                   label="Text alternatiu de la imatge destacada"
                   placeholder="Descriu la imatge per a l'accessibilitat"
+                  helperText={
+                    backend === 'aws' && existingMainImageId
+                      ? 'Per canviar aquest text a AWS, selecciona també una imatge de substitució.'
+                      : undefined
+                  }
                   error={errors.main_image_alt?.message as string}
                 />
 
@@ -525,15 +820,21 @@ export function PostForm({
                   <label className="block text-xs text-muted uppercase tracking-wider">
                     Categoria
                   </label>
-                  <Select
-                    {...register('category_id')}
-                    options={categoryOptions}
-                    placeholder={
-                      categoryError
-                        ? 'Categories no disponibles'
-                        : 'Selecciona...'
-                    }
-                    error={errors.category_id?.message as string}
+                  <Controller
+                    control={control}
+                    name="category_id"
+                    render={({ field, fieldState }) => (
+                      <Select
+                        {...field}
+                        options={categoryOptions}
+                        placeholder={
+                          categoryError
+                            ? 'Categories no disponibles'
+                            : 'Selecciona...'
+                        }
+                        error={fieldState.error?.message}
+                      />
+                    )}
                   />
                 </div>
 
@@ -546,6 +847,51 @@ export function PostForm({
             </div>
           </fieldset>
         </main>
+        <Modal
+          isOpen={conflict !== null}
+          onClose={() => setConflict(null)}
+          title="Hi ha una versió més recent"
+          closeOnBackdropClick={false}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setConflict(null)}>
+                Continuar revisant
+              </Button>
+              <Button variant="secondary" onClick={handleCopyRecovery}>
+                {recoveryCopied ? 'Dades copiades' : 'Copiar les meves dades'}
+              </Button>
+              <Button variant="primary" onClick={handleConflictReload}>
+                Recarregar versió actual
+              </Button>
+            </>
+          }
+        >
+          {conflict ? (
+            <div className="space-y-4">
+              <Text>{conflict.message}</Text>
+              {conflict.requestId ? (
+                <Text variant="small" className="text-subtle">
+                  Correlació: {conflict.requestId}
+                </Text>
+              ) : null}
+              <div className="space-y-2">
+                <label
+                  htmlFor="conflict-recovery"
+                  className="block text-xs uppercase tracking-wider text-muted"
+                >
+                  Còpia de recuperació
+                </label>
+                <textarea
+                  id="conflict-recovery"
+                  readOnly
+                  value={conflict.recovery}
+                  className="min-h-40 w-full resize-y border border-default bg-background p-3 font-mono text-xs text-body"
+                  onFocus={event => event.currentTarget.select()}
+                />
+              </div>
+            </div>
+          ) : null}
+        </Modal>
       </form>
     </FormProvider>
   );

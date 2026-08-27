@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { AuthGuard } from '@/components/auth/AuthGuard';
@@ -10,6 +10,7 @@ import {
   Badge,
   Button,
   Icon,
+  Modal,
   Pagination,
   Heading,
   Text,
@@ -29,10 +30,28 @@ import {
   type AdminPostSummary,
 } from '@/lib/api/adminReads';
 import { downloadBackupAsJson } from '@/lib/api/backup';
-import { deletePost, publishAllPosts } from '@/lib/api/posts';
+import {
+  AdminMutationError,
+  countDraftPosts,
+  deleteAdminPost,
+  mutationKey,
+  publishAllAdminPosts,
+} from '@/lib/api/adminMutations';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 const POSTS_PER_PAGE = 10;
+
+type ConfirmationState =
+  | {
+      kind: 'delete';
+      post: AdminPostSummary;
+      idempotencyKey: string;
+    }
+  | {
+      kind: 'bulk';
+      count: number;
+      idempotencyKey: string;
+    };
 
 function PostsContent() {
   const [posts, setPosts] = useState<AdminPostSummary[]>([]);
@@ -48,7 +67,7 @@ function PostsContent() {
   ]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>();
-  const [unpublishedCount, setUnpublishedCount] = useState(0);
+  const [unpublishedCount, setUnpublishedCount] = useState<number>();
   const [isLoading, setIsLoading] = useState(true);
   const [readError, setReadError] = useState<AdminReadError | null>(null);
   const [categoriesError, setCategoriesError] = useState<AdminReadError | null>(
@@ -58,6 +77,16 @@ function PostsContent() {
   const [categoryAttempt, setCategoryAttempt] = useState(0);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isPublishingAll, setIsPublishingAll] = useState(false);
+  const [isCountingDrafts, setIsCountingDrafts] = useState(false);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(
+    null
+  );
+  const [mutationMessage, setMutationMessage] = useState<{
+    type: 'error' | 'success' | 'warning';
+    text: string;
+  } | null>(null);
+  const operationLockRef = useRef(false);
 
   const router = useRouter();
   const { backend, user, signOut } = useAuth();
@@ -105,7 +134,7 @@ function PostsContent() {
         setPosts(page.items);
         setNextCursor(page.nextCursor);
         setTotalCount(page.totalCount);
-        setUnpublishedCount(page.unpublishedCount ?? 0);
+        setUnpublishedCount(page.unpublishedCount);
         setReadError(null);
       })
       .catch(error => {
@@ -211,16 +240,14 @@ function PostsContent() {
     router.push(`/reflexions/${postId}/edit`);
   };
 
-  const handleDelete = async (post: AdminPostSummary) => {
-    if (isAws) return;
-    const title = post.titles.ca || post.titles.en;
-    if (!confirm(`Eliminar "${title}"?`)) return;
-    try {
-      await deletePost(post.id);
-      refreshPosts();
-    } catch {
-      alert('Failed to delete post');
-    }
+  const handleDelete = (post: AdminPostSummary) => {
+    if (deletingPostId) return;
+    setMutationMessage(null);
+    setConfirmation({
+      kind: 'delete',
+      post,
+      idempotencyKey: mutationKey('post-delete'),
+    });
   };
 
   const handleCreate = () => router.push('/reflexions/new');
@@ -252,16 +279,122 @@ function PostsContent() {
   };
 
   const handlePublishAll = async () => {
-    if (isAws || unpublishedCount === 0) return;
-    if (!confirm('Segur que vols publicar tots els articles?')) return;
-    setIsPublishingAll(true);
+    if (operationLockRef.current || isCountingDrafts || isPublishingAll) return;
+    operationLockRef.current = true;
+    setIsCountingDrafts(true);
+    setMutationMessage(null);
     try {
-      const count = await publishAllPosts();
-      refreshPosts();
-      alert(`${count} article(s) publicats correctament.`);
-    } catch {
-      alert('No s’ha pogut publicar tots els articles.');
+      const count = await countDraftPosts(backend);
+      setUnpublishedCount(count);
+      if (count === 0) {
+        setMutationMessage({
+          type: 'success',
+          text: 'No hi ha cap esborrany pendent de publicar.',
+        });
+        return;
+      }
+      setConfirmation({
+        kind: 'bulk',
+        count,
+        idempotencyKey: mutationKey('posts-publish-all'),
+      });
+    } catch (error) {
+      const requestId =
+        error instanceof AdminMutationError ? error.requestId : undefined;
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'No s’ha pogut comptar els esborranys.';
+      setMutationMessage({
+        type: 'error',
+        text: requestId ? `${message} Correlació: ${requestId}` : message,
+      });
     } finally {
+      operationLockRef.current = false;
+      setIsCountingDrafts(false);
+    }
+  };
+
+  const confirmDelete = async (
+    value: Extract<ConfirmationState, { kind: 'delete' }>
+  ) => {
+    if (operationLockRef.current) return;
+    operationLockRef.current = true;
+    setDeletingPostId(value.post.id);
+    setMutationMessage(null);
+    try {
+      let result = await deleteAdminPost(
+        backend,
+        value.post,
+        value.idempotencyKey
+      );
+      if (result.cleanup.retryWithSameIdempotencyKey) {
+        result = await deleteAdminPost(
+          backend,
+          value.post,
+          value.idempotencyKey
+        );
+      }
+      setConfirmation(null);
+      setMutationMessage({
+        type: result.cleanup.pending ? 'warning' : 'success',
+        text: result.cleanup.pending
+          ? 'L’article s’ha eliminat, però la neteja d’alguna imatge continua pendent.'
+          : 'S’ha eliminat 1 article.',
+      });
+      refreshPosts();
+    } catch (error) {
+      const requestId =
+        error instanceof AdminMutationError ? error.requestId : undefined;
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'No s’ha pogut eliminar l’article.';
+      setConfirmation(null);
+      setMutationMessage({
+        type: 'error',
+        text: requestId ? `${message} Correlació: ${requestId}` : message,
+      });
+      if (error instanceof AdminMutationError && error.status === 409) {
+        refreshPosts();
+      }
+    } finally {
+      operationLockRef.current = false;
+      setDeletingPostId(null);
+    }
+  };
+
+  const confirmPublishAll = async (
+    value: Extract<ConfirmationState, { kind: 'bulk' }>
+  ) => {
+    if (operationLockRef.current) return;
+    operationLockRef.current = true;
+    setIsPublishingAll(true);
+    setMutationMessage(null);
+    try {
+      const result = await publishAllAdminPosts(backend, value.idempotencyKey);
+      setConfirmation(null);
+      setUnpublishedCount(0);
+      setMutationMessage({
+        type: 'success',
+        text: `${result.publishedCount} article(s) publicats correctament.`,
+      });
+      refreshPosts();
+    } catch (error) {
+      const requestId =
+        error instanceof AdminMutationError ? error.requestId : undefined;
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'No s’ha pogut publicar tots els articles.';
+      setConfirmation(null);
+      setMutationMessage({
+        type: 'error',
+        text: requestId ? `${message} Correlació: ${requestId}` : message,
+      });
+      refreshPosts();
+    } finally {
+      operationLockRef.current = false;
       setIsPublishingAll(false);
     }
   };
@@ -306,7 +439,7 @@ function PostsContent() {
                   variant="accent"
                   className="text-2xs uppercase tracking-wider"
                 >
-                  Lectura AWS
+                  AWS
                 </Badge>
               ) : null}
             </div>
@@ -319,13 +452,11 @@ function PostsContent() {
           </div>
           {user ? (
             <div className="flex items-center gap-3">
-              {!isAws ? (
-                <Button onClick={handleCreate} variant="primary">
-                  <Text as="span" className="flex items-center gap-2">
-                    <Icon name="plus" size="3" /> Nou article
-                  </Text>
-                </Button>
-              ) : null}
+              <Button onClick={handleCreate} variant="primary">
+                <Text as="span" className="flex items-center gap-2">
+                  <Icon name="plus" size="3" /> Nou article
+                </Text>
+              </Button>
               <UserMenu
                 user={user}
                 onBackup={isAws ? undefined : handleBackup}
@@ -342,9 +473,8 @@ function PostsContent() {
           <div className="mx-auto flex max-w-6xl items-start gap-3 px-4 py-3 sm:px-6">
             <Icon name="check" size="4" className="mt-0.5 text-slate-400" />
             <Text variant="small" className="text-primary-60">
-              Mode de verificació de lectura. Crear, desar, eliminar, publicar i
-              descarregar còpies continuen desactivats fins a les següents fases
-              de la migració.
+              Mode AWS actiu. Les lectures i les operacions d’articles passen
+              exclusivament per l’API autenticada d’AWS.
             </Text>
           </div>
         </div>
@@ -365,19 +495,31 @@ function PostsContent() {
               categories={categoryOptions}
             />
           </div>
-          {!isAws ? (
-            <Button
-              onClick={handlePublishAll}
-              variant="secondary"
-              loading={isPublishingAll}
-              disabled={unpublishedCount === 0}
-            >
-              <Text as="span" className="flex items-center gap-2">
-                <Icon name="check" size="3" /> Publicar tots
-              </Text>
-            </Button>
-          ) : null}
+          <Button
+            onClick={() => void handlePublishAll()}
+            variant="secondary"
+            loading={isCountingDrafts || isPublishingAll}
+            disabled={unpublishedCount === 0}
+          >
+            <Text as="span" className="flex items-center gap-2">
+              <Icon name="check" size="3" /> Publicar tots
+            </Text>
+          </Button>
         </div>
+        {mutationMessage ? (
+          <div
+            role={mutationMessage.type === 'error' ? 'alert' : 'status'}
+            className={`mt-4 border px-4 py-3 ${
+              mutationMessage.type === 'error'
+                ? 'border-red-500/30 bg-red-500/10'
+                : mutationMessage.type === 'warning'
+                  ? 'border-amber-500/30 bg-amber-500/10'
+                  : 'border-emerald-500/30 bg-emerald-500/10'
+            }`}
+          >
+            <Text variant="small">{mutationMessage.text}</Text>
+          </div>
+        ) : null}
         {categoriesError ? (
           <div
             role="alert"
@@ -451,7 +593,7 @@ function PostsContent() {
                     categoryLabels.get(post.categoryId) ?? post.categorySlug
                   }
                   onEdit={handleEdit}
-                  onDelete={isAws ? undefined : handleDelete}
+                  onDelete={handleDelete}
                 />
               ))}
               {posts.length === 0 ? (
@@ -489,6 +631,78 @@ function PostsContent() {
           </>
         )}
       </main>
+
+      <Modal
+        isOpen={confirmation !== null}
+        onClose={() => {
+          if (!deletingPostId && !isPublishingAll) setConfirmation(null);
+        }}
+        title={
+          confirmation?.kind === 'delete'
+            ? 'Eliminar article'
+            : 'Publicar tots els esborranys'
+        }
+        closeOnBackdropClick={!deletingPostId && !isPublishingAll}
+        showCloseButton={!deletingPostId && !isPublishingAll}
+        footer={
+          confirmation ? (
+            <>
+              <Button
+                variant="ghost"
+                disabled={!!deletingPostId || isPublishingAll}
+                onClick={() => setConfirmation(null)}
+              >
+                Cancel·lar
+              </Button>
+              <Button
+                variant={
+                  confirmation.kind === 'delete' ? 'destructive' : 'primary'
+                }
+                loading={!!deletingPostId || isPublishingAll}
+                onClick={() => {
+                  if (confirmation.kind === 'delete') {
+                    void confirmDelete(confirmation);
+                  } else {
+                    void confirmPublishAll(confirmation);
+                  }
+                }}
+              >
+                {confirmation.kind === 'delete'
+                  ? 'Eliminar 1 article'
+                  : `Publicar ${confirmation.count} article(s)`}
+              </Button>
+            </>
+          ) : null
+        }
+      >
+        {confirmation?.kind === 'delete' ? (
+          <div className="space-y-3">
+            <Text>
+              Eliminaràs definitivament 1 article:{' '}
+              <strong>
+                {confirmation.post.titles.ca || confirmation.post.titles.en}
+              </strong>
+              .
+            </Text>
+            <Text variant="small" className="text-subtle">
+              Si una imatge no es pot netejar al primer intent, es repetirà
+              l’operació amb la mateixa clau segura.
+            </Text>
+          </div>
+        ) : confirmation?.kind === 'bulk' ? (
+          <div className="space-y-3">
+            <Text>
+              Aquesta acció publicarà exactament{' '}
+              <strong>{confirmation.count} article(s)</strong> que ara són
+              esborranys.
+            </Text>
+            <Text variant="small" className="text-subtle">
+              Els articles importats no canvien d’estat fins que confirmis
+              explícitament aquesta operació.
+            </Text>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }

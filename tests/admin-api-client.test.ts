@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { adaptAwsPost, getAdminPostsPage } from '../lib/api/adminReads';
+import {
+  adaptAwsPost,
+  getAdminCategories,
+  getAdminPostsPage,
+} from '../lib/api/adminReads';
 import { AdminApiClient } from '../lib/aws/admin-api-client';
 import type {
   AdminApiErrorEnvelope,
@@ -206,6 +210,87 @@ test('the browser AWS adapter makes one same-origin request without a bearer tok
   assert.match(requestHeaders.get('x-correlation-id') ?? '', /^[0-9a-f-]{36}$/);
 });
 
+test('AWS categories include the three original Supabase categories when its catalog is empty', async () => {
+  const originalFetch = globalThis.fetch;
+  const requestedPaths: string[] = [];
+  globalThis.fetch = async input => {
+    const path = String(input);
+    requestedPaths.push(path);
+    return Response.json(successEnvelope({ items: [] }));
+  };
+
+  try {
+    assert.deepEqual(await getAdminCategories('aws'), [
+      {
+        id: '1',
+        slug: 'vivencies',
+        nameCa: 'Vivències',
+        nameEn: 'Experiences',
+      },
+      {
+        id: '2',
+        slug: 'influencies',
+        nameCa: 'Influències',
+        nameEn: 'Influences',
+      },
+      {
+        id: '3',
+        slug: 'perspectives',
+        nameCa: 'Perspectives',
+        nameEn: 'Perspectives',
+      },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.deepEqual(requestedPaths, ['/api/aws/categories']);
+});
+
+test('new AWS catalog categories extend the original category list', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    Response.json(
+      successEnvelope({
+        items: [
+          {
+            id: 'legacy-vivencies',
+            slug: 'vivencies',
+            names: { ca: 'Vivències', en: 'Experiences' },
+            version: 1,
+            createdAt: NOW,
+            updatedAt: NOW,
+          },
+          {
+            id: '4',
+            slug: 'future-category',
+            names: { ca: 'Categoria futura', en: 'Future category' },
+            version: 1,
+            createdAt: NOW,
+            updatedAt: NOW,
+          },
+        ],
+      })
+    );
+
+  try {
+    assert.deepEqual(
+      (await getAdminCategories('aws')).map(category => ({
+        id: category.id,
+        slug: category.slug,
+      })),
+      [
+        { id: 'legacy-vivencies', slug: 'vivencies' },
+        { id: '2', slug: 'influencies' },
+        { id: '3', slug: 'perspectives' },
+        { id: '4', slug: 'future-category' },
+      ]
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 for (const status of [401, 403, 404, 409, 429, 500]) {
   test(`upstream ${status} remains a stable, content-safe error envelope`, async () => {
     let requests = 0;
@@ -303,6 +388,7 @@ test('malformed success responses fail closed with a correlation id', async () =
 test('detail adapter preserves canonical fields and never fabricates image URLs', () => {
   const withImages = adaptAwsPost(postFixture(true));
   assert.equal(withImages.id, 'post-1');
+  assert.equal(withImages.category_id, 'category-1');
   assert.equal(withImages.version, 3);
   assert.equal(withImages.image_id, 'images/post-1/main.webp');
   assert.equal(withImages.image?.key, 'images/post-1/main.webp');

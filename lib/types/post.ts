@@ -1,3 +1,5 @@
+import type { Post } from '@/lib/domain/posts/types';
+
 export type Language = 'ca' | 'en';
 export type ReferenceType = 'image' | 'text';
 
@@ -59,6 +61,8 @@ export interface StoredPost {
   created_at: string;
   updated_at: string;
   version?: number;
+  /** Canonical AWS aggregate retained for lossless optimistic updates. */
+  aws_post?: Post;
   translations: {
     ca: PostTranslation & { post_id: string };
     en: PostTranslation & { post_id: string };

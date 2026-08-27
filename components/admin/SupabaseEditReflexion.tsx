@@ -120,13 +120,7 @@ function EditReflexionContent() {
     );
   }
 
-  return (
-    <PostForm
-      initialData={state.post}
-      onSuccess={handleSuccess}
-      readOnly={backend === 'aws'}
-    />
-  );
+  return <PostForm initialData={state.post} onSuccess={handleSuccess} />;
 }
 
 export function SupabaseEditReflexion() {
