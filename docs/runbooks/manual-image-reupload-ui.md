@@ -76,6 +76,13 @@ under a `backups/cloudformation/issue-16/` key, calculate its hash locally and
 again in CloudShell, and keep the bucket, key, URL, hash, account details, and
 command output private.
 
+Deploy the CloudFormation backend before promoting the matching frontend. The
+new Lambda response is additive and remains compatible with the previous
+frontend, while the new inventory frontend requires the Lambda to return the
+main-image field. A frontend-first rollout can therefore fail closed with an
+invalid-upstream-response error until the Lambda is updated. Roll back in the
+opposite order: restore the previous frontend first, then the previous Lambda.
+
 Create a change set for the existing `admintonibover-dev` stack named
 `issue-16-manual-image-reupload-ui`. Before execution, its direct changes must
 be limited to:
@@ -157,6 +164,10 @@ Set `ADMIN_DATA_BACKEND=supabase`, restart, and perform one non-production list
 and image-edit cycle. Confirm the inventory derives from Supabase metadata and
 there are no AWS admin API, Lambda, DynamoDB, or S3 requests. Switch back to
 AWS and confirm the same operation does not change a Supabase row or object.
+If the project has formally decommissioned or disabled its Supabase environment,
+record this manual check as not applicable with that reason. Do not restore an
+obsolete backend or its credentials solely for this acceptance run; the
+credential-free adapter-isolation tests remain required.
 
 The browser receives neither AWS credentials nor a Cognito bearer token. It
 uses the existing same-origin session proxy; direct S3 access is limited to
