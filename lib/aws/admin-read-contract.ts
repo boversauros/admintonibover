@@ -231,6 +231,7 @@ function parseListItem(value: unknown, path: string): PostListItem {
           stringValue(keyword, `${entryPath}.${index}`)
         )
     ),
+    mainImage: parseImage(post.mainImage, `${path}.mainImage`),
     thumbImage: parseImage(post.thumbImage, `${path}.thumbImage`),
   };
 }

@@ -1,5 +1,11 @@
 import type { AdminDataBackend } from '@/lib/config/adminBackend';
 import { INITIAL_CATEGORY_CATALOG } from '@/lib/domain/categories/catalog';
+import {
+  emptyImageInventoryCounts,
+  imageInventoryStatus,
+  type ImageInventoryCounts,
+  type ImageInventoryStatus,
+} from '@/lib/domain/media/contracts';
 import type { Post, PostImage, PostListItem } from '@/lib/domain/posts/types';
 import {
   parseAdminApiErrorEnvelope,
@@ -28,6 +34,7 @@ export type AdminPostSummary = {
   titles: { ca: string; en: string };
   excerpts: { ca: string; en: string };
   keywords: { ca: string[]; en: string[] };
+  mainImageKey?: string;
   thumbnailKey?: string;
   thumbnailUrl?: string;
 };
@@ -47,6 +54,7 @@ export type AdminPostListOptions = {
   title?: string;
   published?: boolean;
   categoryId?: string;
+  imageStatus?: ImageInventoryStatus;
   signal?: AbortSignal;
 };
 
@@ -184,6 +192,7 @@ function awsSummary(post: PostListItem): AdminPostSummary {
       ca: [...post.keywords.ca],
       en: [...post.keywords.en],
     },
+    ...(post.mainImage ? { mainImageKey: post.mainImage.key } : {}),
     ...(post.thumbImage ? { thumbnailKey: post.thumbImage.key } : {}),
   };
 }
@@ -210,7 +219,9 @@ function supabaseSummary(post: StoredPost): AdminPostSummary {
       ca: [...post.translations.ca.keywords],
       en: [...post.translations.en.keywords],
     },
+    ...(post.image_id ? { mainImageKey: post.image_id } : {}),
     ...(post.thumbnail?.url ? { thumbnailUrl: post.thumbnail.url } : {}),
+    ...(post.thumbnail_id ? { thumbnailKey: post.thumbnail_id } : {}),
   };
 }
 
@@ -293,6 +304,7 @@ export async function getAdminPostsPage(
       query.set('published', String(options.published));
     }
     if (options.categoryId) query.set('categoryId', options.categoryId);
+    if (options.imageStatus) query.set('imageStatus', options.imageStatus);
     const response = await requestAwsRead(
       `/api/aws/posts?${query.toString()}`,
       parsePostListEnvelope,
@@ -320,7 +332,13 @@ export async function getAdminPostsPage(
     const matchesCategory =
       options.categoryId === undefined ||
       post.category_id === options.categoryId;
-    return matchesTitle && matchesPublished && matchesCategory;
+    const matchesImages =
+      options.imageStatus === undefined ||
+      imageInventoryStatus({
+        mainImage: post.image_id,
+        thumbImage: post.thumbnail_id,
+      }) === options.imageStatus;
+    return matchesTitle && matchesPublished && matchesCategory && matchesImages;
   });
   filtered.sort((left, right) =>
     options.direction === 'descending'
@@ -338,6 +356,59 @@ export async function getAdminPostsPage(
     totalCount: filtered.length,
     unpublishedCount: posts.filter(post => !post.is_published).length,
   };
+}
+
+export async function getAdminImageInventory(
+  backend: AdminDataBackend,
+  signal?: AbortSignal
+): Promise<ImageInventoryCounts> {
+  if (backend === 'supabase') {
+    const { getPosts } = await import('./posts');
+    const posts = await getPosts();
+    signal?.throwIfAborted();
+    const counts = emptyImageInventoryCounts();
+    for (const post of posts) {
+      counts[
+        imageInventoryStatus({
+          mainImage: post.image_id,
+          thumbImage: post.thumbnail_id,
+        })
+      ] += 1;
+    }
+    return counts;
+  }
+
+  const counts = emptyImageInventoryCounts();
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const page = await getAdminPostsPage('aws', {
+      limit: AWS_ADMIN_POST_PAGE_LIMIT,
+      cursor,
+      direction: 'ascending',
+      signal,
+    });
+    for (const post of page.items) {
+      counts[
+        imageInventoryStatus({
+          mainImage: post.mainImageKey,
+          thumbImage: post.thumbnailKey,
+        })
+      ] += 1;
+    }
+    cursor = page.nextCursor ?? undefined;
+    if (cursor) {
+      if (seenCursors.has(cursor)) {
+        throw new AdminReadError(
+          'La paginació de l’inventari d’imatges no és consistent.',
+          502,
+          'CURSOR_LOOP'
+        );
+      }
+      seenCursors.add(cursor);
+    }
+  } while (cursor);
+  return counts;
 }
 
 export async function getAdminPostById(

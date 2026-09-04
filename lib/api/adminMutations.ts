@@ -9,6 +9,7 @@ import {
 import type { AdminDataBackend } from '@/lib/config/adminBackend';
 import {
   type ConfirmedImageUpload,
+  type DetachedImage,
   type ImagePreview,
   type ImageRole,
   type MediaInspection,
@@ -41,7 +42,21 @@ type MutationRequest<T> = {
   method: AwsMutationMethod;
   parseSuccess: SuccessParser<T>;
   path: string;
+  signal?: AbortSignal;
 };
+
+export type ImageUploadProgress = {
+  loaded: number;
+  total: number;
+  percent: number;
+};
+
+export type PresignedUploadTransport = (input: {
+  file: File;
+  onProgress?: (progress: ImageUploadProgress) => void;
+  signal?: AbortSignal;
+  upload: PresignedImageUpload;
+}) => Promise<void>;
 
 export type DeletePostMutationResult = {
   postId: string;
@@ -146,6 +161,7 @@ async function requestAwsMutation<T>({
   method,
   parseSuccess,
   path,
+  signal,
 }: MutationRequest<T>): Promise<AdminApiSuccessEnvelope<T>> {
   const correlationId = crypto.randomUUID();
   let lastNetworkError = false;
@@ -158,6 +174,7 @@ async function requestAwsMutation<T>({
         body: body === undefined ? undefined : JSON.stringify(body),
         cache: 'no-store',
         credentials: 'same-origin',
+        signal,
         headers: {
           accept: 'application/json',
           'idempotency-key': idempotencyKey,
@@ -169,7 +186,8 @@ async function requestAwsMutation<T>({
         },
       });
       lastNetworkError = false;
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') throw error;
       lastNetworkError = true;
       if (attempt === 0) continue;
       break;
@@ -239,6 +257,40 @@ function parseDeleteEnvelope(
     const cleanup = recordValue(result.cleanup, 'response.data.cleanup');
     return {
       postId: stringValue(result.postId, 'response.data.postId'),
+      cleanup: {
+        pending: booleanValue(cleanup.pending, 'response.data.cleanup.pending'),
+        failedCount: integerValue(
+          cleanup.failedCount,
+          'response.data.cleanup.failedCount'
+        ),
+        retryWithSameIdempotencyKey: booleanValue(
+          cleanup.retryWithSameIdempotencyKey,
+          'response.data.cleanup.retryWithSameIdempotencyKey'
+        ),
+      },
+      replayed: booleanValue(result.replayed, 'response.data.replayed'),
+    };
+  });
+}
+
+function parseDetachedImageEnvelope(
+  value: unknown
+): AdminApiSuccessEnvelope<DetachedImage> {
+  return parseSuccessEnvelope(value, data => {
+    const result = recordValue(data, 'response.data');
+    const cleanup = recordValue(result.cleanup, 'response.data.cleanup');
+    const role = stringValue(result.role, 'response.data.role');
+    if (role !== 'main' && role !== 'thumb') {
+      throw new TypeError('response.data.role is invalid');
+    }
+    return {
+      postId: stringValue(result.postId, 'response.data.postId'),
+      postVersion: integerValue(
+        result.postVersion,
+        'response.data.postVersion'
+      ),
+      role,
+      detached: booleanValue(result.detached, 'response.data.detached'),
       cleanup: {
         pending: booleanValue(cleanup.pending, 'response.data.cleanup.pending'),
         failedCount: integerValue(
@@ -677,48 +729,120 @@ async function checksumSha256(file: File): Promise<string> {
   return btoa(binary);
 }
 
-async function uploadPresignedFile(
-  upload: PresignedImageUpload,
-  file: File,
+function abortError(): DOMException {
+  return new DOMException('The operation was aborted.', 'AbortError');
+}
+
+function xhrPresignedUpload({
+  file,
+  onProgress,
+  signal,
+  upload,
+}: Parameters<PresignedUploadTransport>[0]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError());
+      return;
+    }
+
+    const request = new XMLHttpRequest();
+    const handleAbort = () => request.abort();
+    request.open('PUT', upload.uploadUrl);
+    request.withCredentials = false;
+    for (const [name, value] of Object.entries(upload.headers)) {
+      request.setRequestHeader(name, value);
+    }
+    request.upload.onprogress = event => {
+      const total = event.lengthComputable ? event.total : file.size;
+      const loaded = Math.min(event.loaded, total);
+      onProgress?.({
+        loaded,
+        total,
+        percent: total > 0 ? Math.round((loaded / total) * 100) : 0,
+      });
+    };
+    request.onload = () => {
+      signal?.removeEventListener('abort', handleAbort);
+      if (request.status >= 200 && request.status < 300) {
+        onProgress?.({ loaded: file.size, total: file.size, percent: 100 });
+        resolve();
+        return;
+      }
+      reject(
+        new AdminMutationError(
+          `L’emmagatzematge privat ha rebutjat la imatge (${request.status}).`,
+          request.status,
+          'IMAGE_UPLOAD_FAILED'
+        )
+      );
+    };
+    request.onerror = () => {
+      signal?.removeEventListener('abort', handleAbort);
+      reject(
+        new AdminMutationError(
+          'La imatge no s’ha pogut pujar. El text desat continua disponible.',
+          0,
+          'IMAGE_NETWORK_ERROR'
+        )
+      );
+    };
+    request.onabort = () => {
+      signal?.removeEventListener('abort', handleAbort);
+      reject(abortError());
+    };
+    signal?.addEventListener('abort', handleAbort, { once: true });
+    onProgress?.({ loaded: 0, total: file.size, percent: 0 });
+    request.send(file);
+  });
+}
+
+function fetchPresignedUpload(
   fetchImplementation: typeof fetch
-): Promise<void> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+): PresignedUploadTransport {
+  return async ({ file, onProgress, signal, upload }) => {
+    onProgress?.({ loaded: 0, total: file.size, percent: 0 });
+    let response: Response;
     try {
-      const response = await fetchImplementation(upload.uploadUrl, {
+      response = await fetchImplementation(upload.uploadUrl, {
         method: 'PUT',
         body: file,
         credentials: 'omit',
         headers: upload.headers,
+        signal,
       });
-      if (response.ok) return;
-      if (attempt === 0 && response.status >= 500) continue;
-      throw new AdminMutationError(
-        `L’emmagatzematge privat ha rebutjat la imatge (${response.status}).`,
-        response.status,
-        'IMAGE_UPLOAD_FAILED'
-      );
     } catch (error) {
-      if (error instanceof AdminMutationError) throw error;
-      if (attempt === 0) continue;
+      if (error instanceof Error && error.name === 'AbortError') throw error;
       throw new AdminMutationError(
         'La imatge no s’ha pogut pujar. El text desat continua disponible.',
         0,
         'IMAGE_NETWORK_ERROR'
       );
     }
-  }
+    if (!response.ok) {
+      throw new AdminMutationError(
+        `L’emmagatzematge privat ha rebutjat la imatge (${response.status}).`,
+        response.status,
+        'IMAGE_UPLOAD_FAILED'
+      );
+    }
+    onProgress?.({ loaded: file.size, total: file.size, percent: 100 });
+  };
 }
 
 export async function uploadAwsPostImage(input: {
   alt: string;
   file: File;
   fetchImplementation?: typeof fetch;
+  onProgress?: (progress: ImageUploadProgress) => void;
   postId: string;
   postVersion: number;
   role: ImageRole;
+  signal?: AbortSignal;
   title: string;
+  uploadTransport?: PresignedUploadTransport;
 }): Promise<ConfirmedImageUpload> {
   const fetchImplementation = input.fetchImplementation ?? fetch;
+  input.signal?.throwIfAborted();
   const descriptor = validateUploadDescriptor({
     role: input.role,
     fileName: input.file.name,
@@ -727,6 +851,7 @@ export async function uploadAwsPostImage(input: {
     checksumSha256: await checksumSha256(input.file),
     expectedVersion: input.postVersion,
   });
+  input.signal?.throwIfAborted();
   const presign = await requestAwsMutation({
     path: `/api/aws/posts/${encodeURIComponent(input.postId)}/images/presign`,
     method: 'POST',
@@ -734,8 +859,21 @@ export async function uploadAwsPostImage(input: {
     idempotencyKey: mutationKey(`image-${input.role}-presign`),
     parseSuccess: parsePresignEnvelope,
     fetchImplementation,
+    signal: input.signal,
   });
-  await uploadPresignedFile(presign.data, input.file, fetchImplementation);
+  input.signal?.throwIfAborted();
+  const uploadTransport =
+    input.uploadTransport ??
+    (input.fetchImplementation
+      ? fetchPresignedUpload(fetchImplementation)
+      : xhrPresignedUpload);
+  await uploadTransport({
+    upload: presign.data,
+    file: input.file,
+    signal: input.signal,
+    onProgress: input.onProgress,
+  });
+  input.signal?.throwIfAborted();
   const confirmed = await requestAwsMutation({
     path: `/api/aws/posts/${encodeURIComponent(input.postId)}/images/confirm`,
     method: 'POST',
@@ -747,8 +885,30 @@ export async function uploadAwsPostImage(input: {
     idempotencyKey: mutationKey(`image-${input.role}-confirm`),
     parseSuccess: parseConfirmedEnvelope,
     fetchImplementation,
+    signal: input.signal,
   });
   return confirmed.data;
+}
+
+export async function detachAwsPostImage(input: {
+  postId: string;
+  postVersion: number;
+  role: ImageRole;
+  idempotencyKey?: string;
+  fetchImplementation?: typeof fetch;
+  signal?: AbortSignal;
+}): Promise<DetachedImage> {
+  const response = await requestAwsMutation({
+    path: `/api/aws/posts/${encodeURIComponent(input.postId)}/images/${input.role}`,
+    method: 'DELETE',
+    expectedVersion: input.postVersion,
+    idempotencyKey:
+      input.idempotencyKey ?? mutationKey(`image-${input.role}-detach`),
+    parseSuccess: parseDetachedImageEnvelope,
+    fetchImplementation: input.fetchImplementation,
+    signal: input.signal,
+  });
+  return response.data;
 }
 
 export async function getAwsMediaInspection(

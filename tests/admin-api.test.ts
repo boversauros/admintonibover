@@ -80,6 +80,7 @@ function event(
     body?: unknown;
     headers?: Record<string, string>;
     id?: string;
+    role?: 'main' | 'thumb';
     query?: Record<string, string>;
     claims?: Record<string, unknown> | null;
   } = {}
@@ -100,7 +101,14 @@ function event(
       ? {}
       : { body: JSON.stringify(options.body) }),
     ...(options.headers ? { headers: options.headers } : {}),
-    ...(options.id ? { pathParameters: { id: options.id } } : {}),
+    ...(options.id || options.role
+      ? {
+          pathParameters: {
+            ...(options.id ? { id: options.id } : {}),
+            ...(options.role ? { role: options.role } : {}),
+          },
+        }
+      : {}),
     ...(options.query ? { queryStringParameters: options.query } : {}),
     requestContext: {
       requestId: 'request-12',
@@ -291,6 +299,16 @@ test('post create is idempotent and list/get/update preserve stable contracts an
   );
   assert.equal(listed.statusCode, 200);
   assert.equal((data(listed).items as unknown[]).length, 1);
+
+  const missingBoth = await handler(
+    event('GET /posts', { query: { imageStatus: 'missing-both' } })
+  );
+  assert.equal(missingBoth.statusCode, 200);
+  assert.equal((data(missingBoth).items as unknown[]).length, 1);
+  const invalidImageStatus = await handler(
+    event('GET /posts', { query: { imageStatus: 'unknown' } })
+  );
+  assert.equal(invalidImageStatus.statusCode, 400);
 
   const fetched = await handler(event('GET /posts/{id}', { id: 'post-1' }));
   assert.equal(fetched.statusCode, 200);
@@ -518,6 +536,64 @@ test('delete remains data-atomic and retries observable image cleanup with the s
   });
   assert.equal(data(retry).replayed, true);
   assert.equal(deletedKeys.filter(key => key.includes('/main/')).length, 2);
+});
+
+test('image detach is conditional, idempotent, and retries cleanup after commit', async () => {
+  const setupValue = setup();
+  const { handler, posts, deletedKeys, dependencies } = setupValue;
+  await posts.create(postFixture('post-delete', { images: true }));
+  let failCleanup = true;
+  dependencies.objects.delete = async key => {
+    deletedKeys.push(key);
+    if (failCleanup) {
+      failCleanup = false;
+      throw new Error('simulated detach cleanup failure');
+    }
+  };
+  const detachEvent = event('DELETE /posts/{id}/images/{role}', {
+    id: 'post-delete',
+    role: 'main',
+    headers: {
+      'if-match': '1',
+      'idempotency-key': 'detach-main-0001',
+    },
+  });
+
+  const first = await handler(detachEvent);
+  assert.equal(first.statusCode, 200);
+  assert.equal(data(first).postVersion, 2);
+  assert.equal(data(first).detached, true);
+  assert.deepEqual(data(first).cleanup, {
+    pending: true,
+    failedCount: 1,
+    retryWithSameIdempotencyKey: true,
+  });
+  const stored = await posts.getById('post-delete');
+  assert.equal(stored?.mainImage, null);
+  assert.ok(stored?.thumbImage);
+
+  const retry = await handler(detachEvent);
+  assert.equal(retry.statusCode, 200);
+  assert.equal(data(retry).replayed, true);
+  assert.deepEqual(data(retry).cleanup, {
+    pending: false,
+    failedCount: 0,
+    retryWithSameIdempotencyKey: false,
+  });
+  assert.equal(deletedKeys.length, 2);
+
+  const stale = await handler(
+    event('DELETE /posts/{id}/images/{role}', {
+      id: 'post-delete',
+      role: 'thumb',
+      headers: {
+        'if-match': '1',
+        'idempotency-key': 'detach-thumb-stale',
+      },
+    })
+  );
+  assert.equal(stale.statusCode, 409);
+  assert.ok((await posts.getById('post-delete'))?.thumbImage);
 });
 
 test('backup route paginates the full table and emits a restoration schema with integrity data', async () => {

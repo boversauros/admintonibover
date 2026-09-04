@@ -20,11 +20,13 @@ import {
   PostsFilters,
   type FilterStatus,
   type FilterCategory,
+  type FilterImageStatus,
   type SortDirection,
 } from '@/components/posts';
 import {
   AdminReadError,
   getAdminCategories,
+  getAdminImageInventory,
   getAdminPostsPage,
   type AdminCategory,
   type AdminPostSummary,
@@ -38,6 +40,8 @@ import {
   publishAllAdminPosts,
 } from '@/lib/api/adminMutations';
 import { useAuth } from '@/lib/auth/AuthContext';
+import type { ImageInventoryCounts } from '@/lib/domain/media/contracts';
+import { ImageInventorySummary } from './ImageInventorySummary';
 
 const POSTS_PER_PAGE = 10;
 
@@ -60,6 +64,8 @@ function PostsContent() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [filterCategory, setFilterCategory] = useState<FilterCategory>('all');
+  const [filterImageStatus, setFilterImageStatus] =
+    useState<FilterImageStatus>('all');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageCursors, setPageCursors] = useState<Array<string | undefined>>([
@@ -75,6 +81,10 @@ function PostsContent() {
   );
   const [readAttempt, setReadAttempt] = useState(0);
   const [categoryAttempt, setCategoryAttempt] = useState(0);
+  const [inventoryCounts, setInventoryCounts] =
+    useState<ImageInventoryCounts | null>(null);
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
+  const [inventoryAttempt, setInventoryAttempt] = useState(0);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isPublishingAll, setIsPublishingAll] = useState(false);
   const [isCountingDrafts, setIsCountingDrafts] = useState(false);
@@ -128,6 +138,9 @@ function PostsContent() {
           ? { published: false }
           : {}),
       ...(filterCategory === 'all' ? {} : { categoryId: filterCategory }),
+      ...(filterImageStatus === 'all'
+        ? {}
+        : { imageStatus: filterImageStatus }),
       signal: controller.signal,
     })
       .then(page => {
@@ -161,6 +174,7 @@ function PostsContent() {
     cursor,
     debouncedSearch,
     filterCategory,
+    filterImageStatus,
     filterStatus,
     readAttempt,
     sortDirection,
@@ -187,6 +201,25 @@ function PostsContent() {
       });
     return () => controller.abort();
   }, [backend, categoryAttempt]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void getAdminImageInventory(backend, controller.signal)
+      .then(counts => {
+        setInventoryCounts(counts);
+        setInventoryError(null);
+      })
+      .catch(error => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setInventoryCounts(null);
+        setInventoryError(
+          error instanceof Error
+            ? error.message
+            : 'No s’ha pogut calcular l’inventari d’imatges.'
+        );
+      });
+    return () => controller.abort();
+  }, [backend, inventoryAttempt]);
 
   const categoryLabels = useMemo(
     () => new Map(categories.map(category => [category.id, category.nameCa])),
@@ -227,6 +260,13 @@ function PostsContent() {
     beginListChange();
     resetPagination();
     setFilterCategory(value);
+  };
+
+  const handleImageStatusChange = (value: FilterImageStatus) => {
+    if (value === filterImageStatus) return;
+    beginListChange();
+    resetPagination();
+    setFilterImageStatus(value);
   };
 
   const handleSortChange = (value: SortDirection) => {
@@ -342,6 +382,7 @@ function PostsContent() {
           ? 'L’article s’ha eliminat, però la neteja d’alguna imatge continua pendent.'
           : 'S’ha eliminat 1 article.',
       });
+      setInventoryAttempt(attempt => attempt + 1);
       refreshPosts();
     } catch (error) {
       const requestId =
@@ -481,8 +522,19 @@ function PostsContent() {
       ) : null}
 
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <ImageInventorySummary
+          counts={inventoryCounts}
+          error={inventoryError}
+          selected={filterImageStatus}
+          onSelect={handleImageStatusChange}
+          onRetry={() => {
+            setInventoryError(null);
+            setInventoryCounts(null);
+            setInventoryAttempt(attempt => attempt + 1);
+          }}
+        />
         <div className="flex flex-wrap items-center gap-4">
-          <div className="min-w-0 flex-1">
+          <div className="mt-5 min-w-0 flex-1">
             <PostsFilters
               searchQuery={searchQuery}
               onSearchChange={handleSearchChange}
@@ -490,12 +542,15 @@ function PostsContent() {
               onFilterChange={handleStatusChange}
               filterCategory={filterCategory}
               onCategoryChange={handleCategoryChange}
+              filterImageStatus={filterImageStatus}
+              onImageStatusChange={handleImageStatusChange}
               sortDirection={sortDirection}
               onSortChange={handleSortChange}
               categories={categoryOptions}
             />
           </div>
           <Button
+            className="mt-5"
             onClick={() => void handlePublishAll()}
             variant="secondary"
             loading={isCountingDrafts || isPublishingAll}
@@ -611,7 +666,8 @@ function PostsContent() {
                   <Text variant="small" className="text-subtle">
                     {searchQuery ||
                     filterStatus !== 'all' ||
-                    filterCategory !== 'all'
+                    filterCategory !== 'all' ||
+                    filterImageStatus !== 'all'
                       ? 'Prova una altra cerca o elimina algun filtre'
                       : isAws
                         ? 'La font AWS no conté articles per mostrar'

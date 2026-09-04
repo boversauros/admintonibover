@@ -9,6 +9,7 @@ import {
   countDraftPosts,
   createAwsPost,
   deleteAdminPost,
+  detachAwsPostImage,
   publishAllAdminPosts,
   updateAwsPost,
   uploadAwsPostImage,
@@ -302,6 +303,7 @@ test('AWS count helpers paginate exact list and draft counts without credentials
             titles: { ca: 'Títol', en: 'Title' },
             excerpts: { ca: 'Resum', en: 'Excerpt' },
             keywords: { ca: [], en: [] },
+            mainImage: null,
             thumbImage: null,
           },
         ],
@@ -367,6 +369,7 @@ test('Supabase rollback flag rejects the AWS mutation proxy before any upstream 
 
 test('image replacement presigns, uploads, and confirms in order without a frontend delete', async () => {
   const calls: Array<{ method: string; path: string }> = [];
+  const progress: number[] = [];
   const file = new File(['private image bytes'], 'replacement.webp', {
     type: 'image/webp',
   });
@@ -377,6 +380,7 @@ test('image replacement presigns, uploads, and confirms in order without a front
     file,
     title: 'Replacement',
     alt: 'Replacement alt',
+    onProgress: value => progress.push(value.percent),
     fetchImplementation: async (input, init) => {
       const path = String(input);
       calls.push({ method: init?.method ?? 'GET', path });
@@ -453,6 +457,7 @@ test('image replacement presigns, uploads, and confirms in order without a front
     calls.some(call => call.method === 'DELETE'),
     false
   );
+  assert.deepEqual(progress, [0, 100]);
 });
 
 test('failed private upload never confirms or removes the existing image', async () => {
@@ -506,4 +511,87 @@ test('failed private upload never confirms or removes the existing image', async
     '/api/aws/posts/post-1/images/presign',
     'https://signed.example.invalid/failure',
   ]);
+});
+
+test('cancelling a private upload stops before confirmation and remains an abort', async () => {
+  const controller = new AbortController();
+  const paths: string[] = [];
+  await assert.rejects(
+    uploadAwsPostImage({
+      postId: 'post-1',
+      postVersion: 7,
+      role: 'thumb',
+      file: new File(['cancel me'], 'thumbnail.png', { type: 'image/png' }),
+      title: 'Thumbnail',
+      alt: 'Thumbnail alt',
+      signal: controller.signal,
+      uploadTransport: async ({ signal }) => {
+        controller.abort();
+        signal?.throwIfAborted();
+      },
+      fetchImplementation: async input => {
+        const path = String(input);
+        paths.push(path);
+        return Response.json(
+          {
+            version: 1,
+            data: {
+              uploadId: 'upload-cancelled',
+              objectKey: 'temporary/thumbnail.png',
+              uploadUrl: 'https://signed.example.invalid/cancelled',
+              headers: {
+                'content-type': 'image/png',
+                'x-amz-checksum-sha256': 'A'.repeat(43) + '=',
+              },
+              expiresAt: '2026-08-22T10:05:00.000Z',
+              postVersion: 7,
+            },
+            requestId: 'presign-request',
+          },
+          { status: 201 }
+        );
+      },
+    }),
+    error => error instanceof Error && error.name === 'AbortError'
+  );
+  assert.deepEqual(paths, ['/api/aws/posts/post-1/images/presign']);
+});
+
+test('image detach sends the current version and preserves cleanup retry metadata', async () => {
+  let requestPath = '';
+  let requestMethod = '';
+  let requestHeaders = new Headers();
+  const detached = await detachAwsPostImage({
+    postId: 'post-1',
+    postVersion: 7,
+    role: 'main',
+    idempotencyKey: 'detach-main-stable-key',
+    fetchImplementation: async (input, init) => {
+      requestPath = String(input);
+      requestMethod = init?.method ?? '';
+      requestHeaders = new Headers(init?.headers);
+      return Response.json({
+        version: 1,
+        data: {
+          postId: 'post-1',
+          postVersion: 8,
+          role: 'main',
+          detached: true,
+          cleanup: {
+            pending: true,
+            failedCount: 1,
+            retryWithSameIdempotencyKey: true,
+          },
+          replayed: false,
+        },
+        requestId: 'detach-request',
+      });
+    },
+  });
+
+  assert.equal(requestPath, '/api/aws/posts/post-1/images/main');
+  assert.equal(requestMethod, 'DELETE');
+  assert.equal(requestHeaders.get('if-match'), '"7"');
+  assert.equal(requestHeaders.get('idempotency-key'), 'detach-main-stable-key');
+  assert.equal(detached.cleanup.retryWithSameIdempotencyKey, true);
 });

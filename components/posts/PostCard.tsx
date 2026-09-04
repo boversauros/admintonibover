@@ -1,7 +1,9 @@
 'use client';
 
 import type { AdminPostSummary } from '@/lib/api/adminReads';
+import { imageInventoryStatus } from '@/lib/domain/media/contracts';
 import {
+  Badge,
   StatusBadge,
   LanguageIndicator,
   Icon,
@@ -34,21 +36,45 @@ export function PostCard({
     .slice(0, 4);
 
   const thumbnailUrl = post.thumbnailUrl;
+  const inventoryStatus = imageInventoryStatus({
+    mainImage: post.mainImageKey,
+    thumbImage: post.thumbnailKey,
+  });
+  const inventoryLabel = {
+    complete: 'Imatges completes',
+    'missing-main': 'Falta la destacada',
+    'missing-thumbnail': 'Falta la miniatura',
+    'missing-both': 'Falten totes dues',
+  }[inventoryStatus];
 
   return (
     <article className="group">
       <div className="flex gap-5 py-4 border-b border-overlay-10 hover:bg-overlay-2 transition-colors-smooth">
         {/* Left: Thumbnail */}
-        <div className="relative w-48 shrink-0 overflow-hidden bg-overlay-5 self-stretch min-h-[100px]">
+        <div className="relative min-h-[100px] w-28 shrink-0 self-stretch overflow-hidden bg-overlay-5 sm:w-48">
           {thumbnailUrl ? (
             <Image
               src={thumbnailUrl}
               alt=""
               className="w-full h-full object-cover"
             />
+          ) : post.thumbnailKey ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-3 text-center">
+              <Icon name="image" size="6" className="opacity-40" />
+              <Text variant="small" className="text-xs text-subtle">
+                Miniatura disponible
+              </Text>
+            </div>
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Icon name="image-placeholder" size="8" className="opacity-30" />
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 border border-amber-500/20 px-3 text-center">
+              <Icon
+                name="image-placeholder"
+                size="8"
+                className="text-amber-300/50"
+              />
+              <Text variant="small" className="text-xs text-amber-200/80">
+                Falta la miniatura
+              </Text>
             </div>
           )}
         </div>
@@ -58,7 +84,7 @@ export function PostCard({
           {/* Top section */}
           <div>
             {/* Meta row */}
-            <div className="flex items-center gap-3 mb-2">
+            <div className="mb-2 flex flex-wrap items-center gap-3">
               <Text
                 as="span"
                 variant="small"
@@ -78,6 +104,16 @@ export function PostCard({
                 hasEN={!!post.titles.en}
               />
               <StatusBadge published={post.published} />
+              <Badge
+                variant={inventoryStatus === 'complete' ? 'default' : 'error'}
+                className={
+                  inventoryStatus === 'complete'
+                    ? 'border-emerald-500/30 text-emerald-300'
+                    : 'border-amber-500/30 text-amber-300'
+                }
+              >
+                {inventoryLabel}
+              </Badge>
             </div>
 
             {/* Title - clearly clickable with arrow hint */}
@@ -132,7 +168,7 @@ export function PostCard({
               e.stopPropagation();
               onEdit(post.id);
             }}
-            aria-label="Edit post"
+            aria-label={`Edita ${title}`}
           >
             <Icon name="edit" />
           </Button>
@@ -144,7 +180,7 @@ export function PostCard({
                 onDelete(post);
               }}
               className="hover:text-red-400 hover:bg-red-500/10"
-              aria-label="Delete post"
+              aria-label={`Elimina ${title}`}
             >
               <Icon name="trash" />
             </Button>

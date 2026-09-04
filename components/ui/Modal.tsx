@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useId, useRef } from 'react';
 import { Button } from './Button';
 import { Icon } from './Icon';
 import { Heading } from './Heading';
@@ -26,23 +26,64 @@ export function Modal({
   showCloseButton = true,
   closeOnBackdropClick = true,
 }: ModalProps) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    previouslyFocusedRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const previousOverflow = document.body.style.overflow;
+    const focusableSelector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector)
+      );
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable.at(-1)!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
+    document.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden';
+    window.requestAnimationFrame(() => {
+      const firstFocusable =
+        dialogRef.current?.querySelector<HTMLElement>(focusableSelector);
+      (firstFocusable ?? dialogRef.current)?.focus();
+    });
 
     return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocusedRef.current?.focus();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -73,6 +114,8 @@ export function Modal({
         onClick={handleBackdropClick}
       >
         <div
+          ref={dialogRef}
+          tabIndex={-1}
           className={`
             bg-surface
             border
@@ -87,11 +130,11 @@ export function Modal({
             .replace(/\s+/g, ' ')}
           role="dialog"
           aria-modal="true"
-          aria-labelledby="modal-title"
+          aria-labelledby={titleId}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-subtle">
-            <Heading as="h2" size="xl" id="modal-title" className="mb-0">
+            <Heading as="h2" size="xl" id={titleId} className="mb-0">
               {title}
             </Heading>
             {showCloseButton && (
@@ -99,7 +142,7 @@ export function Modal({
                 variant="icon"
                 size="icon"
                 onClick={onClose}
-                aria-label="Close modal"
+                aria-label="Tanca el diàleg"
               >
                 <Icon name="close" size="6" />
               </Button>

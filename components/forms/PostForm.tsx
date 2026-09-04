@@ -1,6 +1,12 @@
 'use client';
 
-import { type BaseSyntheticEvent, useEffect, useRef, useState } from 'react';
+import {
+  type BaseSyntheticEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   Controller,
   FormProvider,
@@ -29,6 +35,7 @@ import {
   type AdminCategory,
 } from '@/lib/api/adminReads';
 import type { Post } from '@/lib/domain/posts/types';
+import type { ImagePreview, ImageRole } from '@/lib/domain/media/contracts';
 import {
   postFormResolver,
   type PostFormValidationContext,
@@ -39,6 +46,7 @@ import { KeywordsSection } from './KeywordsSection';
 import { ReferencesSection } from './ReferencesSection';
 import { FormHeader } from './FormHeader';
 import { ImageSelector } from './ImageSelector';
+import { AwsImageSlot } from './AwsImageSlot';
 import { TranslationStatusPanel } from './TranslationStatusPanel';
 import { PublicationStatusPanel } from './PublicationStatusPanel';
 import { CollapsibleSection } from './CollapsibleSection';
@@ -123,6 +131,28 @@ export function PostForm({
   const [existingMainImageAlt, setExistingMainImageAlt] = useState<string>(
     initialData?.image?.alt || ''
   );
+  const [awsMainImage, setAwsMainImage] = useState<ImagePreview | null>(() =>
+    initialData?.aws_post?.mainImage
+      ? {
+          image: initialData.aws_post.mainImage,
+          previewUrl: initialData.image?.url ?? null,
+          previewExpiresAt: null,
+        }
+      : null
+  );
+  const [awsThumbnailImage, setAwsThumbnailImage] =
+    useState<ImagePreview | null>(() =>
+      initialData?.aws_post?.thumbImage
+        ? {
+            image: initialData.aws_post.thumbImage,
+            previewUrl: initialData.thumbnail?.url ?? null,
+            previewExpiresAt: null,
+          }
+        : null
+    );
+  const [activeImageRole, setActiveImageRole] = useState<ImageRole | null>(
+    null
+  );
 
   const activeAwsPostId = savedAwsPost?.id ?? initialData?.id;
 
@@ -155,19 +185,42 @@ export function PostForm({
     return () => controller.abort();
   }, [backend, categoryRetry]);
 
+  const applyAwsInspection = useCallback(
+    (inspection: Awaited<ReturnType<typeof getAwsMediaInspection>>) => {
+      const main = inspection.images.main;
+      const thumb = inspection.images.thumb;
+      setAwsMainImage(main);
+      setAwsThumbnailImage(thumb);
+      setExistingMainImageId(main?.image.key ?? null);
+      setExistingMainImageUrl(main?.previewUrl ?? '');
+      setExistingMainImageAlt(main?.image.alt ?? '');
+      setExistingThumbnailId(thumb?.image.key ?? null);
+      setExistingThumbnailUrl(thumb?.previewUrl ?? '');
+      setSavedAwsPost(current =>
+        current
+          ? {
+              ...current,
+              mainImage: main?.image ?? null,
+              thumbImage: thumb?.image ?? null,
+              version: inspection.postVersion,
+            }
+          : current
+      );
+    },
+    []
+  );
+
+  const refreshAwsMedia = useCallback(async () => {
+    if (backend !== 'aws' || !activeAwsPostId) return;
+    const inspection = await getAwsMediaInspection(activeAwsPostId);
+    applyAwsInspection(inspection);
+  }, [activeAwsPostId, applyAwsInspection, backend]);
+
   useEffect(() => {
     if (backend !== 'aws' || !activeAwsPostId) return;
     const controller = new AbortController();
     void getAwsMediaInspection(activeAwsPostId, controller.signal)
-      .then(inspection => {
-        const main = inspection.images.main;
-        const thumb = inspection.images.thumb;
-        setExistingMainImageId(main?.image.key ?? null);
-        setExistingMainImageUrl(main?.previewUrl ?? '');
-        setExistingMainImageAlt(main?.image.alt ?? '');
-        setExistingThumbnailId(thumb?.image.key ?? null);
-        setExistingThumbnailUrl(thumb?.previewUrl ?? '');
-      })
+      .then(applyAwsInspection)
       .catch(error => {
         if (error instanceof Error && error.name === 'AbortError') return;
         setSubmissionError(
@@ -177,7 +230,7 @@ export function PostForm({
         );
       });
     return () => controller.abort();
-  }, [activeAwsPostId, backend]);
+  }, [activeAwsPostId, applyAwsInspection, backend]);
 
   const methods = useForm<PostFormData, PostFormValidationContext>({
     resolver: postFormResolver,
@@ -276,6 +329,10 @@ export function PostForm({
       'translations.en.slug',
       'is_published',
     ],
+  });
+  const mainImageAlt = useWatch({
+    control: methods.control,
+    name: 'main_image_alt',
   });
   const previousAutoSlugCA = useRef(
     initialData ? slugify(initialData.translations.ca.title) : ''
@@ -625,6 +682,33 @@ export function PostForm({
     setValue('main_image_file', file);
   };
 
+  const handleAwsImageChange = (
+    role: ImageRole,
+    change: { image: ImagePreview | null; postVersion: number }
+  ) => {
+    const nextImage = change.image?.image ?? null;
+    setSavedAwsPost(current =>
+      current
+        ? {
+            ...current,
+            [role === 'main' ? 'mainImage' : 'thumbImage']: nextImage,
+            version: change.postVersion,
+            updatedAt: nextImage?.updatedAt ?? new Date().toISOString(),
+          }
+        : current
+    );
+    if (role === 'main') {
+      setAwsMainImage(change.image);
+      setExistingMainImageId(nextImage?.key ?? null);
+      setExistingMainImageUrl(change.image?.previewUrl ?? '');
+      setExistingMainImageAlt(nextImage?.alt ?? '');
+    } else {
+      setAwsThumbnailImage(change.image);
+      setExistingThumbnailId(nextImage?.key ?? null);
+      setExistingThumbnailUrl(change.image?.previewUrl ?? '');
+    }
+  };
+
   const handleCopyRecovery = async () => {
     if (!conflict) return;
     try {
@@ -785,14 +869,35 @@ export function PostForm({
                 />
 
                 {/* Featured Image */}
-                <ImageSelector
-                  label="Imatge destacada"
-                  aspectRatio="video"
-                  hint="16:9"
-                  value={existingMainImageUrl || null}
-                  onFileSelect={handleMainImageSelect}
-                  error={errors.main_image_file?.message as string}
-                />
+                {backend === 'aws' && savedAwsPost && activeAwsPostId ? (
+                  <AwsImageSlot
+                    activeRole={activeImageRole}
+                    alt={mainImageAlt || ''}
+                    aspectRatio="video"
+                    disabled={readOnly || isSubmitting}
+                    hint="16:9 · imatge de capçalera"
+                    image={awsMainImage}
+                    label="Imatge destacada"
+                    onChange={change => handleAwsImageChange('main', change)}
+                    onOperationStateChange={(role, active) =>
+                      setActiveImageRole(active ? role : null)
+                    }
+                    onRefreshPreview={refreshAwsMedia}
+                    postId={activeAwsPostId}
+                    postVersion={savedAwsPost.version}
+                    role="main"
+                    title="Post Main Image"
+                  />
+                ) : (
+                  <ImageSelector
+                    label="Imatge destacada"
+                    aspectRatio="video"
+                    hint="16:9"
+                    value={existingMainImageUrl || null}
+                    onFileSelect={handleMainImageSelect}
+                    error={errors.main_image_file?.message as string}
+                  />
+                )}
                 <Input
                   {...register('main_image_alt')}
                   label="Text alternatiu de la imatge destacada"
@@ -806,14 +911,35 @@ export function PostForm({
                 />
 
                 {/* Thumbnail */}
-                <ImageSelector
-                  label="Miniatura"
-                  aspectRatio="thumbnail"
-                  hint="4:3 · Per llistats"
-                  value={existingThumbnailUrl || null}
-                  onFileSelect={handleThumbnailSelect}
-                  error={errors.thumbnail_file?.message as string}
-                />
+                {backend === 'aws' && savedAwsPost && activeAwsPostId ? (
+                  <AwsImageSlot
+                    activeRole={activeImageRole}
+                    alt={`Miniatura per a ${titleCA || titleEN || 'post'}`}
+                    aspectRatio="thumbnail"
+                    disabled={readOnly || isSubmitting}
+                    hint="4:3 · per als llistats"
+                    image={awsThumbnailImage}
+                    label="Miniatura"
+                    onChange={change => handleAwsImageChange('thumb', change)}
+                    onOperationStateChange={(role, active) =>
+                      setActiveImageRole(active ? role : null)
+                    }
+                    onRefreshPreview={refreshAwsMedia}
+                    postId={activeAwsPostId}
+                    postVersion={savedAwsPost.version}
+                    role="thumb"
+                    title="Post Thumbnail"
+                  />
+                ) : (
+                  <ImageSelector
+                    label="Miniatura"
+                    aspectRatio="thumbnail"
+                    hint="4:3 · Per llistats"
+                    value={existingThumbnailUrl || null}
+                    onFileSelect={handleThumbnailSelect}
+                    error={errors.thumbnail_file?.message as string}
+                  />
+                )}
 
                 {/* Category */}
                 <div className="space-y-2">

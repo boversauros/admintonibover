@@ -137,7 +137,7 @@ test('development foundation passes the offline safety contract', () => {
   const template = createDevFoundationTemplate();
   const summary = validateDevFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 35);
+  assert.equal(summary.resourceCount, 36);
   assert.deepEqual(summary.resourceTypes, EXPECTED_RESOURCE_TYPE_COUNTS);
 });
 
@@ -152,6 +152,10 @@ test('generated Lambda bundle stays inline-safe and enforces claims', async () =
   assert.equal(typeof generated.handler, 'function');
   assert.equal(
     FOUNDATION_LAMBDA_CODE.includes('POST /posts/{id}/images/confirm'),
+    true
+  );
+  assert.equal(
+    FOUNDATION_LAMBDA_CODE.includes('DELETE /posts/{id}/images/{role}'),
     true
   );
   assert.equal(FOUNDATION_LAMBDA_CODE.includes('X-Amz-Signature='), false);

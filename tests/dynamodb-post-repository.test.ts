@@ -138,6 +138,7 @@ test('create/read/list/update/delete round trip preserves all supported fields',
         en: created.translations.en.content,
       },
       keywords: { ca: ['català'], en: ['english'] },
+      mainImage: created.mainImage,
       thumbImage: created.thumbImage,
     },
   ]);
@@ -345,6 +346,91 @@ test('list pagination crosses multiple DynamoDB pages deterministically', async 
     descending.items.map(item => item.sortOrder),
     [5, 4, 3, 2, 1, 0]
   );
+});
+
+test('legacy list summaries hydrate the exact canonical image state', async () => {
+  const { port, repository } = testRepository();
+  const created = await repository.create(fixturePost());
+  const legacyItems = port.snapshot();
+  const summary = legacyItems.find(item => item.entityType === 'POST_SUMMARY');
+  assert.ok(summary);
+  delete summary.mainImage;
+
+  const legacyRepository = new DynamoDbPostRepository(
+    new InMemoryDynamoDbPort(legacyItems),
+    { clock: () => new Date(INITIAL_TIME) }
+  );
+  const page = await legacyRepository.list({ limit: 10 });
+  assert.equal(page.items.length, 1);
+  assert.deepEqual(page.items[0]?.mainImage, created.mainImage);
+  assert.deepEqual(page.items[0]?.thumbImage, created.thumbImage);
+});
+
+test('list image filters distinguish every main and thumbnail combination', async () => {
+  const { repository } = testRepository(1);
+  const complete = fixturePost({ id: 'complete' });
+  const missingMain = fixturePost({ id: 'missing-main' });
+  missingMain.mainImage = null;
+  const missingThumbnail = fixturePost({ id: 'missing-thumbnail' });
+  missingThumbnail.thumbImage = null;
+  const missingBoth = fixturePost({ id: 'missing-both', withImages: false });
+  for (const post of [complete, missingMain, missingThumbnail, missingBoth]) {
+    await repository.create(post);
+  }
+
+  for (const [imageStatus, expectedId] of [
+    ['complete', 'complete'],
+    ['missing-main', 'missing-main'],
+    ['missing-thumbnail', 'missing-thumbnail'],
+    ['missing-both', 'missing-both'],
+  ] as const) {
+    const page = await repository.list({ limit: 10, imageStatus });
+    assert.deepEqual(
+      page.items.map(item => item.id),
+      [expectedId]
+    );
+  }
+});
+
+test('detaching one role is version-bound and preserves the other image', async () => {
+  const { repository, setTime } = testRepository();
+  const created = await repository.create(fixturePost());
+  setTime(UPDATE_TIME);
+
+  const detached = await repository.detachImage('post-1', 'main', 1);
+  assert.deepEqual(detached, {
+    postId: 'post-1',
+    role: 'main',
+    version: 2,
+    previousImageKey: 'images/post-1/main.webp',
+    detached: true,
+  });
+  const stored = await repository.getById('post-1');
+  assert.equal(stored?.mainImage, null);
+  assert.deepEqual(stored?.thumbImage, created.thumbImage);
+  assert.equal(stored?.updatedAt, UPDATE_TIME);
+
+  await assert.rejects(
+    repository.detachImage('post-1', 'thumb', 1),
+    PostVersionConflictError
+  );
+  assert.deepEqual(
+    (await repository.getById('post-1'))?.thumbImage,
+    created.thumbImage
+  );
+});
+
+test('detaching an already-empty role is an explicit no-op', async () => {
+  const { repository } = testRepository();
+  await repository.create(fixturePost({ withImages: false }));
+  assert.deepEqual(await repository.detachImage('post-1', 'main', 1), {
+    postId: 'post-1',
+    role: 'main',
+    version: 1,
+    previousImageKey: null,
+    detached: false,
+  });
+  assert.equal((await repository.getById('post-1'))?.version, 1);
 });
 
 test('reference-heavy posts use paginated ordered segments and round trip', async () => {

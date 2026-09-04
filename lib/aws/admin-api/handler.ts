@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
 
-import type {
-  ConfirmedImageUpload,
-  MediaInspection,
-  PresignedImageUpload,
+import {
+  IMAGE_INVENTORY_STATUSES,
+  type ConfirmedImageUpload,
+  type ImageInventoryStatus,
+  type ImageRole,
+  type MediaInspection,
+  type PresignedImageUpload,
 } from '@/lib/domain/media/contracts';
 import {
   MediaUploadConflictError,
@@ -295,6 +298,18 @@ function validateId(value: unknown, path = 'id'): string {
 
 function pathId(event: AdminApiEvent): string {
   return validateId(event.pathParameters?.id, 'id');
+}
+
+function pathImageRole(event: AdminApiEvent): ImageRole {
+  const role = event.pathParameters?.role;
+  if (role !== 'main' && role !== 'thumb') {
+    throw validation(
+      'role',
+      'INVALID_IMAGE_ROLE',
+      'Role must be main or thumb'
+    );
+  }
+  return role;
 }
 
 function claimContains(value: unknown, expected: string): boolean {
@@ -589,6 +604,17 @@ function parseListOptions(event: AdminApiEvent) {
   if (query.title !== undefined && query.title.length > 200) {
     throw validation('title', 'INVALID_STRING', 'Title filter is too long');
   }
+  let imageStatus: ImageInventoryStatus | undefined;
+  if (query.imageStatus !== undefined) {
+    if (!IMAGE_INVENTORY_STATUSES.includes(query.imageStatus as never)) {
+      throw validation(
+        'imageStatus',
+        'INVALID_IMAGE_STATUS',
+        `Image status must be one of ${IMAGE_INVENTORY_STATUSES.join(', ')}`
+      );
+    }
+    imageStatus = query.imageStatus as ImageInventoryStatus;
+  }
   return {
     limit,
     ...(query.cursor ? { cursor: query.cursor } : {}),
@@ -598,6 +624,7 @@ function parseListOptions(event: AdminApiEvent) {
     ...(query.categoryId
       ? { categoryId: validateId(query.categoryId, 'categoryId') }
       : {}),
+    ...(imageStatus ? { imageStatus } : {}),
   };
 }
 
@@ -653,6 +680,33 @@ function resultStrings(result: StoredMutationResult, field: string): string[] {
     throw new TypeError('Stored idempotency result is invalid');
   }
   return value;
+}
+
+function resultNullableString(
+  result: StoredMutationResult,
+  field: string
+): string | null {
+  const value = result[field];
+  if (value !== null && typeof value !== 'string') {
+    throw new TypeError('Stored idempotency result is invalid');
+  }
+  return value;
+}
+
+function resultBoolean(result: StoredMutationResult, field: string): boolean {
+  const value = result[field];
+  if (typeof value !== 'boolean') {
+    throw new TypeError('Stored idempotency result is invalid');
+  }
+  return value;
+}
+
+function resultInteger(result: StoredMutationResult, field: string): number {
+  const value = result[field];
+  if (!Number.isSafeInteger(value)) {
+    throw new TypeError('Stored idempotency result is invalid');
+  }
+  return value as number;
 }
 
 function isThrottled(error: unknown): boolean {
@@ -780,17 +834,21 @@ async function cleanupImages(
   postId: string,
   imageKeys: string[],
   objects: Pick<MediaObjectStore, 'delete'>,
-  logger: AdminLogger
+  logger: AdminLogger,
+  logScope = 'post_delete',
+  role?: ImageRole
 ): Promise<{ pending: boolean; failedCount: number }> {
-  const ownedKeys = imageKeys.filter(
-    key =>
+  const ownedKeys = imageKeys.filter(key => {
+    if (role) return isOwnedImageKey(postId, role, key);
+    return (
       isOwnedImageKey(postId, 'main', key) ||
       isOwnedImageKey(postId, 'thumb', key)
-  );
+    );
+  });
   const skippedCount = imageKeys.length - ownedKeys.length;
   if (skippedCount > 0) {
     logger.warn({
-      message: 'post_delete_unowned_image_cleanup_skipped',
+      message: `${logScope}_unowned_image_cleanup_skipped`,
       postId,
       skippedCount,
     });
@@ -803,7 +861,7 @@ async function cleanupImages(
   ).length;
   if (failedCount > 0) {
     logger.warn({
-      message: 'post_delete_image_cleanup_incomplete',
+      message: `${logScope}_image_cleanup_incomplete`,
       postId,
       failedCount,
     });
@@ -1071,6 +1129,7 @@ export function createAdminApiHandler(dependencies: AdminApiDependencies) {
         routeKey === 'GET /posts/{id}/images' ||
         routeKey === 'POST /posts/{id}/images/presign' ||
         routeKey === 'POST /posts/{id}/images/confirm' ||
+        routeKey === 'DELETE /posts/{id}/images/{role}' ||
         routeKey === 'PUT /categories/{id}' ||
         routeKey === 'DELETE /categories/{id}' ||
         routeKey === 'PUT /keywords/{id}' ||
@@ -1376,6 +1435,66 @@ export function createAdminApiHandler(dependencies: AdminApiDependencies) {
             idempotencyKey: requireIdempotencyKey(event),
           });
           return response(200, { data: confirmed }, requestId);
+        }
+        if (routeKey === 'DELETE /posts/{id}/images/{role}') {
+          const role = pathImageRole(event);
+          const version = expectedVersion(event);
+          const key = requireIdempotencyKey(event);
+          const reservation = await dependencies.store.reserveMutation({
+            scope: routeKey,
+            subject: admin.subject,
+            key,
+            requestDigest: mutationDigest({ id, role, version }),
+          });
+          const replay = reservationResult(reservation);
+          let postVersion: number;
+          let previousImageKey: string | null;
+          let detached: boolean;
+          if (replay) {
+            postVersion = resultInteger(replay, 'postVersion');
+            previousImageKey = resultNullableString(replay, 'previousImageKey');
+            detached = resultBoolean(replay, 'detached');
+          } else {
+            const result = await dependencies.posts.detachImage(
+              id,
+              role,
+              version
+            );
+            postVersion = result.version;
+            previousImageKey = result.previousImageKey;
+            detached = result.detached;
+            await dependencies.store.completeMutation(
+              requiredReservation(reservation),
+              { postVersion, previousImageKey, detached }
+            );
+          }
+          const cleanup = previousImageKey
+            ? await cleanupImages(
+                id,
+                [previousImageKey],
+                dependencies.objects,
+                logger,
+                'image_detach',
+                role
+              )
+            : { pending: false, failedCount: 0 };
+          return response(
+            200,
+            {
+              data: {
+                postId: id,
+                postVersion,
+                role,
+                detached,
+                cleanup: {
+                  ...cleanup,
+                  retryWithSameIdempotencyKey: cleanup.pending,
+                },
+                replayed: replay !== null,
+              },
+            },
+            requestId
+          );
         }
       }
 

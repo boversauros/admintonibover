@@ -75,5 +75,6 @@ export type PostListItem = {
   titles: Record<PostLanguage, string>;
   excerpts: Record<PostLanguage, string>;
   keywords: Record<PostLanguage, string[]>;
+  mainImage: PostImage | null;
   thumbImage: PostImage | null;
 };

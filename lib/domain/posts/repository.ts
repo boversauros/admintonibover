@@ -1,4 +1,8 @@
 import type { Post, PostLanguage, PostListItem } from './types';
+import type {
+  ImageInventoryStatus,
+  ImageRole,
+} from '@/lib/domain/media/contracts';
 
 export type ListPostsOptions = {
   limit: number;
@@ -7,6 +11,7 @@ export type ListPostsOptions = {
   title?: string;
   published?: boolean;
   categoryId?: string;
+  imageStatus?: ImageInventoryStatus;
 };
 
 export type PostListPage = {
@@ -19,11 +24,24 @@ export type DeletePostResult = {
   imageKeys: string[];
 };
 
+export type DetachImageResult = {
+  postId: string;
+  role: ImageRole;
+  version: number;
+  previousImageKey: string | null;
+  detached: boolean;
+};
+
 export interface PostRepository {
   create(post: Post): Promise<Post>;
   getById(id: string): Promise<Post | null>;
   getBySlug(language: PostLanguage, slug: string): Promise<Post | null>;
   list(options: ListPostsOptions): Promise<PostListPage>;
   update(post: Post, expectedVersion: number): Promise<Post>;
+  detachImage(
+    postId: string,
+    role: ImageRole,
+    expectedVersion: number
+  ): Promise<DetachImageResult>;
   delete(id: string, expectedVersion: number): Promise<DeletePostResult>;
 }

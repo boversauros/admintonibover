@@ -111,8 +111,12 @@ test('sealed cookie hides token material and rejects tampering or swapping', asy
     null
   );
 
-  const replacement = sealed.endsWith('A') ? 'B' : 'A';
-  const tampered = `${sealed.slice(0, -1)}${replacement}`;
+  const segments = sealed.split('.');
+  assert.equal(segments.length, 5);
+  const ciphertext = segments[3]!;
+  const replacement = ciphertext.startsWith('A') ? 'B' : 'A';
+  segments[3] = `${replacement}${ciphertext.slice(1)}`;
+  const tampered = segments.join('.');
   assert.equal(
     await unsealCognitoCookie(
       tampered,

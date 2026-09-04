@@ -1,5 +1,17 @@
 import type { PostImage } from '@/lib/domain/posts/types';
 
+export {
+  IMAGE_INVENTORY_STATUSES,
+  countImageInventory,
+  emptyImageInventoryCounts,
+  imageInventoryStatus,
+} from './inventory';
+export type {
+  ImageInventoryCounts,
+  ImageInventoryItem,
+  ImageInventoryStatus,
+} from './inventory';
+
 export const IMAGE_ROLES = ['main', 'thumb'] as const;
 export type ImageRole = (typeof IMAGE_ROLES)[number];
 
@@ -54,6 +66,19 @@ export type ConfirmedImageUpload = {
   role: ImageRole;
   image: ImagePreview;
   cleanupPending: boolean;
+  replayed: boolean;
+};
+
+export type DetachedImage = {
+  postId: string;
+  postVersion: number;
+  role: ImageRole;
+  detached: boolean;
+  cleanup: {
+    pending: boolean;
+    failedCount: number;
+    retryWithSameIdempotencyKey: boolean;
+  };
   replayed: boolean;
 };
 

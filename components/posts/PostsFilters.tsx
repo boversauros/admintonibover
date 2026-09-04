@@ -1,9 +1,11 @@
 'use client';
 
 import { Icon, Text, Input, Dropdown } from '@/components/ui';
+import type { ImageInventoryStatus } from '@/lib/domain/media/contracts';
 
 export type FilterStatus = 'all' | 'published' | 'draft';
 export type FilterCategory = string;
+export type FilterImageStatus = ImageInventoryStatus | 'all';
 export type SortDirection = 'desc' | 'asc';
 
 export type CategoryFilterOption = {
@@ -18,6 +20,8 @@ interface PostsFiltersProps {
   onFilterChange: (status: FilterStatus) => void;
   filterCategory: FilterCategory;
   onCategoryChange: (category: FilterCategory) => void;
+  filterImageStatus: FilterImageStatus;
+  onImageStatusChange: (status: FilterImageStatus) => void;
   sortDirection: SortDirection;
   onSortChange: (dir: SortDirection) => void;
   categories?: CategoryFilterOption[];
@@ -34,6 +38,14 @@ const sortOptions: { value: SortDirection; label: string }[] = [
   { value: 'asc', label: 'Ordre ascendent' },
 ];
 
+const imageStatusOptions: { value: FilterImageStatus; label: string }[] = [
+  { value: 'all', label: 'Totes les imatges' },
+  { value: 'complete', label: 'Imatges completes' },
+  { value: 'missing-main', label: 'Falta la destacada' },
+  { value: 'missing-thumbnail', label: 'Falta la miniatura' },
+  { value: 'missing-both', label: 'Falten totes dues' },
+];
+
 export function PostsFilters({
   searchQuery,
   onSearchChange,
@@ -41,6 +53,8 @@ export function PostsFilters({
   onFilterChange,
   filterCategory,
   onCategoryChange,
+  filterImageStatus,
+  onImageStatusChange,
   sortDirection,
   onSortChange,
   categories = [],
@@ -61,6 +75,7 @@ export function PostsFilters({
         </Text>
         <Input
           type="text"
+          aria-label="Cerca articles"
           value={searchQuery}
           onChange={e => onSearchChange(e.target.value)}
           placeholder="Cerca articles..."
@@ -84,6 +99,13 @@ export function PostsFilters({
           onChange={onFilterChange}
           ariaLabel="Filtrar per estat"
           wrapperClassName="w-48"
+        />
+        <Dropdown
+          options={imageStatusOptions}
+          value={filterImageStatus}
+          onChange={onImageStatusChange}
+          ariaLabel="Filtrar per estat de les imatges"
+          wrapperClassName="w-52"
         />
         <Dropdown
           options={sortOptions}
