@@ -13,6 +13,7 @@ import type {
   AdminApiSuccessEnvelope,
   AdminPostListPage,
 } from '../lib/aws/admin-read-contract';
+import { parseAdminPostListSearchParams } from '../lib/aws/admin-post-list-query';
 import type { Post, PostImage, PostListItem } from '../lib/domain/posts/types';
 
 const NOW = '2026-08-22T10:00:00.000Z';
@@ -98,6 +99,43 @@ function successEnvelope<T>(
 ): AdminApiSuccessEnvelope<T> {
   return { version: 1, data, requestId };
 }
+
+test('the same-origin posts route preserves image status with the other list filters', () => {
+  const options = parseAdminPostListSearchParams(
+    new URLSearchParams({
+      limit: '10',
+      cursor: 'page-2',
+      direction: 'ascending',
+      title: 'reflexió',
+      published: 'false',
+      categoryId: 'category-1',
+      imageStatus: 'missing-thumbnail',
+    })
+  );
+
+  assert.deepEqual(options, {
+    limit: 10,
+    cursor: 'page-2',
+    direction: 'ascending',
+    title: 'reflexió',
+    published: false,
+    categoryId: 'category-1',
+    imageStatus: 'missing-thumbnail',
+  });
+
+  for (const imageStatus of [
+    'complete',
+    'missing-main',
+    'missing-thumbnail',
+    'missing-both',
+  ]) {
+    assert.equal(
+      parseAdminPostListSearchParams(new URLSearchParams({ imageStatus }))
+        .imageStatus,
+      imageStatus
+    );
+  }
+});
 
 test('list reads attach the server token, forward filters, and make one request per page', async () => {
   const requestedUrls: string[] = [];
