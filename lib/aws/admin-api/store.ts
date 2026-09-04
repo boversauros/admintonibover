@@ -30,7 +30,13 @@ export type AdminKeyword = {
 export type StoredMutationResult = Record<string, unknown>;
 
 export type MutationReservation =
-  | { state: 'reserved'; key: DynamoKey; requestDigest: string }
+  | {
+      state: 'reserved';
+      key: DynamoKey;
+      requestDigest: string;
+      resumed: boolean;
+      context?: StoredMutationResult;
+    }
   | { state: 'replay'; result: StoredMutationResult };
 
 export class AdminStoreConflictError extends Error {
@@ -314,10 +320,26 @@ export class DynamoDbAdminStore {
     subject: string;
     key: string;
     requestDigest: string;
+    resumePending?: boolean;
+    pendingContext?: StoredMutationResult;
   }): Promise<MutationReservation> {
     const key = mutationKey(input.scope, input.subject, input.key);
     const existing = await this.dynamodb.get(key, true);
-    if (existing) return this.resolveReservation(existing, input.requestDigest);
+    if (existing) {
+      return this.resolveReservation(
+        existing,
+        input.requestDigest,
+        input.resumePending
+      );
+    }
+
+    if (
+      input.pendingContext &&
+      Buffer.byteLength(JSON.stringify(input.pendingContext), 'utf8') >
+        MAX_STORED_RESULT_BYTES
+    ) {
+      throw new RangeError('Idempotency context exceeds 32 KiB');
+    }
 
     const now = this.clock();
     try {
@@ -331,6 +353,9 @@ export class DynamoDbAdminStore {
             schemaVersion: 1,
             requestDigest: input.requestDigest,
             status: 'pending',
+            ...(input.pendingContext
+              ? { context: structuredClone(input.pendingContext) }
+              : {}),
             createdAt: now.toISOString(),
             expiresAt:
               Math.floor(now.getTime() / 1000) + IDEMPOTENCY_TTL_SECONDS,
@@ -339,13 +364,45 @@ export class DynamoDbAdminStore {
         },
         revisionAction(now.toISOString()),
       ]);
-      return { state: 'reserved', key, requestDigest: input.requestDigest };
+      return {
+        state: 'reserved',
+        key,
+        requestDigest: input.requestDigest,
+        resumed: false,
+        ...(input.pendingContext
+          ? { context: structuredClone(input.pendingContext) }
+          : {}),
+      };
     } catch (error) {
       if (!(error instanceof DynamoTransactionCanceledError)) throw error;
       const raced = await this.dynamodb.get(key, true);
       if (!raced) throw new AdminStoreConflictError('idempotency');
-      return this.resolveReservation(raced, input.requestDigest);
+      return this.resolveReservation(
+        raced,
+        input.requestDigest,
+        input.resumePending
+      );
     }
+  }
+
+  async findMutation(input: {
+    scope: string;
+    subject: string;
+    key: string;
+    requestDigest: string;
+    resumePending?: boolean;
+  }): Promise<MutationReservation | null> {
+    const existing = await this.dynamodb.get(
+      mutationKey(input.scope, input.subject, input.key),
+      true
+    );
+    return existing
+      ? this.resolveReservation(
+          existing,
+          input.requestDigest,
+          input.resumePending
+        )
+      : null;
   }
 
   async completeMutation(
@@ -494,7 +551,8 @@ export class DynamoDbAdminStore {
 
   private resolveReservation(
     item: DynamoItem,
-    requestDigest: string
+    requestDigest: string,
+    resumePending = false
   ): MutationReservation {
     if (
       item.entityType !== 'IDEMPOTENCY' ||
@@ -505,6 +563,17 @@ export class DynamoDbAdminStore {
     }
     if (item.status === 'completed') {
       return { state: 'replay', result: completedResult(item) };
+    }
+    if (item.status === 'pending' && resumePending) {
+      return {
+        state: 'reserved',
+        key: { PK: item.PK, SK: item.SK },
+        requestDigest,
+        resumed: true,
+        ...(item.context === undefined
+          ? {}
+          : { context: structuredClone(recordValue(item, 'context')) }),
+      };
     }
     throw new AdminStoreConflictError('idempotency');
   }

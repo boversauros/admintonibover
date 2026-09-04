@@ -133,7 +133,11 @@ function parseSuccessEnvelope<T>(
   };
 }
 
-function friendlyMutationMessage(status: number, fallback: string): string {
+function friendlyMutationMessage(
+  status: number,
+  fallback: string,
+  code?: string
+): string {
   if (status === 0) {
     return 'No s’ha pogut contactar amb el servei. Torna-ho a provar.';
   }
@@ -142,6 +146,9 @@ function friendlyMutationMessage(status: number, fallback: string): string {
   if (status === 403) return 'No tens permisos per fer aquesta operació.';
   if (status === 404) return 'L’article ja no existeix.';
   if (status === 409) {
+    if (code === 'BULK_COUNT_MISMATCH') {
+      return 'El nombre d’esborranys ha canviat. Torna a obrir la confirmació amb el recompte actual.';
+    }
     return 'L’article ha canviat des que el vas obrir. Recarrega la versió actual abans de continuar.';
   }
   if (status === 429) {
@@ -221,7 +228,11 @@ async function requestAwsMutation<T>({
     try {
       const envelope = parseAdminApiErrorEnvelope(payload);
       throw new AdminMutationError(
-        friendlyMutationMessage(response.status, envelope.error.message),
+        friendlyMutationMessage(
+          response.status,
+          envelope.error.message,
+          envelope.error.code
+        ),
         response.status,
         envelope.error.code,
         envelope.requestId,
@@ -519,6 +530,13 @@ export function mutationKey(scope: string): string {
   return `${scope}:${crypto.randomUUID()}`;
 }
 
+export function isExactBulkConfirmation(
+  value: string,
+  expectedCount: number
+): boolean {
+  return value.trim() === String(expectedCount);
+}
+
 export async function createAwsPost(
   post: Post,
   idempotencyKey = mutationKey('post-create'),
@@ -615,6 +633,7 @@ export async function deleteAdminPost(
 
 export async function publishAllAdminPosts(
   backend: AdminDataBackend,
+  expectedCount: number,
   idempotencyKey = mutationKey('posts-publish-all'),
   fetchImplementation?: typeof fetch
 ): Promise<BulkPublicationResult> {
@@ -628,7 +647,7 @@ export async function publishAllAdminPosts(
   const response = await requestAwsMutation({
     path: '/api/aws/posts/publication/bulk',
     method: 'POST',
-    body: { published: true, confirmation: 'PUBLISH_ALL' },
+    body: { published: true, confirmation: 'PUBLISH_ALL', expectedCount },
     idempotencyKey,
     parseSuccess: parseBulkEnvelope,
     fetchImplementation,
@@ -961,7 +980,11 @@ export async function getAwsMediaInspection(
   try {
     const envelope = parseAdminApiErrorEnvelope(payload);
     throw new AdminMutationError(
-      friendlyMutationMessage(response.status, envelope.error.message),
+      friendlyMutationMessage(
+        response.status,
+        envelope.error.message,
+        envelope.error.code
+      ),
       response.status,
       envelope.error.code,
       envelope.requestId

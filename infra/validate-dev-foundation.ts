@@ -417,6 +417,22 @@ export function validateDevFoundationTemplate(
   );
   requireEqual(lambda.MemorySize, 256, 'FoundationFunction.MemorySize', issues);
   requireEqual(lambda.Timeout, 30, 'FoundationFunction.Timeout', issues);
+  const lambdaEnvironment = asRecord(
+    lambda.Environment,
+    'FoundationFunction.Environment',
+    issues
+  );
+  const lambdaVariables = asRecord(
+    lambdaEnvironment.Variables,
+    'FoundationFunction.Environment.Variables',
+    issues
+  );
+  requireEqual(
+    lambdaVariables.BACKUP_ENVIRONMENT,
+    { Ref: 'Environment' },
+    'FoundationFunction.Environment.BACKUP_ENVIRONMENT',
+    issues
+  );
   const lambdaCode = asRecord(lambda.Code, 'FoundationFunction.Code', issues);
   if (
     typeof lambdaCode.ZipFile !== 'string' ||

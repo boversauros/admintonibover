@@ -125,6 +125,12 @@ export async function proxyAwsAdminApi(
         ...(upstream.headers.get('retry-after')
           ? { 'retry-after': upstream.headers.get('retry-after') ?? '' }
           : {}),
+        ...(upstream.headers.get('content-disposition')
+          ? {
+              'content-disposition':
+                upstream.headers.get('content-disposition') ?? '',
+            }
+          : {}),
       },
     });
     if (upstream.status === 401) {

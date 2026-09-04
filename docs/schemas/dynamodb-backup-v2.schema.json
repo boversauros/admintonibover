@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/boversauros/admintonibover/blob/main/docs/schemas/dynamodb-backup-v2.schema.json",
+  "title": "admintonibover DynamoDB backup v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "exportedAt",
+    "environment",
+    "manifest",
+    "items"
+  ],
+  "properties": {
+    "schema": {
+      "const": "https://github.com/boversauros/admintonibover/blob/main/docs/schemas/dynamodb-backup-v2.schema.json"
+    },
+    "version": { "const": 2 },
+    "exportedAt": { "type": "string", "format": "date-time" },
+    "environment": { "enum": ["dev", "prod"] },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "itemCount",
+        "excludedItemCount",
+        "pageCount",
+        "revision",
+        "sha256",
+        "entityCounts",
+        "compatibility"
+      ],
+      "properties": {
+        "itemCount": { "type": "integer", "minimum": 0 },
+        "excludedItemCount": { "type": "integer", "minimum": 0 },
+        "pageCount": { "type": "integer", "minimum": 1 },
+        "revision": {
+          "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "entityCounts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "DATA_REVISION",
+            "POST",
+            "POST_SUMMARY",
+            "REFERENCE_SEGMENT",
+            "SLUG_LOCK",
+            "CATEGORY",
+            "KEYWORD"
+          ],
+          "properties": {
+            "DATA_REVISION": { "type": "integer", "minimum": 0 },
+            "POST": { "type": "integer", "minimum": 0 },
+            "POST_SUMMARY": { "type": "integer", "minimum": 0 },
+            "REFERENCE_SEGMENT": { "type": "integer", "minimum": 0 },
+            "SLUG_LOCK": { "type": "integer", "minimum": 0 },
+            "CATEGORY": { "type": "integer", "minimum": 0 },
+            "KEYWORD": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "compatibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "storage",
+            "tableSchemaVersion",
+            "requiresEmptyTable",
+            "keySchema",
+            "restoreProcedure"
+          ],
+          "properties": {
+            "storage": { "const": "dynamodb" },
+            "tableSchemaVersion": { "const": 1 },
+            "requiresEmptyTable": { "const": true },
+            "keySchema": {
+              "type": "array",
+              "prefixItems": [{ "const": "PK" }, { "const": "SK" }],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "restoreProcedure": {
+              "const": "https://github.com/boversauros/admintonibover/blob/main/docs/runbooks/aws-admin-backup-and-utilities.md"
+            }
+          }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["PK", "SK", "entityType"],
+        "properties": {
+          "PK": { "type": "string", "minLength": 1 },
+          "SK": { "type": "string", "minLength": 1 },
+          "entityType": {
+            "enum": [
+              "DATA_REVISION",
+              "POST",
+              "POST_SUMMARY",
+              "REFERENCE_SEGMENT",
+              "SLUG_LOCK",
+              "CATEGORY",
+              "KEYWORD"
+            ]
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

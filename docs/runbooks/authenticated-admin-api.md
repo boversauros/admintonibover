@@ -24,7 +24,7 @@ defense-in-depth check.
 | `PUT`          | `/posts/{id}`                | Conditional full update; requires `If-Match` and `Idempotency-Key`                                   |
 | `DELETE`       | `/posts/{id}`                | Atomic aggregate/slug deletion plus observable S3 cleanup; requires `If-Match` and `Idempotency-Key` |
 | `PUT`          | `/posts/{id}/publication`    | Publish/unpublish with `PUBLISH`/`UNPUBLISH` confirmation, `If-Match`, and `Idempotency-Key`         |
-| `POST`         | `/posts/publication/bulk`    | Publish all drafts with `published: true`, `confirmation: "PUBLISH_ALL"`, and `Idempotency-Key`      |
+| `POST`         | `/posts/publication/bulk`    | Publish an exact draft set with typed count, `confirmation: "PUBLISH_ALL"`, and `Idempotency-Key`    |
 | `GET`/`POST`   | `/categories`                | List/create bilingual category records                                                               |
 | `PUT`/`DELETE` | `/categories/{id}`           | Versioned category management; referenced categories cannot be deleted                               |
 | `GET`/`POST`   | `/keywords`                  | List/create language-specific keyword records                                                        |
@@ -61,16 +61,20 @@ limit.
 
 `GET /backup` performs consistent DynamoDB scan pages of at most 100 items. The
 download validates before it leaves Lambda against
-[`dynamodb-backup-v1.schema.json`](../schemas/dynamodb-backup-v1.schema.json).
-The manifest records the item/page counts, current data revision when present,
-the `PK`/`SK` key schema, and the SHA-256 of the ordered `items` array.
+[`dynamodb-backup-v2.schema.json`](../schemas/dynamodb-backup-v2.schema.json).
+The manifest records source environment, restorable/excluded/per-entity/page
+counts, current data revision, the `PK`/`SK` key schema, and the SHA-256 of the
+ordered `items` array. The protected browser path validates the document,
+digest, and filename again before offering the download.
 
 Before restoration, validate the JSON schema, recompute the item-array digest,
 reject duplicate `PK`/`SK` pairs, and compare the manifest count. Restore into
 an empty isolated table with the same string partition/sort keys by using
 bounded `BatchWriteItem` requests. Do not restore over the active table. Read
 back every page, compare the count/digest, then switch configuration only
-through a separately reviewed change set.
+through a separately reviewed change set. See the
+[AWS admin backup and utility parity runbook](aws-admin-backup-and-utilities.md)
+for the exact exclusion, rehearsal, and bulk-publication contracts.
 
 ## Automated and manual evidence
 

@@ -164,6 +164,7 @@ test('generated Lambda bundle stays inline-safe and enforces claims', async () =
   process.env.REQUIRED_ADMIN_SCOPE = 'admintonibover-api/admin';
   process.env.CONTENT_TABLE_NAME = 'fixture-table';
   process.env.CONTENT_BUCKET_NAME = 'fixture-bucket';
+  process.env.BACKUP_ENVIRONMENT = 'dev';
   const denied = await generated.handler!({
     routeKey: 'POST /posts/{id}/images/presign',
     pathParameters: { id: 'post-1' },
