@@ -10,6 +10,7 @@ import {
   Badge,
   Button,
   Icon,
+  Input,
   Modal,
   Pagination,
   Heading,
@@ -28,6 +29,7 @@ import {
   getAdminCategories,
   getAdminImageInventory,
   getAdminPostsPage,
+  resolveUnpublishedCount,
   type AdminCategory,
   type AdminPostSummary,
 } from '@/lib/api/adminReads';
@@ -36,6 +38,7 @@ import {
   AdminMutationError,
   countDraftPosts,
   deleteAdminPost,
+  isExactBulkConfirmation,
   mutationKey,
   publishAllAdminPosts,
 } from '@/lib/api/adminMutations';
@@ -92,6 +95,7 @@ function PostsContent() {
   const [confirmation, setConfirmation] = useState<ConfirmationState | null>(
     null
   );
+  const [bulkConfirmationText, setBulkConfirmationText] = useState('');
   const [mutationMessage, setMutationMessage] = useState<{
     type: 'error' | 'success' | 'warning';
     text: string;
@@ -147,7 +151,9 @@ function PostsContent() {
         setPosts(page.items);
         setNextCursor(page.nextCursor);
         setTotalCount(page.totalCount);
-        setUnpublishedCount(page.unpublishedCount);
+        setUnpublishedCount(currentCount =>
+          resolveUnpublishedCount(currentCount, page.unpublishedCount)
+        );
         setReadError(null);
       })
       .catch(error => {
@@ -293,11 +299,12 @@ function PostsContent() {
   const handleCreate = () => router.push('/reflexions/new');
 
   const handleBackup = async () => {
-    if (isAws) return;
     setIsBackingUp(true);
     try {
-      await downloadBackupAsJson();
-      alert('Còpia de seguretat descarregada correctament.');
+      const result = await downloadBackupAsJson(backend);
+      alert(
+        `Còpia de seguretat descarregada correctament: ${result.filename} (${result.itemCount} registres).`
+      );
     } catch (error) {
       alert(
         error instanceof Error
@@ -338,6 +345,7 @@ function PostsContent() {
         count,
         idempotencyKey: mutationKey('posts-publish-all'),
       });
+      setBulkConfirmationText('');
     } catch (error) {
       const requestId =
         error instanceof AdminMutationError ? error.requestId : undefined;
@@ -413,13 +421,38 @@ function PostsContent() {
     setIsPublishingAll(true);
     setMutationMessage(null);
     try {
-      const result = await publishAllAdminPosts(backend, value.idempotencyKey);
+      const result = await publishAllAdminPosts(
+        backend,
+        value.count,
+        value.idempotencyKey
+      );
       setConfirmation(null);
-      setUnpublishedCount(0);
-      setMutationMessage({
-        type: 'success',
-        text: `${result.publishedCount} article(s) publicats correctament.`,
-      });
+      setBulkConfirmationText('');
+      if (isAws) {
+        try {
+          const remainingCount = await countDraftPosts(backend);
+          setUnpublishedCount(remainingCount);
+          setMutationMessage({
+            type: remainingCount === 0 ? 'success' : 'warning',
+            text:
+              remainingCount === 0
+                ? `${result.publishedCount} article(s) publicats i recompte reconciliat: 0 esborranys pendents.`
+                : `${result.publishedCount} article(s) publicats. La reconciliació mostra ${remainingCount} esborrany(s) nou(s) o pendents.`,
+          });
+        } catch {
+          setUnpublishedCount(undefined);
+          setMutationMessage({
+            type: 'warning',
+            text: `${result.publishedCount} article(s) publicats, però no s’ha pogut reconciliar el recompte final.`,
+          });
+        }
+      } else {
+        setUnpublishedCount(0);
+        setMutationMessage({
+          type: 'success',
+          text: `${result.publishedCount} article(s) publicats correctament.`,
+        });
+      }
       refreshPosts();
     } catch (error) {
       const requestId =
@@ -433,6 +466,17 @@ function PostsContent() {
         type: 'error',
         text: requestId ? `${message} Correlació: ${requestId}` : message,
       });
+      if (
+        isAws &&
+        error instanceof AdminMutationError &&
+        error.code === 'BULK_COUNT_MISMATCH'
+      ) {
+        try {
+          setUnpublishedCount(await countDraftPosts(backend));
+        } catch {
+          setUnpublishedCount(undefined);
+        }
+      }
       refreshPosts();
     } finally {
       operationLockRef.current = false;
@@ -500,7 +544,7 @@ function PostsContent() {
               </Button>
               <UserMenu
                 user={user}
-                onBackup={isAws ? undefined : handleBackup}
+                onBackup={handleBackup}
                 onLogout={handleLogout}
                 isBackingUp={isBackingUp}
               />
@@ -691,7 +735,10 @@ function PostsContent() {
       <Modal
         isOpen={confirmation !== null}
         onClose={() => {
-          if (!deletingPostId && !isPublishingAll) setConfirmation(null);
+          if (!deletingPostId && !isPublishingAll) {
+            setConfirmation(null);
+            setBulkConfirmationText('');
+          }
         }}
         title={
           confirmation?.kind === 'delete'
@@ -706,7 +753,10 @@ function PostsContent() {
               <Button
                 variant="ghost"
                 disabled={!!deletingPostId || isPublishingAll}
-                onClick={() => setConfirmation(null)}
+                onClick={() => {
+                  setConfirmation(null);
+                  setBulkConfirmationText('');
+                }}
               >
                 Cancel·lar
               </Button>
@@ -715,6 +765,14 @@ function PostsContent() {
                   confirmation.kind === 'delete' ? 'destructive' : 'primary'
                 }
                 loading={!!deletingPostId || isPublishingAll}
+                disabled={
+                  confirmation.kind === 'bulk' &&
+                  isAws &&
+                  !isExactBulkConfirmation(
+                    bulkConfirmationText,
+                    confirmation.count
+                  )
+                }
                 onClick={() => {
                   if (confirmation.kind === 'delete') {
                     void confirmDelete(confirmation);
@@ -756,6 +814,36 @@ function PostsContent() {
               Els articles importats no canvien d’estat fins que confirmis
               explícitament aquesta operació.
             </Text>
+            {isAws ? (
+              <div className="border-l-2 border-amber-400/60 bg-amber-400/5 px-4 py-3">
+                <Input
+                  id="bulk-publication-count"
+                  label={`Escriu ${confirmation.count} per confirmar`}
+                  value={bulkConfirmationText}
+                  onChange={event =>
+                    setBulkConfirmationText(event.target.value)
+                  }
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="off"
+                  aria-describedby="bulk-publication-help"
+                  isInvalid={
+                    bulkConfirmationText.length > 0 &&
+                    !isExactBulkConfirmation(
+                      bulkConfirmationText,
+                      confirmation.count
+                    )
+                  }
+                  className="font-mono tabular-nums"
+                />
+                <div id="bulk-publication-help">
+                  <Text variant="small" className="mt-2 text-amber-100/70">
+                    El recompte queda vinculat a aquesta operació. Si canvia
+                    abans d’executar-la, no es publicarà cap esborrany.
+                  </Text>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </Modal>

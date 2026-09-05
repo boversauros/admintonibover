@@ -13,6 +13,10 @@ import { DynamoDbMediaIntentRepository } from '@/lib/aws/dynamodb/media-intent-r
 import { DynamoDbPostRepository } from '@/lib/aws/dynamodb/post-repository';
 import { AwsS3MediaObjectStore } from '@/lib/aws/media/aws-s3-object-store';
 import { MediaService } from '@/lib/aws/media/service';
+import {
+  BACKUP_ENVIRONMENTS,
+  type BackupEnvironment,
+} from '@/lib/aws/backup-contract';
 
 const dynamodb = new DynamoDBClient({});
 const documentClient = DynamoDBDocumentClient.from(dynamodb, {
@@ -24,6 +28,14 @@ function environment(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required environment setting: ${name}`);
   return value;
+}
+
+function backupEnvironment(): BackupEnvironment {
+  const value = environment('BACKUP_ENVIRONMENT');
+  if (!BACKUP_ENVIRONMENTS.includes(value as BackupEnvironment)) {
+    throw new Error('BACKUP_ENVIRONMENT must be dev or prod');
+  }
+  return value as BackupEnvironment;
 }
 
 let cachedHandler:
@@ -52,6 +64,7 @@ function runtimeHandler() {
     store,
     media,
     objects,
+    environment: backupEnvironment(),
     security: {
       issuer: environment('EXPECTED_ISSUER'),
       clientId: environment('EXPECTED_CLIENT_ID'),

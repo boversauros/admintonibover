@@ -10,6 +10,7 @@ import {
   createAwsPost,
   deleteAdminPost,
   detachAwsPostImage,
+  isExactBulkConfirmation,
   publishAllAdminPosts,
   updateAwsPost,
   uploadAwsPostImage,
@@ -262,12 +263,14 @@ test('AWS delete and bulk publication preserve exact result counts', async () =>
 
   const bulk = await publishAllAdminPosts(
     'aws',
+    100,
     'posts-publish-all:fixed-key',
     async (_input, init) => {
       assert.equal(init?.method, 'POST');
       assert.deepEqual(JSON.parse(String(init?.body)), {
         published: true,
         confirmation: 'PUBLISH_ALL',
+        expectedCount: 100,
       });
       return Response.json({
         version: 1,
@@ -277,6 +280,40 @@ test('AWS delete and bulk publication preserve exact result counts', async () =>
     }
   );
   assert.equal(bulk.publishedCount, 100);
+});
+
+test('bulk publication confirmation matches only the displayed exact count', () => {
+  assert.equal(isExactBulkConfirmation('100', 100), true);
+  assert.equal(isExactBulkConfirmation(' 100 ', 100), true);
+  assert.equal(isExactBulkConfirmation('99', 100), false);
+  assert.equal(isExactBulkConfirmation('PUBLISH_ALL', 100), false);
+});
+
+test('AWS bulk publication reports a stale confirmation count clearly', async () => {
+  await assert.rejects(
+    publishAllAdminPosts('aws', 2, 'posts-publish-all:stale-count', async () =>
+      Response.json(
+        {
+          version: 1,
+          error: {
+            code: 'BULK_COUNT_MISMATCH',
+            message: 'Bulk draft count changed',
+          },
+          requestId: 'bulk-stale-request',
+        },
+        { status: 409 }
+      )
+    ),
+    error => {
+      assert.ok(error instanceof AdminMutationError);
+      assert.equal(error.code, 'BULK_COUNT_MISMATCH');
+      assert.equal(
+        error.message,
+        'El nombre d’esborranys ha canviat. Torna a obrir la confirmació amb el recompte actual.'
+      );
+      return true;
+    }
+  );
 });
 
 test('AWS count helpers paginate exact list and draft counts without credentials', async () => {
@@ -335,7 +372,7 @@ test('AWS count helpers paginate exact list and draft counts without credentials
   );
 });
 
-test('Supabase rollback flag rejects the AWS mutation proxy before any upstream request', async () => {
+test('Supabase rollback flag rejects AWS utility proxies before any upstream request', async () => {
   const originalBackend = process.env.ADMIN_DATA_BACKEND;
   const originalFetch = globalThis.fetch;
   let upstreamRequests = 0;
@@ -356,6 +393,12 @@ test('Supabase rollback flag rejects the AWS mutation proxy before any upstream 
     });
     const response = await proxyAwsAdminApi(request, 'posts', 'POST');
     assert.equal(response.status, 404);
+    const backupResponse = await proxyAwsAdminApi(
+      new NextRequest('http://localhost/api/aws/backup'),
+      'backup',
+      'GET'
+    );
+    assert.equal(backupResponse.status, 404);
     assert.equal(upstreamRequests, 0);
   } finally {
     if (originalBackend === undefined) {

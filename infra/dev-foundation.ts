@@ -725,6 +725,7 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
             Variables: {
               CONTENT_TABLE_NAME: { Ref: 'ContentTable' },
               CONTENT_BUCKET_NAME: { Ref: 'ContentBucket' },
+              BACKUP_ENVIRONMENT: { Ref: 'Environment' },
               EXPECTED_ISSUER: {
                 'Fn::Sub':
                   'https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}',

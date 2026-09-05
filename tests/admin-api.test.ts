@@ -188,6 +188,7 @@ function setup(maximumPageSize = Number.POSITIVE_INFINITY) {
     store,
     media,
     objects,
+    environment: 'dev',
     security: SECURITY,
     clock: () => new Date(NOW),
     logger,
@@ -414,7 +415,11 @@ test('single and bulk publication require explicit confirmation and use conditio
   );
 
   const bulkEvent = event('POST /posts/publication/bulk', {
-    body: { published: true, confirmation: 'PUBLISH_ALL' },
+    body: {
+      published: true,
+      confirmation: 'PUBLISH_ALL',
+      expectedCount: 2,
+    },
     headers: { 'idempotency-key': 'bulk-publish-all' },
   });
   const bulk = await handler(bulkEvent);
@@ -422,6 +427,69 @@ test('single and bulk publication require explicit confirmation and use conditio
   assert.equal(data(bulk).publishedCount, 2);
   const bulkReplay = await handler(bulkEvent);
   assert.equal(data(bulkReplay).replayed, true);
+});
+
+test('bulk publication binds the typed count and resumes the original target set after a partial failure', async () => {
+  const { handler, posts, dependencies } = setup(2);
+  await posts.create(postFixture('post-1'));
+  await posts.create(postFixture('post-2'));
+  await posts.create(postFixture('post-3'));
+  const bulkEvent = event('POST /posts/publication/bulk', {
+    body: {
+      published: true,
+      confirmation: 'PUBLISH_ALL',
+      expectedCount: 3,
+    },
+    headers: { 'idempotency-key': 'bulk-publish-resume' },
+  });
+
+  const update = dependencies.posts.update.bind(dependencies.posts);
+  let updateCalls = 0;
+  dependencies.posts.update = async (...args) => {
+    updateCalls += 1;
+    if (updateCalls === 2) throw new Error('simulated partial failure');
+    return update(...args);
+  };
+  const interrupted = await handler(bulkEvent);
+  assert.equal(interrupted.statusCode, 500);
+  assert.equal((await posts.getById('post-1'))?.published, true);
+  assert.equal((await posts.getById('post-2'))?.published, false);
+
+  dependencies.posts.update = update;
+  await posts.create(postFixture('post-4'));
+  const resumed = await handler(bulkEvent);
+  assert.equal(resumed.statusCode, 200);
+  assert.equal(data(resumed).publishedCount, 3);
+  assert.equal((await posts.getById('post-1'))?.published, true);
+  assert.equal((await posts.getById('post-2'))?.published, true);
+  assert.equal((await posts.getById('post-3'))?.published, true);
+  assert.equal((await posts.getById('post-4'))?.published, false);
+
+  const replay = await handler(bulkEvent);
+  assert.equal(data(replay).replayed, true);
+});
+
+test('bulk publication rejects a stale exact count before changing any post', async () => {
+  const { handler, posts } = setup(2);
+  await posts.create(postFixture('post-1'));
+  await posts.create(postFixture('post-2'));
+  const result = await handler(
+    event('POST /posts/publication/bulk', {
+      body: {
+        published: true,
+        confirmation: 'PUBLISH_ALL',
+        expectedCount: 3,
+      },
+      headers: { 'idempotency-key': 'bulk-publish-stale-count' },
+    })
+  );
+  assert.equal(result.statusCode, 409);
+  assert.equal(
+    (body(result).error as { code: string }).code,
+    'BULK_COUNT_MISMATCH'
+  );
+  assert.equal((await posts.getById('post-1'))?.published, false);
+  assert.equal((await posts.getById('post-2'))?.published, false);
 });
 
 test('category and keyword list/create/update/delete routes provide versioned management', async () => {
@@ -597,18 +665,70 @@ test('image detach is conditional, idempotent, and retries cleanup after commit'
 });
 
 test('backup route paginates the full table and emits a restoration schema with integrity data', async () => {
-  const { handler, posts, port } = setup(2);
+  const { handler, posts, port, store } = setup(2);
   await posts.create(postFixture('post-1'));
   await posts.create(postFixture('post-2'));
+  await store.createCategory({
+    id: 'category-1',
+    slug: 'category-1',
+    names: { ca: 'Categoria', en: 'Category' },
+  });
+  await store.createKeyword({
+    id: 'keyword-1',
+    language: 'ca',
+    value: 'prova',
+  });
+  await port.transactWrite([
+    {
+      type: 'put',
+      label: 'fixture:idempotency',
+      item: {
+        PK: 'IDEMPOTENCY#fixture',
+        SK: 'IDEMPOTENCY#fixture',
+        entityType: 'IDEMPOTENCY',
+        schemaVersion: 1,
+        status: 'completed',
+        accessToken: 'must-not-leave-the-table',
+      },
+    },
+    {
+      type: 'put',
+      label: 'fixture:media-upload',
+      item: {
+        PK: 'MEDIA_UPLOAD#fixture',
+        SK: 'MEDIA_UPLOAD#fixture',
+        entityType: 'MEDIA_UPLOAD',
+        schemaVersion: 1,
+        uploadUrl:
+          'https://bucket.invalid/object?X-Amz-Signature=must-not-leave',
+      },
+    },
+  ]);
   const result = await handler(event('GET /backup'));
   assert.equal(result.statusCode, 200);
-  assert.match(result.headers['content-disposition'], /attachment/);
+  assert.equal(
+    result.headers['content-disposition'],
+    'attachment; filename="admintonibover-aws-backup-dev-2026-08-12T10-00-00Z.json"'
+  );
   const backup = JSON.parse(result.body) as Record<string, unknown>;
   assert.deepEqual(validateDynamoDbBackup(backup), []);
+  assert.equal(backup.version, 2);
+  assert.equal(backup.environment, 'dev');
   const manifest = backup.manifest as Record<string, unknown>;
+  const counts = manifest.entityCounts as Record<string, number>;
   assert.equal((manifest.pageCount as number) > 1, true);
   assert.equal(manifest.itemCount, (backup.items as unknown[]).length);
+  assert.equal(manifest.excludedItemCount, 2);
+  assert.equal(counts.POST, 2);
+  assert.equal(counts.CATEGORY, 1);
+  assert.equal(counts.KEYWORD, 1);
   assert.equal(port.requests.scans, manifest.pageCount);
+  const postIds = (backup.items as Array<Record<string, unknown>>)
+    .filter(item => item.entityType === 'POST')
+    .map(item => item.id);
+  assert.deepEqual(postIds.sort(), ['post-1', 'post-2']);
+  assert.equal(result.body.includes('must-not-leave'), false);
+  assert.equal(result.body.includes('X-Amz-'), false);
   const corrupted = structuredClone(backup);
   (corrupted.items as Array<Record<string, unknown>>)[0].entityType =
     'CORRUPTED';

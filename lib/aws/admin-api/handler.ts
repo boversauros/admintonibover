@@ -41,7 +41,12 @@ import type { MediaObjectStore } from '@/lib/aws/media/object-store';
 import { isOwnedImageKey } from '@/lib/aws/media/service';
 import { slugify } from '@/lib/utils/slugify';
 
-import { AdminBackupTooLargeError, createDynamoDbBackup } from './backup';
+import {
+  AdminBackupTooLargeError,
+  backupFilename,
+  createDynamoDbBackup,
+} from './backup';
+import type { BackupEnvironment } from '@/lib/aws/backup-contract';
 import {
   AdminStoreConflictError,
   AdminStoreNotFoundError,
@@ -98,6 +103,7 @@ export type AdminApiDependencies = {
   store: DynamoDbAdminStore;
   media: MediaOperations;
   objects: Pick<MediaObjectStore, 'delete'>;
+  environment: BackupEnvironment;
   security: {
     issuer: string;
     clientId: string;
@@ -666,6 +672,33 @@ function requiredReservation(
   return reservation;
 }
 
+type BulkPublicationTarget = { id: string; version: number };
+
+function bulkPublicationTargets(
+  reservation: Extract<MutationReservation, { state: 'reserved' }>
+): BulkPublicationTarget[] {
+  const context = reservation.context;
+  if (
+    !context ||
+    context.operation !== 'bulk-publication-v1' ||
+    !Array.isArray(context.targets)
+  ) {
+    throw new TypeError('Stored bulk publication context is invalid');
+  }
+  return context.targets.map((value, index) => {
+    if (
+      !isRecord(value) ||
+      typeof value.id !== 'string' ||
+      !ID_PATTERN.test(value.id) ||
+      !Number.isSafeInteger(value.version) ||
+      (value.version as number) < 1
+    ) {
+      throw new TypeError(`Stored bulk publication target ${index} is invalid`);
+    }
+    return { id: value.id, version: value.version as number };
+  });
+}
+
 function resultString(result: StoredMutationResult, field: string): string {
   const value = result[field];
   if (typeof value !== 'string') {
@@ -942,13 +975,67 @@ export function createAdminApiHandler(dependencies: AdminApiDependencies) {
             'Bulk publication requires published=true and confirmation=PUBLISH_ALL'
           );
         }
+        const expectedCount = numberField(
+          body,
+          'expectedCount',
+          'expectedCount',
+          1
+        );
+        if (expectedCount > MAX_BULK_POSTS) {
+          throw validation(
+            'expectedCount',
+            'BULK_LIMIT_EXCEEDED',
+            `Bulk publication is capped at ${MAX_BULK_POSTS} posts`
+          );
+        }
         const key = requireIdempotencyKey(event);
-        const reservation = await dependencies.store.reserveMutation({
+        const reservationInput = {
           scope: routeKey,
           subject: admin.subject,
           key,
           requestDigest: mutationDigest(body),
-        });
+          resumePending: true,
+        } as const;
+        let reservation =
+          await dependencies.store.findMutation(reservationInput);
+        if (!reservation) {
+          let cursor: string | undefined;
+          const drafts: BulkPublicationTarget[] = [];
+          do {
+            const page = await dependencies.posts.list({
+              limit: 50,
+              cursor,
+              published: false,
+              direction: 'ascending',
+            });
+            drafts.push(
+              ...page.items.map(item => ({
+                id: item.id,
+                version: item.version,
+              }))
+            );
+            if (drafts.length > MAX_BULK_POSTS) {
+              throw new ApiConflictError(
+                'BULK_LIMIT_EXCEEDED',
+                `Bulk publication is capped at ${MAX_BULK_POSTS} posts`
+              );
+            }
+            cursor = page.nextCursor ?? undefined;
+          } while (cursor !== undefined);
+          if (drafts.length !== expectedCount) {
+            throw new ApiConflictError(
+              'BULK_COUNT_MISMATCH',
+              `Expected ${expectedCount} drafts but found ${drafts.length}`
+            );
+          }
+          reservation = await dependencies.store.reserveMutation({
+            ...reservationInput,
+            pendingContext: {
+              operation: 'bulk-publication-v1',
+              targets: drafts,
+            },
+          });
+        }
         const replay = reservationResult(reservation);
         if (replay) {
           return response(
@@ -962,41 +1049,21 @@ export function createAdminApiHandler(dependencies: AdminApiDependencies) {
             requestId
           );
         }
-        let cursor: string | undefined;
-        const drafts: Array<{ id: string; version: number }> = [];
-        do {
-          const page = await dependencies.posts.list({
-            limit: 50,
-            cursor,
-            published: false,
-            direction: 'ascending',
-          });
-          drafts.push(
-            ...page.items.map(item => ({ id: item.id, version: item.version }))
-          );
-          if (drafts.length > MAX_BULK_POSTS) {
-            throw new ApiConflictError(
-              'BULK_LIMIT_EXCEEDED',
-              `Bulk publication is capped at ${MAX_BULK_POSTS} posts`
-            );
-          }
-          cursor = page.nextCursor ?? undefined;
-        } while (cursor !== undefined);
-        for (const draft of drafts) {
-          const post = await dependencies.posts.getById(draft.id);
-          if (!post) throw new PostNotFoundError(draft.id);
+        const writableReservation = requiredReservation(reservation);
+        const targets = bulkPublicationTargets(writableReservation);
+        for (const target of targets) {
+          const post = await dependencies.posts.getById(target.id);
+          if (!post) throw new PostNotFoundError(target.id);
+          if (post.published) continue;
           await dependencies.posts.update(
             { ...post, published: true },
-            draft.version
+            target.version
           );
         }
-        const publishedCount = drafts.length;
-        await dependencies.store.completeMutation(
-          requiredReservation(reservation),
-          {
-            publishedCount,
-          }
-        );
+        const publishedCount = targets.length;
+        await dependencies.store.completeMutation(writableReservation, {
+          publishedCount,
+        });
         return response(
           200,
           { data: { publishedCount, replayed: false } },
@@ -1101,8 +1168,8 @@ export function createAdminApiHandler(dependencies: AdminApiDependencies) {
         const backup = createDynamoDbBackup({
           ...scanned,
           exportedAt: clock().toISOString(),
+          environment: dependencies.environment,
         });
-        const stamp = backup.exportedAt.slice(0, 19).replaceAll(':', '-');
         logger.info({
           message: 'admin_backup_created',
           requestId,
@@ -1114,7 +1181,10 @@ export function createAdminApiHandler(dependencies: AdminApiDependencies) {
           headers: {
             'cache-control': 'no-store',
             'content-type': 'application/json',
-            'content-disposition': `attachment; filename="admintonibover-dynamodb-${stamp}.json"`,
+            'content-disposition': `attachment; filename="${backupFilename(
+              backup.environment,
+              backup.exportedAt
+            )}"`,
             'x-correlation-id': requestId,
           },
           body: JSON.stringify(backup),
