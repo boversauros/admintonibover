@@ -29,6 +29,7 @@ import {
   getAdminCategories,
   getAdminImageInventory,
   getAdminPostsPage,
+  resolveUnpublishedCount,
   type AdminCategory,
   type AdminPostSummary,
 } from '@/lib/api/adminReads';
@@ -150,7 +151,9 @@ function PostsContent() {
         setPosts(page.items);
         setNextCursor(page.nextCursor);
         setTotalCount(page.totalCount);
-        setUnpublishedCount(page.unpublishedCount);
+        setUnpublishedCount(currentCount =>
+          resolveUnpublishedCount(currentCount, page.unpublishedCount)
+        );
         setReadError(null);
       })
       .catch(error => {

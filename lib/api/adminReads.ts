@@ -47,6 +47,13 @@ export type AdminPostPage = {
   unpublishedCount?: number;
 };
 
+export function resolveUnpublishedCount(
+  currentCount: number | undefined,
+  refreshedCount: number | undefined
+): number | undefined {
+  return refreshedCount ?? currentCount;
+}
+
 export type AdminPostListOptions = {
   limit: number;
   cursor?: string;
