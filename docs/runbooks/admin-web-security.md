@@ -9,20 +9,20 @@ reviewed CloudFormation change set from the committed template.
 ## Deployment matrix
 
 Every deployment selects exactly one data backend. Production must use the
-enforced policy after the report-only observation period.
+enforced policy; report-only mode is an optional troubleshooting aid, not a
+required soak period.
 
-| Deployment                    | `ADMIN_DATA_BACKEND` | `ADMIN_CSP_MODE`              | Browser network origins                           |
-| ----------------------------- | -------------------- | ----------------------------- | ------------------------------------------------- |
-| Local legacy rollback         | `supabase`           | `report-only` or `enforce`    | Exact local/Supabase HTTP(S) and Realtime origins |
-| Local AWS verification        | `aws`                | `report-only`, then `enforce` | Exact private bucket HTTPS origin only            |
-| Production before AWS cutover | `supabase`           | `enforce`                     | Exact Supabase HTTPS and Realtime origins         |
-| Production AWS                | `aws`                | `report-only`, then `enforce` | Exact private bucket HTTPS origin only            |
+| Deployment                    | `ADMIN_DATA_BACKEND` | `ADMIN_CSP_MODE` | Browser network origins                           |
+| ----------------------------- | -------------------- | ---------------- | ------------------------------------------------- |
+| Local legacy rollback         | `supabase`           | `enforce`        | Exact local/Supabase HTTP(S) and Realtime origins |
+| Local AWS verification        | `aws`                | `enforce`        | Exact private bucket HTTPS origin only            |
+| Production before AWS cutover | `supabase`           | `enforce`        | Exact Supabase HTTPS and Realtime origins         |
+| Production AWS                | `aws`                | `enforce`        | Exact private bucket HTTPS origin only            |
 
 `ADMIN_CSP_MODE` defaults to `enforce`. `report-only` changes only the response
-header name; it does not relax the generated policy. Review the browser console
-on every admin route and exercise login, list, edit, upload, publish, backup,
-logout, and error states before changing production to `enforce`. Do not add an
-origin merely to silence an unexplained violation.
+header name; it does not relax the generated policy. Use it temporarily if a
+blocking violation needs diagnosis, then restore `enforce`. Do not add an origin
+merely to silence an unexplained violation.
 
 The AWS policy deliberately excludes the Supabase URL even if the two legacy
 `NEXT_PUBLIC_SUPABASE_*` values remain configured for rollback. Switching the
@@ -115,37 +115,22 @@ CI also runs GitHub's dependency review on pull requests and rejects newly
 introduced high-severity runtime advisories. These checks and the repository's
 existing GitHub Actions usage add no paid service or AWS resource.
 
-## Report-only and manual acceptance
+## Essential manual QA
 
 Use fictional content and redact account IDs, generated resource names, tokens,
 cookies, authorization codes, presigned URLs, and private object keys from all
 evidence.
 
-1. Deploy the reviewed build with `ADMIN_CSP_MODE=report-only`. Exercise every
-   admin flow and record only the route and violated directive for any CSP
-   report. Investigate each violation; do not copy sensitive console/network
-   data into the PR.
-2. Confirm normal page, API, and image activity works from each configured exact
-   origin. From an unlisted origin, confirm API Gateway and S3 omit a matching
-   CORS response and the browser blocks access.
-3. Preflight each permitted method/header combination. Confirm an unlisted
-   method and an unlisted header are rejected. Confirm API responses never set
-   `Access-Control-Allow-Credentials: true`.
-4. Attempt the exact Cognito callback and logout URLs. Confirm altered schemes,
-   hosts, ports, paths, wildcard-like hosts, query-appended registrations, and
-   arbitrary preview URLs are absent from the app client and cannot redirect.
-5. Embed the admin origin in a frame from another origin. The enforced CSP must
-   block it. Confirm same-origin forms work and cross-origin form submission is
-   blocked.
-6. Request a private object anonymously with an unsigned S3 URL and confirm
-   access is denied. Exercise a valid presigned `PUT`, `HEAD`, and `GET`, then
-   confirm an unlisted method/header or origin is blocked.
-7. Inspect browser storage, HTML, JS chunks, source maps, request URLs, and error
-   telemetry. They must contain no AWS key/session credential, Cognito bearer or
-   refresh token, session secret, privileged Supabase key, or leaked presigned
-   URL.
-8. Switch to `ADMIN_CSP_MODE=enforce`, redeploy, and repeat the allowed flows and
-   framing/origin negatives. Attach the redacted outcome to the draft PR.
+1. With `ADMIN_CSP_MODE=enforce`, sign in from the configured admin origin, open
+   and save one fictional post, upload one image, and sign out. Confirm the flow
+   works and the browser console shows no blocking CSP violation.
+2. Confirm one cross-origin mutation is rejected and one unsigned request to a
+   private S3 object is denied. Record only the status/outcome in the PR.
+
+The automated suite owns the exhaustive origin, method, header, callback,
+framing, cookie, body-size, wildcard, and browser-artifact matrix. A live
+report-only soak, every-combination CORS exercise, and rollback rehearsal are
+optional for this hobby deployment.
 
 ## Cutover and rollback
 
