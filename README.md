@@ -41,6 +41,7 @@ explicit, server-controlled development mode:
 
 ```env
 ADMIN_DATA_BACKEND=aws
+ADMIN_CSP_MODE=enforce
 AWS_ADMIN_API_URL=stack-output-api-url
 AWS_COGNITO_CLIENT_ID=stack-output-client-id
 AWS_COGNITO_ISSUER=stack-output-user-pool-issuer
@@ -83,6 +84,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `pnpm test` - Run cloud-free unit tests
 - `pnpm check:secrets` - Reject repository `.env*` files and high-confidence
   AWS, GitHub, and privileged Supabase credentials
+- `pnpm check:browser-artifacts` - Reject source maps, server-only environment
+  names, refresh-token markers, and configured secret canaries in `.next`
+- `pnpm audit:dependencies` - Fail on high-severity production dependency
+  advisories
 - `pnpm lambda:build` - Bundle the deployable foundation Lambda into the
   generated infrastructure artifact
 - `pnpm lambda:validate` - Confirm the committed Lambda bundle is current
@@ -115,6 +120,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [Private S3 image repair](docs/runbooks/s3-presigned-image-repair.md)
 - [AWS admin post mutations](docs/runbooks/aws-admin-post-mutations.md)
 - [AWS admin backup and utility parity](docs/runbooks/aws-admin-backup-and-utilities.md)
+- [Admin web security and AWS cutover](docs/runbooks/admin-web-security.md)
 - [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
 - [Offline Supabase backup validation](docs/runbooks/backup-validation.md)
 

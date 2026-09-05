@@ -1,4 +1,7 @@
 import {
+  EXACT_ADMIN_ORIGIN_PATTERN,
+  EXACT_CALLBACK_URL_PATTERN,
+  EXACT_LOGOUT_URL_PATTERN,
   EXPECTED_RESOURCE_TYPE_COUNTS,
   REQUIRED_TAGS,
   type CloudFormationTemplate,
@@ -139,6 +142,22 @@ export function validateDevFoundationTemplate(
     'Rules.GuardrailsMustBeConfirmed',
     issues
   );
+  for (const [name, pattern] of [
+    ['AllowedOrigins', EXACT_ADMIN_ORIGIN_PATTERN],
+    ['CallbackUrls', EXACT_CALLBACK_URL_PATTERN],
+    ['LogoutUrls', EXACT_LOGOUT_URL_PATTERN],
+  ] as const) {
+    const parameter = template.Parameters[name];
+    requireEqual(
+      parameter?.AllowedPattern,
+      pattern,
+      `${name}.AllowedPattern`,
+      issues
+    );
+    if ('Default' in parameter) {
+      issues.push(`${name} must not have a default`);
+    }
+  }
 
   for (const resourceName of TAGGED_RESOURCES) {
     const resource = template.Resources[resourceName];
@@ -223,6 +242,18 @@ export function validateDevFoundationTemplate(
     );
   }
   requireEqual(
+    bucket.AccessControl,
+    undefined,
+    'ContentBucket.AccessControl',
+    issues
+  );
+  requireEqual(
+    bucket.OwnershipControls,
+    { Rules: [{ ObjectOwnership: 'BucketOwnerEnforced' }] },
+    'ContentBucket.OwnershipControls',
+    issues
+  );
+  requireEqual(
     bucket.VersioningConfiguration,
     undefined,
     'ContentBucket.VersioningConfiguration',
@@ -250,6 +281,12 @@ export function validateDevFoundationTemplate(
     issues
   );
   requireEqual(
+    corsRules.length,
+    1,
+    'ContentBucket.Cors.CorsRules.length',
+    issues
+  );
+  requireEqual(
     corsRule.AllowedMethods,
     ['GET', 'HEAD', 'PUT'],
     'ContentBucket.Cors.AllowedMethods',
@@ -263,7 +300,7 @@ export function validateDevFoundationTemplate(
   );
   requireEqual(
     corsRule.ExposedHeaders,
-    ['etag', 'x-amz-checksum-sha256'],
+    undefined,
     'ContentBucket.Cors.ExposedHeaders',
     issues
   );
@@ -320,6 +357,16 @@ export function validateDevFoundationTemplate(
     'ContentBucketPolicy.DenyStalePresignedObjectRequests',
     issues
   );
+  for (const statement of bucketStatements) {
+    if (
+      isRecord(statement) &&
+      statement.Effect === 'Allow' &&
+      (statement.Principal === '*' ||
+        (isRecord(statement.Principal) && statement.Principal.AWS === '*'))
+    ) {
+      issues.push('ContentBucketPolicy must not allow an anonymous principal');
+    }
+  }
 
   const userPool = asRecord(
     template.Resources.UserPool.Properties,
@@ -395,6 +442,24 @@ export function validateDevFoundationTemplate(
     client.ExplicitAuthFlows,
     ['ALLOW_REFRESH_TOKEN_AUTH'],
     'UserPoolClient.ExplicitAuthFlows',
+    issues
+  );
+  requireEqual(
+    client.CallbackURLs,
+    { Ref: 'CallbackUrls' },
+    'UserPoolClient.CallbackURLs',
+    issues
+  );
+  requireEqual(
+    client.LogoutURLs,
+    { Ref: 'LogoutUrls' },
+    'UserPoolClient.LogoutURLs',
+    issues
+  );
+  requireEqual(
+    client.DefaultRedirectURI,
+    undefined,
+    'UserPoolClient.DefaultRedirectURI',
     issues
   );
 
@@ -588,6 +653,31 @@ export function validateDevFoundationTemplate(
     'HttpApi.Cors.AllowMethods',
     issues
   );
+  requireEqual(
+    apiCors.AllowCredentials,
+    false,
+    'HttpApi.Cors.AllowCredentials',
+    issues
+  );
+  requireEqual(
+    apiCors.AllowHeaders,
+    [
+      'authorization',
+      'content-type',
+      'idempotency-key',
+      'if-match',
+      'x-correlation-id',
+    ],
+    'HttpApi.Cors.AllowHeaders',
+    issues
+  );
+  requireEqual(
+    apiCors.ExposeHeaders,
+    ['etag', 'x-correlation-id'],
+    'HttpApi.Cors.ExposeHeaders',
+    issues
+  );
+  requireEqual(apiCors.MaxAge, 300, 'HttpApi.Cors.MaxAge', issues);
 
   const stage = asRecord(
     template.Resources.ApiStage.Properties,

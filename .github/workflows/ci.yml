@@ -52,6 +52,9 @@ jobs:
       - name: Install CloudFormation schema linter
         run: python -m pip install --requirement infra/requirements.txt
 
+      - name: Audit production dependencies
+        run: pnpm audit:dependencies
+
       - name: Check for committed secrets
         run: pnpm check:secrets
 
@@ -69,8 +72,53 @@ jobs:
 
       - name: Production build
         env:
-          # Inert, non-secret values let Next.js validate the build without
-          # granting CI access to a Supabase project.
+          # Inert, non-secret canaries exercise the production AWS boundary.
+          # The artifact step must prove none are copied into browser output.
+          ADMIN_DATA_BACKEND: aws
+          ADMIN_CSP_MODE: enforce
           NEXT_PUBLIC_SUPABASE_URL: https://ci.invalid
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+          AWS_ADMIN_API_URL: https://api.example.invalid
+          AWS_ACCESS_KEY_ID: browser-audit-access-key
+          AWS_COGNITO_CALLBACK_URL: https://admin.example.invalid/auth/callback
+          AWS_COGNITO_CLIENT_ID: browser-audit-public-client
+          AWS_COGNITO_ISSUER: https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_example
+          AWS_COGNITO_LOGIN_URL: https://login.example.invalid
+          AWS_COGNITO_LOGOUT_URL: https://admin.example.invalid/
+          AWS_COGNITO_SESSION_SECRET: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          AWS_CONTENT_BUCKET_ORIGIN: https://private-content.s3.eu-west-1.amazonaws.com
+          AWS_SECRET_ACCESS_KEY: browser-audit-secret-access-key
+          AWS_SESSION_TOKEN: browser-audit-session-token
+          SUPABASE_SERVICE_ROLE_KEY: browser-audit-service-role
+          BROWSER_AUDIT_REFRESH_TOKEN: browser-audit-refresh-token
         run: pnpm build
+
+      - name: Check browser artifacts for server-only data
+        env:
+          AWS_ACCESS_KEY_ID: browser-audit-access-key
+          AWS_SECRET_ACCESS_KEY: browser-audit-secret-access-key
+          AWS_SESSION_TOKEN: browser-audit-session-token
+          AWS_COGNITO_SESSION_SECRET: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+          SUPABASE_SERVICE_ROLE_KEY: browser-audit-service-role
+          BROWSER_AUDIT_REFRESH_TOKEN: browser-audit-refresh-token
+        run: pnpm check:browser-artifacts
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Reject newly vulnerable dependencies
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime

@@ -32,6 +32,7 @@ export function cognitoCookieOptions(
   return {
     httpOnly: true,
     path: '/',
+    priority: 'high' as const,
     sameSite: 'lax' as const,
     secure,
   };

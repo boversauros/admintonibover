@@ -15,7 +15,9 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const config = getCognitoConfig();
   const artifacts = createPkceArtifacts(config);
-  const response = NextResponse.redirect(artifacts.authorizeUrl);
+  const response = NextResponse.redirect(artifacts.authorizeUrl, {
+    headers: { 'cache-control': 'no-store' },
+  });
   await setCognitoTransientCookies(response, {
     ...artifacts,
     returnTo: safeReturnTo(
