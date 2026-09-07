@@ -1747,6 +1747,7 @@ export function validateAndProjectBackupDocument(
 ): {
   report: ValidationReport;
   projectedPosts: ProjectedPost[];
+  backup: ParsedBackup;
 } {
   const context: ValidationContext = { issues: [] };
   const { backup, counts } = parseBackupDocument(context, input);
@@ -1816,7 +1817,7 @@ export function validateAndProjectBackupDocument(
     issues,
   };
 
-  return { report, projectedPosts: projected };
+  return { report, projectedPosts: projected, backup };
 }
 
 export function validateBackupDocument(

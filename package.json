@@ -19,6 +19,7 @@
     "lambda:build": "node --import tsx scripts/build-foundation-lambda.ts",
     "lambda:validate": "node --import tsx scripts/build-foundation-lambda.ts --check",
     "backup:validate": "node --import tsx scripts/validate-backup.ts",
+    "migration:run": "node --import tsx scripts/migrate-json-to-dynamodb.ts",
     "infra:synth": "node --import tsx scripts/synthesize-infrastructure.ts",
     "infra:validate": "node --import tsx scripts/synthesize-infrastructure.ts --check",
     "ci": "pnpm check:secrets && pnpm infra:validate && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:browser-artifacts",
