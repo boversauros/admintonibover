@@ -7,9 +7,10 @@ and slug-lock item shapes. It never calls Supabase, S3, an image URL, Lambda, or
 the public admin API.
 
 The real backup and every generated migration manifest are private operational
-artifacts. Keep the backup outside the repository. Store manifests outside the
-repository or under the ignored `.artifacts/` directory and never attach an
-unredacted manifest to a pull request.
+artifacts. Keep the backup outside the repository; do not copy it into
+`.artifacts/`. Store manifests outside the repository or under the ignored
+`.artifacts/` directory and never attach an unredacted manifest to a pull
+request.
 
 ## Safety model
 
@@ -86,9 +87,93 @@ reconciliation, including source image URLs, and must therefore remain private.
 
 ## Execute in disposable development
 
-Create an empty disposable development table through reviewed IaC. Do not use
-the AWS Console to create it and do not target the production or active
-development content table for the acceptance exercise.
+Create an empty disposable development table with the reviewed
+[`migration-disposable-table.template.json`](../../infra/migration-disposable-table.template.json).
+The template creates exactly one generated-name, on-demand Standard DynamoDB
+table. It does not create S3, Cognito, Lambda, API Gateway, IAM, networking, or
+logging resources. Do not use the AWS Console to create the table and do not
+target the production or active development content table for the acceptance
+exercise.
+
+Use short-lived development credentials in the normal AWS credential provider
+chain. Confirm the identity locally and keep the full account ID private:
+
+```bash
+aws sts get-caller-identity
+```
+
+Validate the template, create a change set without executing it, and inspect
+the proposed resource before continuing:
+
+```bash
+aws cloudformation validate-template \
+  --region eu-west-1 \
+  --template-body file://infra/migration-disposable-table.template.json
+
+aws cloudformation create-change-set \
+  --region eu-west-1 \
+  --stack-name admintonibover-issue-19-disposable-dev \
+  --change-set-name issue-19-create-disposable-table \
+  --change-set-type CREATE \
+  --template-body file://infra/migration-disposable-table.template.json \
+  --parameters ParameterKey=PurposeConfirmation,ParameterValue=ISSUE-19-DISPOSABLE-DEV \
+  --description "Issue 19 disposable migration acceptance table"
+
+aws cloudformation wait change-set-create-complete \
+  --region eu-west-1 \
+  --stack-name admintonibover-issue-19-disposable-dev \
+  --change-set-name issue-19-create-disposable-table
+
+aws cloudformation describe-change-set \
+  --region eu-west-1 \
+  --stack-name admintonibover-issue-19-disposable-dev \
+  --change-set-name issue-19-create-disposable-table \
+  --query 'Changes[].ResourceChange.{Action:Action,LogicalId:LogicalResourceId,Type:ResourceType,Replacement:Replacement}' \
+  --output table
+```
+
+The change set must contain exactly one `Add` action for
+`MigrationAcceptanceTable` of type `AWS::DynamoDB::Table`, with no replacement.
+Stop if it contains any other action or resource. Execute only that reviewed
+change set:
+
+```bash
+aws cloudformation execute-change-set \
+  --region eu-west-1 \
+  --stack-name admintonibover-issue-19-disposable-dev \
+  --change-set-name issue-19-create-disposable-table
+
+aws cloudformation wait stack-create-complete \
+  --region eu-west-1 \
+  --stack-name admintonibover-issue-19-disposable-dev
+```
+
+Read the generated table name from the stack and verify that it is empty and
+matches the runner's target contract:
+
+```bash
+ADMINTONIBOVER_MIGRATION_TABLE="$(aws cloudformation describe-stacks \
+  --region eu-west-1 \
+  --stack-name admintonibover-issue-19-disposable-dev \
+  --query "Stacks[0].Outputs[?OutputKey=='TableName'].OutputValue | [0]" \
+  --output text)"
+
+aws dynamodb describe-table \
+  --region eu-west-1 \
+  --table-name "$ADMINTONIBOVER_MIGRATION_TABLE" \
+  --query 'Table.{Status:TableStatus,BillingMode:BillingModeSummary.BillingMode,DeletionProtection:DeletionProtectionEnabled,KeySchema:KeySchema,ItemCount:ItemCount}' \
+  --output json
+
+aws dynamodb scan \
+  --region eu-west-1 \
+  --table-name "$ADMINTONIBOVER_MIGRATION_TABLE" \
+  --consistent-read \
+  --select COUNT
+```
+
+Require `ACTIVE`, `PAY_PER_REQUEST`, deletion protection `false`, `PK`/`SK`
+string keys, and a scan count of zero. Use the generated table name in the
+execute and rollback commands below.
 
 The normal execute confirmation has this exact form:
 
@@ -148,6 +233,23 @@ pnpm migration:run -- \
 
 Confirm that unrelated items remain. Rerun execute and verify that the same
 items and hashes are restored.
+
+After the acceptance exercise and evidence capture are complete, roll back the
+migration data first, verify the scan count is zero, and delete only the named
+disposable stack:
+
+```bash
+aws cloudformation delete-stack \
+  --region eu-west-1 \
+  --stack-name admintonibover-issue-19-disposable-dev
+
+aws cloudformation wait stack-delete-complete \
+  --region eu-west-1 \
+  --stack-name admintonibover-issue-19-disposable-dev
+```
+
+Confirm that `describe-stacks` returns a not-found error for that exact stack.
+Do not delete the active development or production stack.
 
 Rollback is not the cutover recovery mechanism after the first accepted AWS
 admin mutation. Once migrated content changes, the runner refuses deletion of
