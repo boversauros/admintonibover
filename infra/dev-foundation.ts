@@ -45,6 +45,14 @@ export const REQUIRED_TAGS = {
   Owner: 'orio',
 } as const;
 
+const HTTPS_ADMIN_ORIGIN =
+  'https://[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(?::[1-9][0-9]{0,4})?';
+const LOCAL_ADMIN_ORIGIN =
+  'http://(?:localhost|127\\.0\\.0\\.1)(?::[1-9][0-9]{0,4})?';
+export const EXACT_ADMIN_ORIGIN_PATTERN = `^(?:${HTTPS_ADMIN_ORIGIN}|${LOCAL_ADMIN_ORIGIN})$`;
+export const EXACT_CALLBACK_URL_PATTERN = `^(?:${HTTPS_ADMIN_ORIGIN}|${LOCAL_ADMIN_ORIGIN})/auth/callback$`;
+export const EXACT_LOGOUT_URL_PATTERN = `^(?:${HTTPS_ADMIN_ORIGIN}|${LOCAL_ADMIN_ORIGIN})/$`;
+
 export const LEGACY_FOUNDATION_LAMBDA_CODE = String.raw`'use strict';
 
 const {
@@ -282,10 +290,13 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
       MediaRepairIssue:
         'https://github.com/boversauros/admintonibover/issues/11',
       AdminApiIssue: 'https://github.com/boversauros/admintonibover/issues/12',
+      AdminWebSecurityIssue:
+        'https://github.com/boversauros/admintonibover/issues/18',
       ArchitectureDecision:
         'docs/adr/0001-admin-only-aws-data-security-contract.md',
       Runbook: 'docs/runbooks/aws-development-foundation.md',
       AdminApiRunbook: 'docs/runbooks/authenticated-admin-api.md',
+      AdminWebSecurityRunbook: 'docs/runbooks/admin-web-security.md',
       'AWS::CloudFormation::Interface': {
         ParameterGroups: [
           {
@@ -331,16 +342,25 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
       },
       AllowedOrigins: {
         Type: 'CommaDelimitedList',
+        AllowedPattern: EXACT_ADMIN_ORIGIN_PATTERN,
+        ConstraintDescription:
+          'Each origin must be one exact HTTPS origin or an HTTP localhost development origin, without paths or wildcards.',
         Description:
-          'Exact local and HTTPS development admin origins for API Gateway and S3 CORS. Do not use wildcards.',
+          'Exact admin origins for API Gateway and S3 CORS. HTTP is restricted to local development; do not use wildcards.',
       },
       CallbackUrls: {
         Type: 'CommaDelimitedList',
+        AllowedPattern: EXACT_CALLBACK_URL_PATTERN,
+        ConstraintDescription:
+          'Each callback must be an exact HTTPS or localhost URL ending in /auth/callback, without wildcards.',
         Description:
           'Exact Cognito authorization-code callback URLs. HTTPS is required except for localhost.',
       },
       LogoutUrls: {
         Type: 'CommaDelimitedList',
+        AllowedPattern: EXACT_LOGOUT_URL_PATTERN,
+        ConstraintDescription:
+          'Each logout URL must be an exact HTTPS or localhost origin with a trailing slash, without wildcards.',
         Description: 'Exact Cognito logout redirect URLs.',
       },
       CognitoDomainPrefix: {
@@ -440,7 +460,6 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
                 AllowedOrigins: { Ref: 'AllowedOrigins' },
                 AllowedMethods: ['GET', 'HEAD', 'PUT'],
                 AllowedHeaders: ['content-type', 'x-amz-checksum-sha256'],
-                ExposedHeaders: ['etag', 'x-amz-checksum-sha256'],
                 MaxAge: 300,
               },
             ],
@@ -752,7 +771,7 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
             'Authenticated HTTP API for the admintonibover development admin.',
           ProtocolType: 'HTTP',
           CorsConfiguration: {
-            AllowCredentials: true,
+            AllowCredentials: false,
             AllowOrigins: { Ref: 'AllowedOrigins' },
             AllowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
             AllowHeaders: [

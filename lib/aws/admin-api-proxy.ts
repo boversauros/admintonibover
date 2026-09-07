@@ -10,8 +10,49 @@ import { isJsonRequest, isSameOriginMutation } from '@/lib/auth/cognito/http';
 import { readCognitoSession } from '@/lib/auth/cognito/session';
 import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
-const MAX_PROXY_BODY_BYTES = 256 * 1024;
+export const MAX_PROXY_BODY_BYTES = 256 * 1024;
 const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
+
+class RequestBodyTooLargeError extends Error {}
+
+function declaredBodyTooLarge(request: NextRequest): boolean {
+  const value = request.headers.get('content-length');
+  return (
+    value !== null &&
+    /^\d+$/.test(value) &&
+    Number(value) > MAX_PROXY_BODY_BYTES
+  );
+}
+
+export async function readBoundedRequestBody(
+  request: NextRequest
+): Promise<string> {
+  if (declaredBodyTooLarge(request)) throw new RequestBodyTooLargeError();
+  if (!request.body) return '';
+
+  const reader = request.body.getReader();
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_PROXY_BODY_BYTES) {
+        throw new RequestBodyTooLargeError();
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      await reader.cancel().catch(() => undefined);
+    }
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks, totalBytes).toString('utf8');
+}
 
 function correlationId(request: NextRequest): string {
   const supplied = request.headers.get('x-correlation-id');
@@ -66,6 +107,14 @@ export async function proxyAwsAdminApi(
       requestId
     );
   }
+  if (hasJsonBody && declaredBodyTooLarge(request)) {
+    return jsonError(
+      413,
+      'BODY_TOO_LARGE',
+      'Request body exceeds 256 KiB',
+      requestId
+    );
+  }
 
   const session = await readCognitoSession(config);
   if (!session) {
@@ -81,8 +130,17 @@ export async function proxyAwsAdminApi(
 
   let body: string | undefined;
   if (hasJsonBody) {
-    body = await request.text();
-    if (Buffer.byteLength(body, 'utf8') > MAX_PROXY_BODY_BYTES) {
+    try {
+      body = await readBoundedRequestBody(request);
+    } catch (error) {
+      if (!(error instanceof RequestBodyTooLargeError)) {
+        return jsonError(
+          400,
+          'INVALID_BODY',
+          'Request body could not be read',
+          requestId
+        );
+      }
       return jsonError(
         413,
         'BODY_TOO_LARGE',

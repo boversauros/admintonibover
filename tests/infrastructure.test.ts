@@ -5,6 +5,9 @@ import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 
 import {
+  EXACT_ADMIN_ORIGIN_PATTERN,
+  EXACT_CALLBACK_URL_PATTERN,
+  EXACT_LOGOUT_URL_PATTERN,
   EXPECTED_RESOURCE_TYPE_COUNTS,
   FOUNDATION_LAMBDA_CODE,
   LEGACY_FOUNDATION_LAMBDA_CODE,
@@ -199,9 +202,26 @@ test('example Cognito URLs use exact callback paths and matching origins', async
   );
   const callbackUrls = parameterValues.CallbackUrls?.split(',') ?? [];
   const logoutUrls = parameterValues.LogoutUrls?.split(',') ?? [];
+  const allowedOrigins = parameterValues.AllowedOrigins?.split(',') ?? [];
+  const originPattern = new RegExp(EXACT_ADMIN_ORIGIN_PATTERN);
+  const callbackPattern = new RegExp(EXACT_CALLBACK_URL_PATTERN);
+  const logoutPattern = new RegExp(EXACT_LOGOUT_URL_PATTERN);
 
   assert.equal(logoutUrls.length, callbackUrls.length);
+  assert.equal(allowedOrigins.length, callbackUrls.length);
   assert.equal(callbackUrls.length > 0, true);
+  assert.equal(
+    allowedOrigins.every(value => originPattern.test(value)),
+    true
+  );
+  assert.equal(
+    callbackUrls.every(value => callbackPattern.test(value)),
+    true
+  );
+  assert.equal(
+    logoutUrls.every(value => logoutPattern.test(value)),
+    true
+  );
   assert.equal(
     callbackUrls.every(
       (value, index) =>
@@ -211,6 +231,28 @@ test('example Cognito URLs use exact callback paths and matching origins', async
     ),
     true
   );
+  assert.equal(originPattern.test('https://*.example.com'), false);
+  assert.equal(originPattern.test('https://admin.example.com/path'), false);
+  assert.equal(callbackPattern.test('https://admin.example.com/other'), false);
+  assert.equal(logoutPattern.test('https://admin.example.com/*'), false);
+});
+
+test('offline validation rejects public storage and credentialed API CORS', () => {
+  const publicBucket = createDevFoundationTemplate();
+  const policy = publicBucket.Resources.ContentBucketPolicy.Properties!
+    .PolicyDocument as { Statement: unknown[] };
+  policy.Statement.push({
+    Effect: 'Allow',
+    Principal: '*',
+    Action: 's3:GetObject',
+    Resource: '*',
+  });
+  assert.throws(() => validateDevFoundationTemplate(publicBucket));
+
+  const credentialedApi = createDevFoundationTemplate();
+  const api = credentialedApi.Resources.HttpApi.Properties!;
+  (api.CorsConfiguration as Record<string, unknown>).AllowCredentials = true;
+  assert.throws(() => validateDevFoundationTemplate(credentialedApi));
 });
 
 test('foundation Lambda rejects missing or incorrect defense-in-depth claims', async () => {

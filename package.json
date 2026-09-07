@@ -14,12 +14,14 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "check:secrets": "node scripts/check-secrets.mjs",
+    "check:browser-artifacts": "node scripts/check-browser-artifacts.mjs",
+    "audit:dependencies": "pnpm audit --prod --audit-level high",
     "lambda:build": "node --import tsx scripts/build-foundation-lambda.ts",
     "lambda:validate": "node --import tsx scripts/build-foundation-lambda.ts --check",
     "backup:validate": "node --import tsx scripts/validate-backup.ts",
     "infra:synth": "node --import tsx scripts/synthesize-infrastructure.ts",
     "infra:validate": "node --import tsx scripts/synthesize-infrastructure.ts --check",
-    "ci": "pnpm check:secrets && pnpm infra:validate && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "ci": "pnpm check:secrets && pnpm infra:validate && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:browser-artifacts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "seed": "tsx scripts/seed.ts"
@@ -30,22 +32,22 @@
     "@aws-sdk/lib-dynamodb": "3.1101.0",
     "@aws-sdk/s3-request-presigner": "3.1101.0",
     "@supabase/ssr": "^0.10.3",
-    "@supabase/supabase-js": "2.89.0",
+    "@supabase/supabase-js": "2.115.0",
     "jose": "6.2.4",
-    "next": "16.2.6",
-    "react": "19.2.3",
+    "next": "16.3.4",
+    "react": "19.2.8",
     "react-datepicker": "9.1.0",
-    "react-dom": "19.2.3",
+    "react-dom": "19.2.8",
     "react-hook-form": "7.69.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.18",
     "@types/node": "25.0.3",
-    "@types/react": "19.2.7",
-    "@types/react-dom": "19.2.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
     "esbuild": "0.28.0",
     "eslint": "9.39.2",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.3.4",
     "eslint-plugin-react-hooks": "7.1.1",
     "prettier": "^3.7.4",
     "tailwindcss": "4.1.18",
@@ -54,8 +56,10 @@
   },
   "pnpm": {
     "overrides": {
-      "postcss": ">=8.5.10",
-      "ws": ">=8.20.1"
+      "browserslist": ">=4.28.7",
+      "nanoid": ">=3.3.18",
+      "postcss": ">=8.5.18",
+      "ws": ">=8.21.0"
     }
   }
 }

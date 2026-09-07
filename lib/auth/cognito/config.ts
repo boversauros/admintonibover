@@ -27,6 +27,7 @@ function requireHttpsUrl(name: string): string {
   const url = new URL(value);
   if (
     url.protocol !== 'https:' ||
+    value.includes('*') ||
     url.username !== '' ||
     url.password !== '' ||
     url.search !== '' ||
@@ -47,7 +48,11 @@ function requireCallbackUrl(name: string): string {
   if (url.protocol !== 'https:' && !isLocalhost) {
     throw new Error(`${name} must use HTTPS except on localhost`);
   }
+  if (process.env.NODE_ENV === 'production' && isLocalhost) {
+    throw new Error(`${name} must use HTTPS in production`);
+  }
   if (
+    value.includes('*') ||
     url.username !== '' ||
     url.password !== '' ||
     url.search !== '' ||

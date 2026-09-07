@@ -23,7 +23,8 @@ function failedCallback(
   config: ReturnType<typeof getCognitoConfig>
 ): NextResponse {
   const response = NextResponse.redirect(
-    new URL('/?auth=failed', `${getApplicationOrigin(config)}/`)
+    new URL('/?auth=failed', `${getApplicationOrigin(config)}/`),
+    { headers: { 'cache-control': 'no-store' } }
   );
   clearCognitoSessionCookies(response);
   return response;
@@ -61,7 +62,8 @@ export async function GET(request: NextRequest): Promise<Response> {
     await verifyCognitoSession(config, tokens, oauthRequest.nonce);
 
     const response = NextResponse.redirect(
-      new URL(oauthRequest.returnTo, `${getApplicationOrigin(config)}/`)
+      new URL(oauthRequest.returnTo, `${getApplicationOrigin(config)}/`),
+      { headers: { 'cache-control': 'no-store' } }
     );
     await setCognitoSessionCookies(response, tokens);
     clearCognitoTransientCookies(response);

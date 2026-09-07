@@ -48,6 +48,7 @@ test('AWS configuration requires exact same-origin callback and logout paths', (
     'AWS_COGNITO_LOGIN_URL',
     'AWS_COGNITO_LOGOUT_URL',
     'AWS_COGNITO_SESSION_SECRET',
+    'NODE_ENV',
   ] as const;
   const previous = Object.fromEntries(
     names.map(name => [name, process.env[name]])
@@ -73,11 +74,20 @@ test('AWS configuration requires exact same-origin callback and logout paths', (
     assert.throws(() => getCognitoConfig());
     process.env.AWS_COGNITO_LOGOUT_URL = 'https://different.example.invalid/';
     assert.throws(() => getCognitoConfig());
+    process.env.AWS_COGNITO_CALLBACK_URL =
+      'https://*.example.invalid/auth/callback';
+    process.env.AWS_COGNITO_LOGOUT_URL = 'https://*.example.invalid/';
+    assert.throws(() => getCognitoConfig());
+    Object.assign(process.env, { NODE_ENV: 'production' });
+    process.env.AWS_COGNITO_CALLBACK_URL =
+      'http://localhost:3000/auth/callback';
+    process.env.AWS_COGNITO_LOGOUT_URL = 'http://localhost:3000/';
+    assert.throws(() => getCognitoConfig());
   } finally {
     for (const name of names) {
       const value = previous[name];
       if (value === undefined) delete process.env[name];
-      else process.env[name] = value;
+      else Object.assign(process.env, { [name]: value });
     }
   }
 });
@@ -141,6 +151,7 @@ test('production cookie contract is host-only, HttpOnly, Secure, and SameSite', 
   assert.deepEqual(cognitoCookieOptions(true), {
     httpOnly: true,
     path: '/',
+    priority: 'high',
     sameSite: 'lax',
     secure: true,
   });
@@ -154,6 +165,7 @@ test('return paths stay on the configured application origin', () => {
   );
   assert.equal(safeReturnTo('https://evil.example.invalid/', config), '/');
   assert.equal(safeReturnTo('//evil.example.invalid/', config), '/');
+  assert.equal(safeReturnTo('\\\\evil.example.invalid/', config), '/');
   assert.equal(safeReturnTo('/auth/callback', config), '/');
 });
 
