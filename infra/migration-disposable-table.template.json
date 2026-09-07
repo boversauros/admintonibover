@@ -46,7 +46,7 @@
         },
         "Tags": [
           {
-            "Key": "Application",
+            "Key": "Project",
             "Value": "admintonibover"
           },
           {
@@ -55,7 +55,11 @@
           },
           {
             "Key": "ManagedBy",
-            "Value": "cloudformation"
+            "Value": "iac"
+          },
+          {
+            "Key": "Owner",
+            "Value": "orio"
           },
           {
             "Key": "Purpose",

@@ -10,15 +10,16 @@ import test from 'node:test';
 import type { DescribeTableCommandOutput } from '@aws-sdk/client-dynamodb';
 
 import { InMemoryDynamoDbPort } from '../lib/aws/dynamodb/in-memory-port';
-import type {
-  DynamoDbPort,
-  DynamoItem,
-  DynamoKey,
-  DynamoQueryInput,
-  DynamoQueryPage,
-  DynamoScanInput,
-  DynamoScanPage,
-  DynamoTransactionAction,
+import {
+  DynamoTransactionCanceledError,
+  type DynamoDbPort,
+  type DynamoItem,
+  type DynamoKey,
+  type DynamoQueryInput,
+  type DynamoQueryPage,
+  type DynamoScanInput,
+  type DynamoScanPage,
+  type DynamoTransactionAction,
 } from '../lib/aws/dynamodb/port';
 import {
   validateAndProjectBackupDocument,
@@ -93,6 +94,41 @@ class FaultingPort implements DynamoDbPort {
     this.transactionNumber += 1;
     if (this.transactionNumber === this.failOnTransaction) {
       throw new Error('Simulated migration interruption');
+    }
+    return this.delegate.transactWrite(actions);
+  }
+}
+
+class StrictConflictPort implements DynamoDbPort {
+  private conflictsRemaining = 0;
+
+  constructor(private readonly delegate: DynamoDbPort) {}
+
+  conflictNextTransaction(): void {
+    this.conflictsRemaining += 1;
+  }
+
+  get(key: DynamoKey, consistentRead: boolean): Promise<DynamoItem | null> {
+    assert.deepEqual(Object.keys(key).sort(), ['PK', 'SK']);
+    return this.delegate.get(key, consistentRead);
+  }
+
+  query(input: DynamoQueryInput): Promise<DynamoQueryPage> {
+    return this.delegate.query(input);
+  }
+
+  scan(input: DynamoScanInput): Promise<DynamoScanPage> {
+    return this.delegate.scan(input);
+  }
+
+  transactWrite(actions: DynamoTransactionAction[]): Promise<void> {
+    if (this.conflictsRemaining > 0) {
+      this.conflictsRemaining -= 1;
+      throw new DynamoTransactionCanceledError(
+        actions.map((_, index) =>
+          index === actions.length - 1 ? 'TransactionConflict' : null
+        )
+      );
     }
     return this.delegate.transactWrite(actions);
   }
@@ -261,6 +297,25 @@ test('execute is idempotent and verifies exact target counts and hashes', async 
   assert.deepEqual(port.snapshot(), afterFirst);
 });
 
+test('transaction conflicts retry with exact DynamoDB keys during execute and rollback', async () => {
+  const plan = await fixturePlan();
+  const memory = new InMemoryDynamoDbPort();
+  const port = new StrictConflictPort(memory);
+  const runner = new JsonDynamoDbMigrationRunner(port, {
+    concurrency: 2,
+    sleep: async () => undefined,
+    transactionRetryDelaysMs: [0],
+  });
+
+  port.conflictNextTransaction();
+  const execution = await runner.execute(plan);
+  assert.equal(execution.verification.valid, true);
+
+  port.conflictNextTransaction();
+  const rollback = await runner.rollback(plan);
+  assert.equal(rollback.deletedItems, plan.items.length);
+});
+
 test('a conflicting existing item aborts before any write', async () => {
   const plan = await fixturePlan();
   const conflicting = { ...structuredClone(plan.items[0]), version: 99 };
@@ -328,8 +383,12 @@ test('run-ID rollback deletes only unchanged items owned by that run', async () 
   const runner = new JsonDynamoDbMigrationRunner(port, { concurrency: 1 });
   await runner.execute(plan);
 
+  const getsBeforeRollback = port.requests.gets;
+  const scansBeforeRollback = port.requests.scans;
   const rollback = await runner.rollback(plan);
   assert.equal(rollback.deletedItems, plan.items.length);
+  assert.equal(port.requests.gets, getsBeforeRollback);
+  assert.equal(port.requests.scans > scansBeforeRollback, true);
   assert.deepEqual(
     port.snapshot().filter(item => item.entityType !== 'DATA_REVISION'),
     [unrelated]

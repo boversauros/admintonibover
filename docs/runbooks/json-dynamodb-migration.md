@@ -235,8 +235,20 @@ Confirm that unrelated items remain. Rerun execute and verify that the same
 items and hashes are restored.
 
 After the acceptance exercise and evidence capture are complete, roll back the
-migration data first, verify the scan count is zero, and delete only the named
-disposable stack:
+migration data first. The `SYSTEM`/`REVISION` audit item intentionally remains,
+so verify that zero items still carry migration ownership metadata:
+
+```bash
+aws dynamodb scan \
+  --region eu-west-1 \
+  --table-name "$ADMINTONIBOVER_MIGRATION_TABLE" \
+  --consistent-read \
+  --filter-expression 'attribute_exists(#migration)' \
+  --expression-attribute-names '{"#migration":"migration"}' \
+  --select COUNT
+```
+
+Then delete only the named disposable stack:
 
 ```bash
 aws cloudformation delete-stack \

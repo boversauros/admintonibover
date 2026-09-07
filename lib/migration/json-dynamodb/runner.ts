@@ -4,6 +4,7 @@ import {
   DynamoTransactionCanceledError,
   type DynamoDbPort,
   type DynamoItem,
+  type DynamoKey,
   type DynamoTransactionAction,
 } from '../../aws/dynamodb/port';
 import {
@@ -25,6 +26,11 @@ import {
 } from './types';
 
 type Clock = () => Date;
+type Sleep = (milliseconds: number) => Promise<void>;
+
+const DEFAULT_TRANSACTION_RETRY_DELAYS_MS = [
+  100, 250, 500, 1_000, 2_000, 4_000,
+];
 
 type PreflightResult = {
   missingKeys: Set<string>;
@@ -74,6 +80,26 @@ function fingerprint(item: DynamoItem): RecordFingerprint {
 
 function sameItem(left: DynamoItem, right: DynamoItem): boolean {
   return deterministicHash(left) === deterministicHash(right);
+}
+
+function exactKey(item: DynamoItem): DynamoKey {
+  return { PK: item.PK, SK: item.SK };
+}
+
+function isRetryableTransactionConflict(
+  error: DynamoTransactionCanceledError
+): boolean {
+  const reasons = error.reasons.filter(
+    (reason): reason is string => reason !== null
+  );
+  return (
+    reasons.length === 0 ||
+    reasons.every(reason => reason === 'TransactionConflict')
+  );
+}
+
+function defaultSleep(milliseconds: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
 function compareIds(left: string, right: string): number {
@@ -141,12 +167,16 @@ export type MigrationRunnerOptions = {
   concurrency?: number;
   scanPageSize?: number;
   clock?: Clock;
+  sleep?: Sleep;
+  transactionRetryDelaysMs?: number[];
 };
 
 export class JsonDynamoDbMigrationRunner {
   private readonly concurrency: number;
   private readonly scanPageSize: number;
   private readonly clock: Clock;
+  private readonly sleep: Sleep;
+  private readonly transactionRetryDelaysMs: number[];
 
   constructor(
     private readonly dynamodb: DynamoDbPort,
@@ -155,6 +185,9 @@ export class JsonDynamoDbMigrationRunner {
     this.concurrency = options.concurrency ?? 2;
     this.scanPageSize = options.scanPageSize ?? 100;
     this.clock = options.clock ?? (() => new Date());
+    this.sleep = options.sleep ?? defaultSleep;
+    this.transactionRetryDelaysMs =
+      options.transactionRetryDelaysMs ?? DEFAULT_TRANSACTION_RETRY_DELAYS_MS;
     if (
       !Number.isSafeInteger(this.concurrency) ||
       this.concurrency < 1 ||
@@ -165,6 +198,15 @@ export class JsonDynamoDbMigrationRunner {
     if (!Number.isSafeInteger(this.scanPageSize) || this.scanPageSize < 1) {
       throw new TypeError(
         'Migration scan page size must be a positive integer'
+      );
+    }
+    if (
+      this.transactionRetryDelaysMs.some(
+        delay => !Number.isSafeInteger(delay) || delay < 0
+      )
+    ) {
+      throw new TypeError(
+        'Migration transaction retry delays must be non-negative integers'
       );
     }
   }
@@ -315,15 +357,19 @@ export class JsonDynamoDbMigrationRunner {
 
   async rollback(plan: MigrationPlan): Promise<MigrationRollbackReport> {
     const startedAt = this.clock();
+    const targetItems = await this.scanAll();
+    const targetByKey = new Map(
+      targetItems.map(item => [itemKey(item), item] as const)
+    );
     const currentByKey = new Map<string, DynamoItem>();
     let protectedItems = 0;
 
-    await mapWithConcurrency(plan.items, this.concurrency, async expected => {
-      const current = await this.dynamodb.get(expected, true);
-      if (!current) return;
+    for (const expected of plan.items) {
+      const current = targetByKey.get(itemKey(expected));
+      if (!current) continue;
       if (!ownsItem(current, plan)) {
         protectedItems += 1;
-        return;
+        continue;
       }
       if (!sameItem(current, expected)) {
         throw new MigrationRollbackSafetyError(
@@ -331,7 +377,7 @@ export class JsonDynamoDbMigrationRunner {
         );
       }
       currentByKey.set(itemKey(current), current);
-    });
+    }
 
     const results = await mapWithConcurrency(
       plan.groups,
@@ -339,8 +385,12 @@ export class JsonDynamoDbMigrationRunner {
       group => this.deleteGroup(plan, group, currentByKey)
     );
 
+    const remainingItems = await this.scanAll();
+    const remainingByKey = new Map(
+      remainingItems.map(item => [itemKey(item), item] as const)
+    );
     for (const expected of plan.items) {
-      const current = await this.dynamodb.get(expected, true);
+      const current = remainingByKey.get(itemKey(expected));
       if (current && ownsItem(current, plan) && sameItem(current, expected)) {
         throw new MigrationRollbackSafetyError(
           'Rollback verification found a migration-owned item still present'
@@ -424,30 +474,42 @@ export class JsonDynamoDbMigrationRunner {
       revisionAction(plan, this.clock().toISOString(), 'execute'),
     ];
 
-    try {
-      await this.dynamodb.transactWrite(actions);
-      return {
-        writtenItems: pending.length,
-        unchangedItems: 0,
-        transactionCount: 1,
-      };
-    } catch (error) {
-      if (!(error instanceof DynamoTransactionCanceledError)) throw error;
-      const current = await Promise.all(
-        pending.map(item => this.dynamodb.get(item, true))
-      );
-      if (
-        current.every(
-          (item, index) => item !== null && sameItem(item, pending[index])
-        )
-      ) {
+    let conflictAttempt = 0;
+    while (true) {
+      try {
+        await this.dynamodb.transactWrite(actions);
         return {
-          writtenItems: 0,
-          unchangedItems: pending.length,
-          transactionCount: 0,
+          writtenItems: pending.length,
+          unchangedItems: 0,
+          transactionCount: 1,
         };
+      } catch (error) {
+        if (!(error instanceof DynamoTransactionCanceledError)) throw error;
+        const current = await Promise.all(
+          pending.map(item => this.dynamodb.get(exactKey(item), true))
+        );
+        if (
+          current.every(
+            (item, index) => item !== null && sameItem(item, pending[index])
+          )
+        ) {
+          return {
+            writtenItems: 0,
+            unchangedItems: pending.length,
+            transactionCount: 0,
+          };
+        }
+        if (
+          current.every(item => item === null) &&
+          isRetryableTransactionConflict(error) &&
+          conflictAttempt < this.transactionRetryDelaysMs.length
+        ) {
+          await this.sleep(this.transactionRetryDelaysMs[conflictAttempt]);
+          conflictAttempt += 1;
+          continue;
+        }
+        throw new MigrationConflictError(pending.map(fingerprint));
       }
-      throw new MigrationConflictError(pending.map(fingerprint));
     }
   }
 
@@ -475,21 +537,43 @@ export class JsonDynamoDbMigrationRunner {
       ),
       revisionAction(plan, this.clock().toISOString(), 'rollback'),
     ];
-    try {
-      await this.dynamodb.transactWrite(actions);
-    } catch (error) {
-      if (error instanceof DynamoTransactionCanceledError) {
+    let conflictAttempt = 0;
+    while (true) {
+      try {
+        await this.dynamodb.transactWrite(actions);
+        return {
+          writtenItems: owned.length,
+          unchangedItems: 0,
+          transactionCount: 1,
+        };
+      } catch (error) {
+        if (!(error instanceof DynamoTransactionCanceledError)) throw error;
+        const current = await Promise.all(
+          owned.map(item => this.dynamodb.get(exactKey(item), true))
+        );
+        if (current.every(item => item === null)) {
+          return {
+            writtenItems: 0,
+            unchangedItems: owned.length,
+            transactionCount: 0,
+          };
+        }
+        if (
+          current.every(
+            (item, index) => item !== null && sameItem(item, owned[index])
+          ) &&
+          isRetryableTransactionConflict(error) &&
+          conflictAttempt < this.transactionRetryDelaysMs.length
+        ) {
+          await this.sleep(this.transactionRetryDelaysMs[conflictAttempt]);
+          conflictAttempt += 1;
+          continue;
+        }
         throw new MigrationRollbackSafetyError(
           'Rollback ownership changed during the operation'
         );
       }
-      throw error;
     }
-    return {
-      writtenItems: owned.length,
-      unchangedItems: 0,
-      transactionCount: 1,
-    };
   }
 
   private async scanAll(): Promise<DynamoItem[]> {

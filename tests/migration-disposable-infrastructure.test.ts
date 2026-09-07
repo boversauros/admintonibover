@@ -48,5 +48,12 @@ test('migration acceptance IaC creates exactly one disposable development table'
     AttributeName: 'expiresAt',
     Enabled: true,
   });
+  assert.deepEqual(table.Properties.Tags, [
+    { Key: 'Project', Value: 'admintonibover' },
+    { Key: 'Environment', Value: 'dev' },
+    { Key: 'ManagedBy', Value: 'iac' },
+    { Key: 'Owner', Value: 'orio' },
+    { Key: 'Purpose', Value: { Ref: 'PurposeConfirmation' } },
+  ]);
   assert.equal('TableName' in table.Properties, false);
 });
