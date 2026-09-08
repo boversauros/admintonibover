@@ -162,16 +162,16 @@ one table per AWS environment, not one table per entity.
 
 #### Item types
 
-| Item               | Key                                                           | Purpose                                                                                                                                |
-| ------------------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Post aggregate     | `PK=POST#<id>`, `SK=POST#<id>`                                | Canonical post, category, bilingual translations, keywords, references or segment metadata, image keys, timestamps, and version.       |
-| Reference segment  | `PK=POST#<id>`, `SK=REFS#<language>#<zero-padded-sequence>`   | Fallback reference arrays when an inline aggregate would reach the size guard.                                                         |
-| Post list summary  | `PK=POSTS`, `SK=ORDER#<sortable-order>#DATE#<date>#POST#<id>` | Bounded fields required for list, title search, status/category filtering, ascending/descending order, counts, and pagination.         |
-| Slug lock          | `PK=SLUG#<language>#<normalized-slug>`, `SK=LOCK`             | Maps one language/slug pair to one post ID.                                                                                            |
-| Category catalog   | `PK=LOOKUP#CATEGORIES`, `SK=CATALOG`                          | Preserved category IDs, slugs, and translated display names.                                                                           |
-| Keyword catalog    | `PK=LOOKUP#KEYWORDS#<language>`, `SK=CATALOG`                 | Preserved keyword IDs and suggestion values. Detaching a keyword does not remove its historical suggestion, matching current behavior. |
-| Data revision      | `PK=SYSTEM`, `SK=REVISION`                                    | Monotonic revision incremented by every content mutation so a backup can detect concurrent changes.                                    |
-| Idempotency record | `PK=REQUEST#<admin-subject-hash>`, `SK=<idempotency-key>`     | Short-lived mutation result used to make a retry safe. It has a bounded TTL and contains no token or content body.                     |
+| Item               | Key                                                                  | Purpose                                                                                                                                           |
+| ------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Post aggregate     | `PK=POST#<id>`, `SK=POST#<id>`                                       | Canonical post, category, bilingual translations, keywords, references or segment metadata, image keys, timestamps, and version.                  |
+| Reference segment  | `PK=POST#<id>`, `SK=REFS#<language>#<zero-padded-sequence>`          | Fallback reference arrays when an inline aggregate would reach the size guard.                                                                    |
+| Post list summary  | `PK=POSTS`, `SK=ORDER#<sortable-order>#DATE#<date>#POST#<id>`        | Bounded fields required for list, title search, status/category filtering, ascending/descending order, counts, and pagination.                    |
+| Slug lock          | `PK=SLUG#<language>#<normalized-slug>`, `SK=LOCK`                    | Maps one language/slug pair to one post ID.                                                                                                       |
+| Category catalog   | `PK=TAXONOMY#CATEGORIES`, `SK=CATEGORY#<id>`                         | Preserved category IDs, slugs, and translated display names.                                                                                      |
+| Keyword catalog    | `PK=TAXONOMY#KEYWORDS`, `SK=KEYWORD#<id>`                            | Preserved keyword IDs, language, and suggestion values. Detaching a keyword does not remove its historical suggestion, matching current behavior. |
+| Data revision      | `PK=SYSTEM`, `SK=REVISION`                                           | Monotonic revision incremented by every content mutation so a backup can detect concurrent changes.                                               |
+| Idempotency record | `PK=IDEMPOTENCY#<request-digest>`, `SK=IDEMPOTENCY#<request-digest>` | Short-lived mutation result used to make a retry safe. It has a bounded TTL and contains no token or content body.                                |
 
 The post list summary intentionally duplicates only the fields required by the
 list screen. It never contains full content or references. A fixed-width,
@@ -439,6 +439,10 @@ origin, public ACL, or public bucket policy.
 No dual write is implemented. A partially completed import is rolled back only
 by the migration run ID and exact target confirmation; it never uses a
 table-wide or wildcard delete.
+
+The operator command and its exact confirmations, private-manifest boundary,
+verification report, retry behavior, and run-scoped rollback are documented in
+the [JSON-to-DynamoDB migration runbook](../runbooks/json-dynamodb-migration.md).
 
 ## Cost
 

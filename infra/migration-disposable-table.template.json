@@ -1,0 +1,88 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Issue 19 disposable development DynamoDB table for JSON migration acceptance testing.",
+  "Parameters": {
+    "PurposeConfirmation": {
+      "Type": "String",
+      "AllowedValues": ["ISSUE-19-DISPOSABLE-DEV"],
+      "Description": "Explicit confirmation that this stack is disposable and development-only."
+    }
+  },
+  "Resources": {
+    "MigrationAcceptanceTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "DeletionPolicy": "Delete",
+      "UpdateReplacePolicy": "Delete",
+      "Properties": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "PK",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "SK",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "PK",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "SK",
+            "KeyType": "RANGE"
+          }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "TableClass": "STANDARD",
+        "DeletionProtectionEnabled": false,
+        "PointInTimeRecoverySpecification": {
+          "PointInTimeRecoveryEnabled": false
+        },
+        "TimeToLiveSpecification": {
+          "AttributeName": "expiresAt",
+          "Enabled": true
+        },
+        "Tags": [
+          {
+            "Key": "Project",
+            "Value": "admintonibover"
+          },
+          {
+            "Key": "Environment",
+            "Value": "dev"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "iac"
+          },
+          {
+            "Key": "Owner",
+            "Value": "orio"
+          },
+          {
+            "Key": "Purpose",
+            "Value": {
+              "Ref": "PurposeConfirmation"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "TableArn": {
+      "Description": "Disposable migration acceptance table ARN.",
+      "Value": {
+        "Fn::GetAtt": ["MigrationAcceptanceTable", "Arn"]
+      }
+    },
+    "TableName": {
+      "Description": "Disposable migration acceptance table name.",
+      "Value": {
+        "Ref": "MigrationAcceptanceTable"
+      }
+    }
+  }
+}

@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util';
+
 import {
   DynamoTransactionCanceledError,
   type DynamoCondition,
@@ -28,7 +30,10 @@ function conditionMatches(
     return item === undefined || item[condition.attribute] === undefined;
   }
   if (condition.type === 'equals') {
-    return item !== undefined && item[condition.attribute] === condition.value;
+    return (
+      item !== undefined &&
+      isDeepStrictEqual(item[condition.attribute], condition.value)
+    );
   }
   return (
     item === undefined ||

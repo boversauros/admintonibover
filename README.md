@@ -93,6 +93,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `pnpm lambda:validate` - Confirm the committed Lambda bundle is current
 - `pnpm backup:validate -- --input <path>` - Validate a Supabase JSON backup
   offline without modifying it or contacting a cloud service
+- `pnpm migration:run -- --input <path> --input-sha256 <sha256> --manifest <path>` -
+  Dry-run the offline JSON-to-DynamoDB migration
 - `pnpm infra:synth` - Generate the reviewable native CloudFormation template
   without contacting AWS
 - `pnpm infra:validate` - Validate the approved resource inventory and confirm
@@ -123,6 +125,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [Admin web security and AWS cutover](docs/runbooks/admin-web-security.md)
 - [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
 - [Offline Supabase backup validation](docs/runbooks/backup-validation.md)
+- [Offline JSON-to-DynamoDB migration](docs/runbooks/json-dynamodb-migration.md)
 
 ## Features
 
