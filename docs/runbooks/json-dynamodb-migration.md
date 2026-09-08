@@ -184,6 +184,8 @@ MIGRATE <environment> <account-id>/<region>/<table-name> <64-character-sha256>
 Run the import with the exact values substituted:
 
 ```bash
+ADMINTONIBOVER_MIGRATION_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
 pnpm migration:run -- \
   --execute \
   --input /absolute/path/to/tonibover-backup-2026-06-18T08-46-31.json \
@@ -262,6 +264,45 @@ aws cloudformation wait stack-delete-complete \
 
 Confirm that `describe-stacks` returns a not-found error for that exact stack.
 Do not delete the active development or production stack.
+
+## Cost and CloudWatch evidence
+
+CloudWatch retains the deleted table's metrics. Record the end of the acceptance
+window after the final rollback, then total the relevant one-minute datapoints:
+
+```bash
+ADMINTONIBOVER_MIGRATION_FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+for metric in \
+  ConsumedReadCapacityUnits \
+  ConsumedWriteCapacityUnits \
+  TransactionConflict \
+  ConditionalCheckFailedRequests \
+  ReadThrottleEvents \
+  WriteThrottleEvents \
+  SystemErrors
+do
+  total="$(aws cloudwatch get-metric-statistics \
+    --region eu-west-1 \
+    --namespace AWS/DynamoDB \
+    --metric-name "$metric" \
+    --dimensions Name=TableName,Value="$ADMINTONIBOVER_MIGRATION_TABLE" \
+    --start-time "$ADMINTONIBOVER_MIGRATION_STARTED_AT" \
+    --end-time "$ADMINTONIBOVER_MIGRATION_FINISHED_AT" \
+    --period 60 \
+    --statistics Sum \
+    --query 'sum(Datapoints[].Sum)' \
+    --output text)"
+  printf '%s: %s\n' "$metric" "$total"
+done
+```
+
+`ConsumedReadCapacityUnits` and `ConsumedWriteCapacityUnits` are billed capacity
+units, not item counts. Multiply their totals by the current DynamoDB on-demand
+request-unit prices for `eu-west-1`. Record only the totals and calculated cost,
+never the generated table name. Confirm the final charge in the free AWS Billing
+and Cost Management console after its data refreshes; Cost Explorer data can lag
+by at least 24 hours, and its API has a per-request charge.
 
 Rollback is not the cutover recovery mechanism after the first accepted AWS
 admin mutation. Once migrated content changes, the runner refuses deletion of
