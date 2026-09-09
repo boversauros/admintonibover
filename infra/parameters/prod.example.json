@@ -9,15 +9,15 @@
   },
   {
     "ParameterKey": "AllowedOrigins",
-    "ParameterValue": "https://replace-me.example.invalid"
+    "ParameterValue": "https://admin.tonibover.cat"
   },
   {
     "ParameterKey": "CallbackUrls",
-    "ParameterValue": "https://replace-me.example.invalid/auth/callback"
+    "ParameterValue": "https://admin.tonibover.cat/auth/callback"
   },
   {
     "ParameterKey": "LogoutUrls",
-    "ParameterValue": "https://replace-me.example.invalid/"
+    "ParameterValue": "https://admin.tonibover.cat/"
   },
   {
     "ParameterKey": "CognitoDomainPrefix",

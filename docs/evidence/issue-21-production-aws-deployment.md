@@ -1,7 +1,7 @@
 # Issue 21 production AWS deployment evidence
 
 This ledger contains only redacted, review-safe evidence. Account identifiers,
-ARNs, resource names, exact origins before approval, billing details, emails,
+ARNs, private resource names, billing details, emails,
 credentials, tokens, passwords, authorization codes, Vercel secrets, private
 screenshots, parameter files, and full AWS command output remain private and
 ignored by Git.
@@ -23,7 +23,8 @@ ignored by Git.
 | Production retention                              | Pass        | Protected table/User Pool use `Retain`; bucket uses `RetainExceptOnCreate`; all replacements retain                          |
 | Production deletion protection                    | Pass        | DynamoDB and Cognito protection are hard-coded on in the prod artifact                                                       |
 | Production origin contract                        | Pass        | Template accepts exact HTTPS origins only; no localhost or wildcard                                                          |
-| Exact approved origins                            | Pending     | Product/Vercel values must be recorded before change-set creation                                                            |
+| Production Vercel origin                          | Pass        | Existing repository contract is `https://admin.tonibover.cat`; the public endpoint returned HTTP 200 on 2026-09-09           |
+| Fixed Preview origin                              | None        | No fixed Preview origin is approved; ephemeral deployment URLs remain prohibited                                             |
 | Pricing, account plan, credits, and spend ceiling | Pending     | Operator review required immediately before change-set creation                                                              |
 | Local automated gate                              | Pass        | Secrets, dual synthesis/schema lint, lint, typecheck, 157 tests, webpack production build, browser artifacts, and audit pass |
 | Default Turbopack build                           | PR pending  | Desktop sandbox denies Turbopack's local worker port; webpack build passes and GitHub CI must confirm the default build      |
@@ -60,6 +61,8 @@ may be created until the issue contract is reconciled.
       rollback while the already-protected table/User Pool remain retained.
 - [x] Production URL parameter patterns reject HTTP, localhost, wildcards, and
       incorrect callback/logout paths.
+- [x] The safe parameter example records the established live Production origin
+      `https://admin.tonibover.cat`, its `/auth/callback`, and root logout URL.
 - [x] Development behavior and its deletion rehearsal remain unchanged.
 - [x] CI is configured to schema-lint both generated artifacts.
 - [x] A production deployment, verification, rollback, recovery, and deliberate
@@ -71,8 +74,8 @@ may be created until the issue contract is reconciled.
 
 - [ ] Issue #21's concurrency acceptance text matches the approved ADR and the
       observed account quota, or a separate ADR/quota change is approved.
-- [ ] Exact Vercel Production and any fixed Preview origins/callbacks/logouts
-      are approved.
+- [x] Exact Vercel Production origin/callback/logout are recorded; no fixed
+      Preview origin is included.
 - [ ] Account plan, credits, expiry, root/operator MFA, and Region are rechecked.
 - [ ] Current official service pricing and observed development usage are
       rechecked.
