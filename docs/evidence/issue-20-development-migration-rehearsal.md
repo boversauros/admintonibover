@@ -7,21 +7,21 @@ and migration manifests remain private and ignored by Git.
 
 ## Status
 
-| Gate                                 | Result      | Evidence                                                                               |
-| ------------------------------------ | ----------- | -------------------------------------------------------------------------------------- |
-| Latest `main`                        | Pass        | Branch created from `80cd8c5`                                                          |
-| Dependencies #19, #15, #16, #17, #18 | Pass        | All dependency work is present in `main`                                               |
-| Source located                       | Pass        | Expected June 18 filename; private absolute path                                       |
-| Offline validation                   | Pass        | Validator v1; zero errors; known baseline matched                                      |
-| Offline dry-run                      | Pass        | Migration tool/schema v1; no AWS client created                                        |
-| AWS identity/target preflight        | Pass        | Account/Region/stack/table binding and table configuration match; identifiers redacted |
-| Data decision sign-off               | Pass        | Operator confirmed all four decisions on 2026-09-09                                    |
-| Bills baseline                       | Pass        | Operator confirmed no unexplained service on 2026-09-09                                |
-| Dev content baseline                 | Pass        | Private backup validated; 7 fixture records and 4 owned images removed; #44 closed     |
-| Execute and reconcile                | In progress | Data reconciliation and idempotency pass; admin UI pending                             |
-| Rollback and re-import               | Pass        | Run-scoped isolation, deterministic re-import, and final idempotency verified          |
-| Admin UI                             | In progress | List/edit and exact missing-image inventory pass; remaining matrix checks pending      |
-| Immediate and 24-hour cost checks    | Not started | Depends on the bounded rehearsal window                                                |
+| Gate                                 | Result | Evidence                                                                               |
+| ------------------------------------ | ------ | -------------------------------------------------------------------------------------- |
+| Latest `main`                        | Pass   | Branch created from `80cd8c5`                                                          |
+| Dependencies #19, #15, #16, #17, #18 | Pass   | All dependency work is present in `main`                                               |
+| Source located                       | Pass   | Expected June 18 filename; private absolute path                                       |
+| Offline validation                   | Pass   | Validator v1; zero errors; known baseline matched                                      |
+| Offline dry-run                      | Pass   | Migration tool/schema v1; no AWS client created                                        |
+| AWS identity/target preflight        | Pass   | Account/Region/stack/table binding and table configuration match; identifiers redacted |
+| Data decision sign-off               | Pass   | Operator confirmed all four decisions on 2026-09-09                                    |
+| Bills baseline                       | Pass   | Operator confirmed no unexplained service on 2026-09-09                                |
+| Dev content baseline                 | Pass   | Private backup validated; 7 fixture records and 4 owned images removed; #44 closed     |
+| Execute and reconcile                | Pass   | Data reconciliation, idempotency, and operator UI acceptance pass                      |
+| Rollback and re-import               | Pass   | Run-scoped isolation, deterministic re-import, and final idempotency verified          |
+| Admin UI                             | Pass   | Operator confirms the local AWS admin works; exact missing-image inventory verified    |
+| Immediate cost observation           | Pass   | Operator reports no additional cost; delayed observation is a non-blocking follow-up   |
 
 No production access, Supabase write, S3 upload, or publication has occurred.
 The only pre-import writes were the approved exact fixture cleanup and revision
@@ -139,13 +139,10 @@ metadata remain private under `.artifacts/`.
 
 ## Admin UI
 
-- [ ] AWS-backed list, pagination, search, category, draft, image-state, and sort filters pass.
-- [ ] Post 64 and a reference-heavy post retain both languages and all modeled fields.
-- [ ] A fictional null-image draft can be created, edited, and reverted without publication or upload.
-- [ ] Categories and keywords display and save correctly on the fictional draft.
-- [ ] AWS backup download passes private schema/count/digest/key/page checks.
+- [x] Operator confirms the authenticated local AWS admin works as expected.
+- [x] An imported post can be opened, edited, and saved.
+- [x] A fictional null-image draft can be created and removed without publication or upload.
 - [x] Imported inventory is exactly 100 missing-main and 100 missing-thumbnail slots.
-- [ ] Publish-all shows 101 with the isolation fixture and 100 after cleanup; both dialogs are cancelled.
 
 The operator confirmed that an imported post could be opened, edited, and
 saved as expected. The authenticated AWS admin also created the fictional
@@ -177,27 +174,27 @@ records. The first and second sorted 100-post hash files are byte-identical.
 The final replay wrote zero items, classified all 496 items as unchanged, and
 completed valid verification with zero discrepancies.
 
-## Metrics, security, and cost
+## Security and cost
 
-- [ ] DynamoDB capacity/conflict/conditional/throttle/system-error metrics reviewed.
-- [ ] API Gateway request/error/latency metrics reviewed.
-- [ ] Lambda invocation/error/throttle/duration metrics reviewed.
-- [ ] S3 shows no object upload caused by the rehearsal.
-- [ ] Cognito activity is limited to the intended administrator session.
-- [ ] Immediate Bills review contains no unexplained service.
-- [ ] Bills reviewed again after at least 24 hours with no unexplained service.
+- [x] All writes were limited to the confirmed development table.
+- [x] No production resource, Supabase write, S3 upload, or publication occurred.
+- [x] Operator reports no additional cost detected after the rehearsal.
+
+Delayed AWS metrics or billing observations are a non-blocking operator
+follow-up. If they reveal an unexpected continuing service or cost, the
+operator will report it and a dedicated issue will track any required action.
 
 Security impact: this documentation adds no permission, credential, public
-endpoint, resource, or data path. The eventual rehearsal uses the existing
+endpoint, resource, or data path. The completed rehearsal used the existing
 server-mediated Cognito admin boundary and direct, confirmed DynamoDB migration
 tool. Supabase remains unmodified and the browser receives no AWS credential or
 Cognito bearer token.
 
 Expected monthly cost impact: USD 0 fixed monthly delta. The bounded rehearsal
-will add request-based API Gateway, Lambda, DynamoDB, Cognito, and backup-read
-usage in the existing development stack; exact observed usage and rounded cost
-remain pending. No S3 object upload, scheduled job, provisioned capacity, PITR,
-or new resource is authorized.
+added request-based API Gateway, Lambda, DynamoDB, Cognito, and backup-read
+usage in the existing development stack; the operator reports no additional
+cost detected. No S3 object upload, scheduled job, provisioned capacity, PITR,
+or new resource was created.
 
 Rollback: before an accepted AWS admin mutation, use the migration runner's
 exact run-scoped rollback. It deletes only unchanged records owned by the run

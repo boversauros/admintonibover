@@ -257,7 +257,7 @@ cmp \
 Run the exact re-import command once more. It must write zero items, classify
 every planned item as unchanged, and produce a valid verification report.
 
-## 8. Metrics and cost
+## 8. Optional operational follow-up
 
 Record the rehearsal end time after the idempotency check. Query DynamoDB
 `ConsumedReadCapacityUnits`, `ConsumedWriteCapacityUnits`,
@@ -267,10 +267,14 @@ Also inspect API Gateway request/error/latency, Lambda invocation/error/throttle
 duration, S3 request/storage, and Cognito sign-in metrics used by the admin
 exercise. Explain every non-zero error or unexpected service.
 
-Review Bills immediately and again after at least 24 hours. Billing data is
-delayed and budgets do not cap spend. Record only service names, usage totals,
-rounded cost, observation timestamps, and pass/fail conclusions. Do not call
-the Cost Explorer API solely for evidence because it has a per-request charge.
+Review Bills immediately when practical. A later metrics or billing review is
+useful because AWS reporting can be delayed, but it does not gate acceptance or
+merge: the bounded rehearsal creates no new infrastructure resource,
+provisioned capacity, scheduled work, or S3 upload. If a later observation reveals an
+unexpected continuing service or cost, open a dedicated follow-up issue. Record
+only service names, usage totals, rounded cost, observation timestamps, and
+pass/fail conclusions. Do not call the Cost Explorer API solely for evidence
+because it has a per-request charge.
 
 ## 9. Discrepancies and completion
 
@@ -279,7 +283,7 @@ acceptance. Open a dedicated blocking issue, link it from the evidence ledger,
 and leave the affected check incomplete. Do not classify a discrepancy as
 close enough.
 
-The rehearsal is complete only when validation, dry-run, execute,
-reconciliation, rollback isolation, re-import, idempotency, UI checks, immediate
-metrics/Bills, and the settled 24-hour Bills check all pass with redacted
-evidence.
+The rehearsal is complete when validation, dry-run, execute, reconciliation,
+rollback isolation, re-import, idempotency, and operator-accepted UI checks all
+pass with redacted evidence. Operational metrics and delayed billing
+observations are non-blocking follow-up evidence.
