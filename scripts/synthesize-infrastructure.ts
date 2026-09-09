@@ -3,18 +3,26 @@ import { dirname, resolve } from 'node:path';
 
 import { buildFoundationLambda } from './build-foundation-lambda';
 
-const DEFAULT_OUTPUT = resolve('infra/generated/dev-foundation.template.json');
+const DEFAULT_OUTPUTS = {
+  dev: resolve('infra/generated/dev-foundation.template.json'),
+  prod: resolve('infra/generated/prod-foundation.template.json'),
+} as const;
+
+type FoundationEnvironment = keyof typeof DEFAULT_OUTPUTS;
+type EnvironmentSelection = FoundationEnvironment | 'all';
 
 type CliOptions = {
   check: boolean;
-  outputPath: string;
+  environment: EnvironmentSelection;
+  outputPath: string | null;
 };
 
 const USAGE = `Usage:
-  pnpm infra:synth [-- --output <template.json>]
+  pnpm infra:synth [-- --environment <dev|prod>] [--output <template.json>]
   pnpm infra:validate
 
 Options:
+  -e, --environment   Synthesize dev or prod; --check defaults to both
   -o, --output <path>  Write the synthesized CloudFormation JSON to this path
       --check          Validate and confirm the committed synthesis is current
   -h, --help           Show this help
@@ -23,7 +31,9 @@ Synthesis and validation are deterministic, offline, and use no AWS credentials.
 
 function parseArguments(argumentsList: string[]): CliOptions | null {
   let check = false;
-  let outputPath = DEFAULT_OUTPUT;
+  let environment: EnvironmentSelection = 'dev';
+  let environmentWasSpecified = false;
+  let outputPath: string | null = null;
 
   for (let index = 0; index < argumentsList.length; index += 1) {
     const argument = argumentsList[index];
@@ -31,6 +41,16 @@ function parseArguments(argumentsList: string[]): CliOptions | null {
     if (argument === '--help' || argument === '-h') return null;
     if (argument === '--check') {
       check = true;
+      continue;
+    }
+    if (argument === '--environment' || argument === '-e') {
+      const value = argumentsList[index + 1];
+      if (value !== 'dev' && value !== 'prod' && value !== 'all') {
+        throw new Error(`${argument} must be dev, prod, or all`);
+      }
+      environment = value;
+      environmentWasSpecified = true;
+      index += 1;
       continue;
     }
     if (argument === '--output' || argument === '-o') {
@@ -45,7 +65,15 @@ function parseArguments(argumentsList: string[]): CliOptions | null {
     throw new Error(`Unknown argument: ${argument}`);
   }
 
-  return { check, outputPath };
+  if (check && !environmentWasSpecified) environment = 'all';
+  if (!check && environment === 'all') {
+    throw new Error('--environment all requires --check');
+  }
+  if (environment === 'all' && outputPath !== null) {
+    throw new Error('--output cannot be combined with --environment all');
+  }
+
+  return { check, environment, outputPath };
 }
 
 async function main(): Promise<void> {
@@ -66,43 +94,49 @@ async function main(): Promise<void> {
   }
 
   const lambda = await buildFoundationLambda({ check: options.check });
-  const [{ createDevFoundationTemplate }, { validateDevFoundationTemplate }] =
+  const [{ createFoundationTemplate }, { validateFoundationTemplate }] =
     await Promise.all([
       import('../infra/dev-foundation'),
       import('../infra/validate-dev-foundation'),
     ]);
-  const template = createDevFoundationTemplate();
-  const summary = validateDevFoundationTemplate(template);
-  const serialized = `${JSON.stringify(template, null, 2)}\n`;
+  const environments: FoundationEnvironment[] =
+    options.environment === 'all' ? ['dev', 'prod'] : [options.environment];
 
-  if (options.check) {
-    let committed: string;
-    try {
-      committed = await readFile(options.outputPath, 'utf8');
-    } catch {
-      throw new Error(
-        `Synthesized template is missing at ${options.outputPath}; run pnpm infra:synth`
+  for (const environment of environments) {
+    const outputPath = options.outputPath ?? DEFAULT_OUTPUTS[environment];
+    const template = createFoundationTemplate(environment);
+    const summary = validateFoundationTemplate(template, environment);
+    const serialized = `${JSON.stringify(template, null, 2)}\n`;
+
+    if (options.check) {
+      let committed: string;
+      try {
+        committed = await readFile(outputPath, 'utf8');
+      } catch {
+        throw new Error(
+          `Synthesized ${environment} template is missing at ${outputPath}; run pnpm infra:synth -- --environment ${environment}`
+        );
+      }
+      if (committed !== serialized) {
+        throw new Error(
+          `Synthesized ${environment} template is stale at ${outputPath}; run pnpm infra:synth -- --environment ${environment}`
+        );
+      }
+      console.log(
+        `infra: ${environment} valid, current synthesis (${summary.resourceCount} resources, ${lambda.bytes} byte Lambda bundle)`
       );
+      continue;
     }
-    if (committed !== serialized) {
-      throw new Error(
-        `Synthesized template is stale at ${options.outputPath}; run pnpm infra:synth`
-      );
-    }
+
+    await mkdir(dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, serialized, {
+      encoding: 'utf8',
+      flag: 'w',
+    });
     console.log(
-      `infra: valid, current synthesis (${summary.resourceCount} resources, ${lambda.bytes} byte Lambda bundle)`
+      `infra: synthesized ${environment} ${summary.resourceCount} resources with a ${lambda.bytes} byte Lambda bundle to ${outputPath}`
     );
-    return;
   }
-
-  await mkdir(dirname(options.outputPath), { recursive: true });
-  await writeFile(options.outputPath, serialized, {
-    encoding: 'utf8',
-    flag: 'w',
-  });
-  console.log(
-    `infra: synthesized ${summary.resourceCount} resources with a ${lambda.bytes} byte Lambda bundle to ${options.outputPath}`
-  );
 }
 
 void main().catch(error => {

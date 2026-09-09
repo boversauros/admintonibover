@@ -1,0 +1,26 @@
+[
+  {
+    "ParameterKey": "GuardrailsEvidenceConfirmed",
+    "ParameterValue": "STOP-UNTIL-ISSUE-21-PREDEPLOYMENT-GATE-PASSES"
+  },
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "prod"
+  },
+  {
+    "ParameterKey": "AllowedOrigins",
+    "ParameterValue": "https://replace-me.example.invalid"
+  },
+  {
+    "ParameterKey": "CallbackUrls",
+    "ParameterValue": "https://replace-me.example.invalid/auth/callback"
+  },
+  {
+    "ParameterKey": "LogoutUrls",
+    "ParameterValue": "https://replace-me.example.invalid/"
+  },
+  {
+    "ParameterKey": "CognitoDomainPrefix",
+    "ParameterValue": "replace-me-admintonibover-prod"
+  }
+]

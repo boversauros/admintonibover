@@ -1,7 +1,7 @@
 # AWS development foundation
 
 > **Current-template note:** this document preserves the issue #7 foundation
-> creation evidence. After issue #11, the current synthesis has 24 resources
+> creation evidence. After the later admin-parity work, the current synthesis has 36 resources
 > and an embedded Lambda bundle that makes the template larger than the
 > 51,200-byte direct request limit. For any current stack update, use the
 > CloudFormation private-S3-template and change-set procedure in

@@ -1,13 +1,13 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Cost-safe AWS development foundation and authenticated admin API for the admintonibover migration.",
+  "Description": "Cost-safe AWS production foundation and authenticated admin API for the admintonibover migration.",
   "Metadata": {
-    "Issue": "https://github.com/boversauros/admintonibover/issues/7",
+    "Issue": "https://github.com/boversauros/admintonibover/issues/21",
     "MediaRepairIssue": "https://github.com/boversauros/admintonibover/issues/11",
     "AdminApiIssue": "https://github.com/boversauros/admintonibover/issues/12",
     "AdminWebSecurityIssue": "https://github.com/boversauros/admintonibover/issues/18",
     "ArchitectureDecision": "docs/adr/0001-admin-only-aws-data-security-contract.md",
-    "Runbook": "docs/runbooks/aws-development-foundation.md",
+    "Runbook": "docs/runbooks/aws-production-foundation.md",
     "AdminApiRunbook": "docs/runbooks/authenticated-admin-api.md",
     "AdminWebSecurityRunbook": "docs/runbooks/admin-web-security.md",
     "AWS::CloudFormation::Interface": {
@@ -18,13 +18,12 @@
           },
           "Parameters": [
             "GuardrailsEvidenceConfirmed",
-            "Environment",
-            "EnableTableDeletionProtection"
+            "Environment"
           ]
         },
         {
           "Label": {
-            "default": "Exact development origins"
+            "default": "Exact production origins"
           },
           "Parameters": [
             "AllowedOrigins",
@@ -44,9 +43,6 @@
       "ParameterLabels": {
         "GuardrailsEvidenceConfirmed": {
           "default": "Issue #3 evidence rechecked"
-        },
-        "EnableTableDeletionProtection": {
-          "default": "DynamoDB deletion protection"
         }
       }
     }
@@ -61,29 +57,29 @@
     },
     "Environment": {
       "Type": "String",
-      "Default": "dev",
+      "Default": "prod",
       "AllowedValues": [
-        "dev"
+        "prod"
       ],
-      "Description": "This artifact permits only the isolated development environment."
+      "Description": "This artifact permits only the isolated production environment."
     },
     "AllowedOrigins": {
       "Type": "CommaDelimitedList",
-      "AllowedPattern": "^(?:https://[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(?::[1-9][0-9]{0,4})?|http://(?:localhost|127\\.0\\.0\\.1)(?::[1-9][0-9]{0,4})?)$",
-      "ConstraintDescription": "Each origin must be one exact HTTPS origin or an HTTP localhost development origin, without paths or wildcards.",
-      "Description": "Exact development admin origins for API Gateway and S3 CORS. Do not use wildcards."
+      "AllowedPattern": "^https://[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\\.[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$",
+      "ConstraintDescription": "Each production origin must be one exact HTTPS origin, without paths or wildcards.",
+      "Description": "Exact production admin origins for API Gateway and S3 CORS. Do not use wildcards."
     },
     "CallbackUrls": {
       "Type": "CommaDelimitedList",
-      "AllowedPattern": "^(?:https://[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(?::[1-9][0-9]{0,4})?|http://(?:localhost|127\\.0\\.0\\.1)(?::[1-9][0-9]{0,4})?)/auth/callback$",
-      "ConstraintDescription": "Each callback must be an exact HTTPS or localhost URL ending in /auth/callback, without wildcards.",
-      "Description": "Exact development Cognito authorization-code callback URLs."
+      "AllowedPattern": "^https://[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\\.[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?/auth/callback$",
+      "ConstraintDescription": "Each production callback must be an exact HTTPS URL ending in /auth/callback, without wildcards.",
+      "Description": "Exact production Cognito authorization-code callback URLs."
     },
     "LogoutUrls": {
       "Type": "CommaDelimitedList",
-      "AllowedPattern": "^(?:https://[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(?::[1-9][0-9]{0,4})?|http://(?:localhost|127\\.0\\.0\\.1)(?::[1-9][0-9]{0,4})?)/$",
-      "ConstraintDescription": "Each logout URL must be an exact HTTPS or localhost origin with a trailing slash, without wildcards.",
-      "Description": "Exact development Cognito logout redirect URLs."
+      "AllowedPattern": "^https://[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\\.[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?/$",
+      "ConstraintDescription": "Each production logout URL must be an exact HTTPS origin with a trailing slash, without wildcards.",
+      "Description": "Exact production Cognito logout redirect URLs."
     },
     "CognitoDomainPrefix": {
       "Type": "String",
@@ -91,16 +87,7 @@
       "MaxLength": 63,
       "AllowedPattern": "^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$",
       "ConstraintDescription": "Use a globally unique 3-63 character lowercase prefix containing only letters, numbers, and internal hyphens.",
-      "Description": "Globally unique prefix for the development Cognito managed-login domain."
-    },
-    "EnableTableDeletionProtection": {
-      "Type": "String",
-      "Default": "false",
-      "AllowedValues": [
-        "true",
-        "false"
-      ],
-      "Description": "Keep false for the first deployment; update to true immediately after verification. Disable only for the documented dev deletion rehearsal."
+      "Description": "Globally unique prefix for the production Cognito managed-login domain."
     }
   },
   "Rules": {
@@ -120,21 +107,12 @@
       ]
     }
   },
-  "Conditions": {
-    "TableDeletionProtectionEnabled": {
-      "Fn::Equals": [
-        {
-          "Ref": "EnableTableDeletionProtection"
-        },
-        "true"
-      ]
-    }
-  },
+  "Conditions": {},
   "Resources": {
     "ContentTable": {
       "Type": "AWS::DynamoDB::Table",
-      "DeletionPolicy": "Delete",
-      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
       "Properties": {
         "AttributeDefinitions": [
           {
@@ -158,13 +136,7 @@
         ],
         "BillingMode": "PAY_PER_REQUEST",
         "TableClass": "STANDARD",
-        "DeletionProtectionEnabled": {
-          "Fn::If": [
-            "TableDeletionProtectionEnabled",
-            true,
-            false
-          ]
-        },
+        "DeletionProtectionEnabled": true,
         "PointInTimeRecoverySpecification": {
           "PointInTimeRecoveryEnabled": false
         },
@@ -196,8 +168,8 @@
     },
     "ContentBucket": {
       "Type": "AWS::S3::Bucket",
-      "DeletionPolicy": "Delete",
-      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "RetainExceptOnCreate",
+      "UpdateReplacePolicy": "Retain",
       "Properties": {
         "BucketEncryption": {
           "ServerSideEncryptionConfiguration": [
@@ -329,14 +301,14 @@
     },
     "UserPool": {
       "Type": "AWS::Cognito::UserPool",
-      "DeletionPolicy": "Delete",
-      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain",
       "Properties": {
         "UserPoolName": {
           "Fn::Sub": "${AWS::StackName}-admins"
         },
         "UserPoolTier": "LITE",
-        "DeletionProtection": "INACTIVE",
+        "DeletionProtection": "ACTIVE",
         "AdminCreateUserConfig": {
           "AllowAdminCreateUserOnly": true
         },
@@ -500,7 +472,7 @@
     "LambdaExecutionRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
-        "Description": "Least-privilege execution role for the development foundation Lambda.",
+        "Description": "Least-privilege execution role for the production foundation Lambda.",
         "Path": "/admintonibover/",
         "AssumeRolePolicyDocument": {
           "Version": "2012-10-17",
@@ -628,7 +600,7 @@
         "FunctionName": {
           "Fn::Sub": "${AWS::StackName}-foundation"
         },
-        "Description": "Authenticated post, taxonomy, backup, and private media operations for the development admin.",
+        "Description": "Authenticated post, taxonomy, backup, and private media operations for the production admin.",
         "PackageType": "Zip",
         "Runtime": "nodejs24.x",
         "Handler": "index.handler",
@@ -706,7 +678,7 @@
         "Name": {
           "Fn::Sub": "${AWS::StackName}-http-api"
         },
-        "Description": "Authenticated HTTP API for the admintonibover development admin.",
+        "Description": "Authenticated HTTP API for the admintonibover production admin.",
         "ProtocolType": "HTTP",
         "CorsConfiguration": {
           "AllowCredentials": false,
@@ -772,7 +744,7 @@
         "ApiId": {
           "Ref": "HttpApi"
         },
-        "Description": "Lambda proxy integration for protected development admin operations.",
+        "Description": "Lambda proxy integration for protected production admin operations.",
         "IntegrationType": "AWS_PROXY",
         "IntegrationMethod": "POST",
         "IntegrationUri": {
@@ -1412,7 +1384,7 @@
   },
   "Outputs": {
     "Region": {
-      "Description": "AWS Region containing the development stack.",
+      "Description": "AWS Region containing the production stack.",
       "Value": {
         "Ref": "AWS::Region"
       }

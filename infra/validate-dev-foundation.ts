@@ -2,9 +2,13 @@ import {
   EXACT_ADMIN_ORIGIN_PATTERN,
   EXACT_CALLBACK_URL_PATTERN,
   EXACT_LOGOUT_URL_PATTERN,
+  EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN,
+  EXACT_PRODUCTION_CALLBACK_URL_PATTERN,
+  EXACT_PRODUCTION_LOGOUT_URL_PATTERN,
   EXPECTED_RESOURCE_TYPE_COUNTS,
   REQUIRED_TAGS,
   type CloudFormationTemplate,
+  type FoundationEnvironment,
 } from './dev-foundation';
 
 type UnknownRecord = Record<string, unknown>;
@@ -88,11 +92,13 @@ export type InfrastructureValidationSummary = {
   outputNames: string[];
 };
 
-export function validateDevFoundationTemplate(
-  template: CloudFormationTemplate
+export function validateFoundationTemplate(
+  template: CloudFormationTemplate,
+  environment: FoundationEnvironment
 ): InfrastructureValidationSummary {
   const issues: string[] = [];
   const resourceTypes: Record<string, number> = {};
+  const isProduction = environment === 'prod';
 
   for (const [logicalId, resource] of Object.entries(template.Resources)) {
     resourceTypes[resource.Type] = (resourceTypes[resource.Type] ?? 0) + 1;
@@ -110,6 +116,44 @@ export function validateDevFoundationTemplate(
       resourceTypes[resourceType],
       expectedCount,
       `resource type inventory.${resourceType}`,
+      issues
+    );
+  }
+
+  const environmentParameter = template.Parameters.Environment;
+  requireEqual(
+    environmentParameter?.Default,
+    environment,
+    'Environment.Default',
+    issues
+  );
+  requireEqual(
+    environmentParameter?.AllowedValues,
+    [environment],
+    'Environment.AllowedValues',
+    issues
+  );
+
+  const deletionProtectionParameter =
+    template.Parameters.EnableTableDeletionProtection;
+  if (isProduction) {
+    requireEqual(
+      deletionProtectionParameter,
+      undefined,
+      'EnableTableDeletionProtection',
+      issues
+    );
+  } else {
+    requireEqual(
+      deletionProtectionParameter?.Default,
+      'false',
+      'EnableTableDeletionProtection.Default',
+      issues
+    );
+    requireEqual(
+      deletionProtectionParameter?.AllowedValues,
+      ['true', 'false'],
+      'EnableTableDeletionProtection.AllowedValues',
       issues
     );
   }
@@ -143,9 +187,24 @@ export function validateDevFoundationTemplate(
     issues
   );
   for (const [name, pattern] of [
-    ['AllowedOrigins', EXACT_ADMIN_ORIGIN_PATTERN],
-    ['CallbackUrls', EXACT_CALLBACK_URL_PATTERN],
-    ['LogoutUrls', EXACT_LOGOUT_URL_PATTERN],
+    [
+      'AllowedOrigins',
+      isProduction
+        ? EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN
+        : EXACT_ADMIN_ORIGIN_PATTERN,
+    ],
+    [
+      'CallbackUrls',
+      isProduction
+        ? EXACT_PRODUCTION_CALLBACK_URL_PATTERN
+        : EXACT_CALLBACK_URL_PATTERN,
+    ],
+    [
+      'LogoutUrls',
+      isProduction
+        ? EXACT_PRODUCTION_LOGOUT_URL_PATTERN
+        : EXACT_LOGOUT_URL_PATTERN,
+    ],
   ] as const) {
     const parameter = template.Parameters[name];
     requireEqual(
@@ -168,6 +227,27 @@ export function validateDevFoundationTemplate(
     );
     const tags = extractTags(resourceName, properties, issues);
     requireEqual(tags, REQUIRED_TAGS, `Resources.${resourceName}.tags`, issues);
+  }
+
+  const expectedUpdateReplacePolicy = isProduction ? 'Retain' : 'Delete';
+  for (const [resourceName, expectedDeletionPolicy] of [
+    ['ContentTable', isProduction ? 'Retain' : 'Delete'],
+    ['ContentBucket', isProduction ? 'RetainExceptOnCreate' : 'Delete'],
+    ['UserPool', isProduction ? 'Retain' : 'Delete'],
+  ] as const) {
+    const resource = template.Resources[resourceName];
+    requireEqual(
+      resource.DeletionPolicy,
+      expectedDeletionPolicy,
+      `Resources.${resourceName}.DeletionPolicy`,
+      issues
+    );
+    requireEqual(
+      resource.UpdateReplacePolicy,
+      expectedUpdateReplacePolicy,
+      `Resources.${resourceName}.UpdateReplacePolicy`,
+      issues
+    );
   }
 
   const table = asRecord(
@@ -215,6 +295,16 @@ export function validateDevFoundationTemplate(
     table.TimeToLiveSpecification,
     { AttributeName: 'expiresAt', Enabled: true },
     'ContentTable.TimeToLiveSpecification',
+    issues
+  );
+  requireEqual(
+    table.DeletionProtectionEnabled,
+    isProduction
+      ? true
+      : {
+          'Fn::If': ['TableDeletionProtectionEnabled', true, false],
+        },
+    'ContentTable.DeletionProtectionEnabled',
     issues
   );
 
@@ -381,6 +471,12 @@ export function validateDevFoundationTemplate(
   );
   requireEqual(userPool.EnabledMfas, undefined, 'UserPool.EnabledMfas', issues);
   requireEqual(userPool.UserPoolTier, 'LITE', 'UserPool.UserPoolTier', issues);
+  requireEqual(
+    userPool.DeletionProtection,
+    isProduction ? 'ACTIVE' : 'INACTIVE',
+    'UserPool.DeletionProtection',
+    issues
+  );
   requireEqual(
     userPool.UserPoolAddOns,
     undefined,
@@ -781,7 +877,7 @@ export function validateDevFoundationTemplate(
 
   if (issues.length > 0) {
     throw new Error(
-      `Development foundation validation failed:\n- ${issues.join('\n- ')}`
+      `${isProduction ? 'Production' : 'Development'} foundation validation failed:\n- ${issues.join('\n- ')}`
     );
   }
 
@@ -790,4 +886,16 @@ export function validateDevFoundationTemplate(
     resourceTypes,
     outputNames,
   };
+}
+
+export function validateDevFoundationTemplate(
+  template: CloudFormationTemplate
+): InfrastructureValidationSummary {
+  return validateFoundationTemplate(template, 'dev');
+}
+
+export function validateProductionFoundationTemplate(
+  template: CloudFormationTemplate
+): InfrastructureValidationSummary {
+  return validateFoundationTemplate(template, 'prod');
 }
