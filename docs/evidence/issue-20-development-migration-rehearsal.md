@@ -19,8 +19,8 @@ and migration manifests remain private and ignored by Git.
 | Bills baseline                       | Pass        | Operator confirmed no unexplained service on 2026-09-09                                |
 | Dev content baseline                 | Pass        | Private backup validated; 7 fixture records and 4 owned images removed; #44 closed     |
 | Execute and reconcile                | In progress | Data reconciliation and idempotency pass; admin UI pending                             |
-| Rollback and re-import               | Not started | Depends on accepted execute/reconciliation                                             |
-| Admin UI                             | Not started | Depends on accepted import into development                                            |
+| Rollback and re-import               | Pass        | Run-scoped isolation, deterministic re-import, and final idempotency verified          |
+| Admin UI                             | In progress | List/edit and exact missing-image inventory pass; remaining matrix checks pending      |
 | Immediate and 24-hour cost checks    | Not started | Depends on the bounded rehearsal window                                                |
 
 No production access, Supabase write, S3 upload, or publication has occurred.
@@ -144,18 +144,38 @@ metadata remain private under `.artifacts/`.
 - [ ] A fictional null-image draft can be created, edited, and reverted without publication or upload.
 - [ ] Categories and keywords display and save correctly on the fictional draft.
 - [ ] AWS backup download passes private schema/count/digest/key/page checks.
-- [ ] Imported inventory is exactly 100 missing-main and 100 missing-thumbnail slots.
+- [x] Imported inventory is exactly 100 missing-main and 100 missing-thumbnail slots.
 - [ ] Publish-all shows 101 with the isolation fixture and 100 after cleanup; both dialogs are cancelled.
+
+The operator confirmed that an imported post could be opened, edited, and
+saved as expected. The authenticated AWS admin also created the fictional
+draft used for rollback isolation, displayed it as the 101st draft with null
+images, retained it as the sole post through rollback, deleted it after the
+isolation check, and displayed the restored 100-post missing-image inventory
+after re-import. No screenshot or recording is required by the operator.
 
 ## Rollback and re-import
 
-- [ ] Run-scoped rollback completes with its counts recorded.
-- [ ] Only imported records disappear; the unrelated fictional draft remains.
-- [ ] No remaining record carries the imported run ID.
-- [ ] Fictional draft is removed through the authenticated admin after isolation proof.
-- [ ] Re-import completes with the same deterministic run ID.
-- [ ] Sorted post/hash evidence is byte-identical across imports.
-- [ ] Final idempotent replay writes zero items and verifies all items unchanged.
+- [x] Run-scoped rollback completes with its counts recorded.
+- [x] Only imported records disappear; the unrelated fictional draft remains.
+- [x] No remaining record carries the imported run ID.
+- [x] Fictional draft is removed through the authenticated admin after isolation proof.
+- [x] Re-import completes with the same deterministic run ID.
+- [x] Sorted post/hash evidence is byte-identical across imports.
+- [x] Final idempotent replay writes zero items and verifies all items unchanged.
+
+The exact development identity, CloudFormation table output, active table
+status, Region, account, source file, and source hash were re-resolved before
+each write operation. The rollback deleted all 496 migration-owned items in
+102 transactions with zero protected items. A consistent post-rollback scan
+found zero items carrying the run ID and exactly one unrelated post: the
+fictional isolation draft. After the draft was deleted through the admin, the
+re-import restored 496 items in 102 transactions with the same deterministic
+run ID. Verification found 100 drafts, zero published posts, 100 null main
+images, 100 null thumbnails, and zero missing, mismatched, or extra migration
+records. The first and second sorted 100-post hash files are byte-identical.
+The final replay wrote zero items, classified all 496 items as unchanged, and
+completed valid verification with zero discrepancies.
 
 ## Metrics, security, and cost
 
