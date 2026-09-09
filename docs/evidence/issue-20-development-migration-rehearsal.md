@@ -96,8 +96,13 @@ grant. After reauthentication on 2026-09-09, the complete read-only target
 preflight passed. The table contained eight records: one `DATA_REVISION`, three
 `POST`, two `POST_SUMMARY`, and two `SLUG_LOCK` records. None is migration-owned.
 The seven content records would make the migrator fail closed and would prevent
-the required exact 100-post result. [Issue #44](https://github.com/boversauros/admintonibover/issues/44)
-blocks execution until their provenance and safe disposition are approved.
+the required exact 100-post result. They resolve to the committed issue-9 tracer
+fixture, the committed issue-11 media fixture, and one later admin-created
+development fixture whose generated ID remains private. The latter two are
+published and have both image roles attached, so cleanup also requires an exact
+S3 disposition. [Issue #44](https://github.com/boversauros/admintonibover/issues/44)
+blocks execution until the remaining provenance and safe disposition are
+approved. No record or object was changed during the inspection.
 
 ## Execute and reconciliation
 
