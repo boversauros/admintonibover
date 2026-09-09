@@ -126,6 +126,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
 - [Offline Supabase backup validation](docs/runbooks/backup-validation.md)
 - [Offline JSON-to-DynamoDB migration](docs/runbooks/json-dynamodb-migration.md)
+- [Development migration rehearsal](docs/runbooks/development-migration-rehearsal.md)
 
 ## Features
 
