@@ -15,9 +15,10 @@ and migration manifests remain private and ignored by Git.
 | Offline validation                   | Pass        | Validator v1; zero errors; known baseline matched                                      |
 | Offline dry-run                      | Pass        | Migration tool/schema v1; no AWS client created                                        |
 | AWS identity/target preflight        | Pass        | Account/Region/stack/table binding and table configuration match; identifiers redacted |
-| Data decision sign-off               | Pending     | All four decisions require explicit operator approval                                  |
-| Dev content baseline                 | Blocked     | Pre-count is 8, including 7 pre-existing content entities; see #44                     |
-| Execute and reconcile                | Not started | Blocked by #44, Bills baseline, and data sign-off gates                                |
+| Data decision sign-off               | Pass        | Operator confirmed all four decisions on 2026-09-09                                    |
+| Bills baseline                       | Pass        | Operator confirmed no unexplained service on 2026-09-09                                |
+| Dev content baseline                 | Blocked     | Fixture cleanup approved but not started; pre-count remains 8; see #44                 |
+| Execute and reconcile                | Not started | Blocked until the approved #44 backup and cleanup complete                             |
 | Rollback and re-import               | Not started | Depends on accepted execute/reconciliation                                             |
 | Admin UI                             | Not started | Depends on accepted import into development                                            |
 | Immediate and 24-hour cost checks    | Not started | Depends on the bounded rehearsal window                                                |
@@ -27,13 +28,13 @@ performed while preparing this ledger.
 
 ## Required sign-off
 
-- [ ] The June 18 backup is approved as a rehearsal source only, not as the
+- [x] The June 18 backup is approved as a rehearsal source only, not as the
       automatic production source.
-- [ ] Post 64's incomplete English title and slug remain flagged and are not
+- [x] Post 64's incomplete English title and slug remain flagged and are not
       invented.
-- [ ] The 229 image rows are metadata only; no image binary is claimed as
+- [x] The 229 image rows are metadata only; no image binary is claimed as
       migrated.
-- [ ] All 100 posts remain drafts.
+- [x] All 100 posts remain drafts.
 
 ## Recorded inputs and versions
 
@@ -48,7 +49,7 @@ performed while preparing this ledger.
 | AWS Region                             | `eu-west-1`                                        |
 | AWS account/table                      | Resolved from STS and exact stack output; redacted |
 | Dev table pre-count                    | 8                                                  |
-| Bills baseline                         | Pending manual review                              |
+| Bills baseline                         | Pass; operator confirmed no unexplained service    |
 
 ## Validation and dry-run
 
@@ -89,7 +90,7 @@ The dry-run created no AWS client and made no network request.
 - [x] Table ARN account and Region match STS and `eu-west-1`.
 - [x] Table is active, on-demand, deletion-protected, and uses string `PK`/`SK`.
 - [x] Consistent dev table pre-count is recorded privately and redacted here.
-- [ ] Bills baseline contains no unexplained service.
+- [x] Bills baseline contains no unexplained service.
 
 The first read-only STS attempt on 2026-09-08 stopped on an expired authorization
 grant. After reauthentication on 2026-09-09, the complete read-only target
@@ -103,6 +104,12 @@ published and have both image roles attached, so cleanup also requires an exact
 S3 disposition. [Issue #44](https://github.com/boversauros/admintonibover/issues/44)
 blocks execution until the remaining provenance and safe disposition are
 approved. No record or object was changed during the inspection.
+
+On 2026-09-09 the operator approved a private backup followed by exact removal
+of the three development fixtures and their owned image objects. The first
+backup attempt stopped while re-resolving the stack output because the AWS
+authorization grant had expired again. No backup artifact or cloud mutation was
+created; cleanup remains pending a fresh session.
 
 ## Execute and reconciliation
 
