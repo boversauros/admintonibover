@@ -14,9 +14,10 @@ and migration manifests remain private and ignored by Git.
 | Source located                       | Pass        | Expected June 18 filename; private absolute path                                       |
 | Offline validation                   | Pass        | Validator v1; zero errors; known baseline matched                                      |
 | Offline dry-run                      | Pass        | Migration tool/schema v1; no AWS client created                                        |
-| AWS identity/target preflight        | Blocked     | Configured authorization grant expired or was revoked; stopped before stack/table read |
+| AWS identity/target preflight        | Pass        | Account/Region/stack/table binding and table configuration match; identifiers redacted |
 | Data decision sign-off               | Pending     | All four decisions require explicit operator approval                                  |
-| Execute and reconcile                | Not started | Blocked by identity/target and sign-off gates                                          |
+| Dev content baseline                 | Blocked     | Pre-count is 8, including 7 pre-existing content entities; see #44                     |
+| Execute and reconcile                | Not started | Blocked by #44, Bills baseline, and data sign-off gates                                |
 | Rollback and re-import               | Not started | Depends on accepted execute/reconciliation                                             |
 | Admin UI                             | Not started | Depends on accepted import into development                                            |
 | Immediate and 24-hour cost checks    | Not started | Depends on the bounded rehearsal window                                                |
@@ -36,18 +37,18 @@ performed while preparing this ledger.
 
 ## Recorded inputs and versions
 
-| Field                                  | Redacted value                                      |
-| -------------------------------------- | --------------------------------------------------- |
-| Source filename                        | `tonibover-backup-2026-06-18T08-46-31.json`         |
-| Source SHA-256                         | `875442fc…`                                         |
-| Source size                            | 1,089,785 bytes                                     |
-| Validator/report version               | 1 / 1                                               |
-| Migration tool/schema/manifest version | 1 / 1 / 1                                           |
-| Dry-run ID                             | `migration-01accd6bff4a447d8a049b75`                |
-| AWS Region                             | `eu-west-1`                                         |
-| AWS account/table                      | Redacted; not resolved because authorization failed |
-| Dev table pre-count                    | Not recorded; authorization failed before the read  |
-| Bills baseline                         | Pending manual review                               |
+| Field                                  | Redacted value                                     |
+| -------------------------------------- | -------------------------------------------------- |
+| Source filename                        | `tonibover-backup-2026-06-18T08-46-31.json`        |
+| Source SHA-256                         | `875442fc…`                                        |
+| Source size                            | 1,089,785 bytes                                    |
+| Validator/report version               | 1 / 1                                              |
+| Migration tool/schema/manifest version | 1 / 1 / 1                                          |
+| Dry-run ID                             | `migration-01accd6bff4a447d8a049b75`               |
+| AWS Region                             | `eu-west-1`                                        |
+| AWS account/table                      | Resolved from STS and exact stack output; redacted |
+| Dev table pre-count                    | 8                                                  |
+| Bills baseline                         | Pending manual review                              |
 
 ## Validation and dry-run
 
@@ -82,18 +83,21 @@ The dry-run created no AWS client and made no network request.
 
 ## Development target and billing baseline
 
-- [ ] STS identity account matches the approved private development account.
-- [ ] `admintonibover-dev` is the exact stack and has an accepted complete status.
-- [ ] Table name comes directly from the stack `TableName` output.
-- [ ] Table ARN account and Region match STS and `eu-west-1`.
-- [ ] Table is active, on-demand, deletion-protected, and uses string `PK`/`SK`.
-- [ ] Consistent dev table pre-count is recorded privately and redacted here.
+- [x] STS identity account matches the approved private development account.
+- [x] `admintonibover-dev` is the exact stack and is `UPDATE_COMPLETE`.
+- [x] Table name comes directly from the stack `TableName` output.
+- [x] Table ARN account and Region match STS and `eu-west-1`.
+- [x] Table is active, on-demand, deletion-protected, and uses string `PK`/`SK`.
+- [x] Consistent dev table pre-count is recorded privately and redacted here.
 - [ ] Bills baseline contains no unexplained service.
 
-Current blocker: the first read-only STS request returned
-`CreateOAuth2Token: INVALID_REQUEST` because the configured authorization grant
-was invalid, expired, revoked, or malformed. The command stopped before any
-CloudFormation or DynamoDB call.
+The first read-only STS attempt on 2026-09-08 stopped on an expired authorization
+grant. After reauthentication on 2026-09-09, the complete read-only target
+preflight passed. The table contained eight records: one `DATA_REVISION`, three
+`POST`, two `POST_SUMMARY`, and two `SLUG_LOCK` records. None is migration-owned.
+The seven content records would make the migrator fail closed and would prevent
+the required exact 100-post result. [Issue #44](https://github.com/boversauros/admintonibover/issues/44)
+blocks execution until their provenance and safe disposition are approved.
 
 ## Execute and reconciliation
 
@@ -159,5 +163,7 @@ content has been changed through the AWS admin.
 
 ## Discrepancies
 
-None recorded. Every future discrepancy requires a linked blocking issue; it
-must not be waived as close enough.
+- [Issue #44: reconcile pre-existing dev content before rehearsal](https://github.com/boversauros/admintonibover/issues/44) — open and blocking.
+
+Every future discrepancy requires a linked blocking issue; it must not be
+waived as close enough.
