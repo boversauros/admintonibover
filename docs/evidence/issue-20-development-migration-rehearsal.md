@@ -17,14 +17,15 @@ and migration manifests remain private and ignored by Git.
 | AWS identity/target preflight        | Pass        | Account/Region/stack/table binding and table configuration match; identifiers redacted |
 | Data decision sign-off               | Pass        | Operator confirmed all four decisions on 2026-09-09                                    |
 | Bills baseline                       | Pass        | Operator confirmed no unexplained service on 2026-09-09                                |
-| Dev content baseline                 | Blocked     | Fixture cleanup approved but not started; pre-count remains 8; see #44                 |
-| Execute and reconcile                | Not started | Blocked until the approved #44 backup and cleanup complete                             |
+| Dev content baseline                 | Pass        | Private backup validated; 7 fixture records and 4 owned images removed; #44 closed     |
+| Execute and reconcile                | In progress | Data reconciliation and idempotency pass; admin UI pending                             |
 | Rollback and re-import               | Not started | Depends on accepted execute/reconciliation                                             |
 | Admin UI                             | Not started | Depends on accepted import into development                                            |
 | Immediate and 24-hour cost checks    | Not started | Depends on the bounded rehearsal window                                                |
 
-No AWS write, production access, Supabase write, S3 upload, or publication was
-performed while preparing this ledger.
+No production access, Supabase write, S3 upload, or publication has occurred.
+The only pre-import writes were the approved exact fixture cleanup and revision
+increment in the development stack.
 
 ## Required sign-off
 
@@ -48,7 +49,7 @@ performed while preparing this ledger.
 | Dry-run ID                             | `migration-01accd6bff4a447d8a049b75`               |
 | AWS Region                             | `eu-west-1`                                        |
 | AWS account/table                      | Resolved from STS and exact stack output; redacted |
-| Dev table pre-count                    | 8                                                  |
+| Dev table pre-count                    | 8 before cleanup; 1 revision item after cleanup    |
 | Bills baseline                         | Pass; operator confirmed no unexplained service    |
 
 ## Validation and dry-run
@@ -106,23 +107,35 @@ blocks execution until the remaining provenance and safe disposition are
 approved. No record or object was changed during the inspection.
 
 On 2026-09-09 the operator approved a private backup followed by exact removal
-of the three development fixtures and their owned image objects. The first
-backup attempt stopped while re-resolving the stack output because the AWS
-authorization grant had expired again. No backup artifact or cloud mutation was
-created; cleanup remains pending a fresh session.
+of the three development fixtures and their owned image objects. An initial
+attempt stopped before creating an artifact because the AWS authorization grant
+had expired. After a fresh login, backup schema v2 validated all eight table
+items with zero exclusions. Four image objects totaling 8,418,905 bytes were
+downloaded privately and every local digest matched its S3 checksum. Cleanup
+and restoration dry-runs each bound exactly seven records and four images to
+the same private backup while preserving the revision item.
+
+The confirmed cleanup transaction then removed exactly seven fixture records,
+incremented the revision, and deleted only the four checksum-matched image
+objects. A final consistent scan found one `DATA_REVISION` and zero content
+entities. [Issue #44](https://github.com/boversauros/admintonibover/issues/44)
+was closed with redacted evidence. The validated backup and exact restoration
+metadata remain private under `.artifacts/`.
 
 ## Execute and reconciliation
 
-- [ ] Exact development target re-resolved immediately before execution.
-- [ ] Execute completed; written/unchanged/transaction counts recorded.
-- [ ] Verification valid; missing/mismatched/extra fingerprints all zero.
-- [ ] Source and target contain the same 100 post IDs.
-- [ ] All 100 source/target deterministic post hashes match.
-- [ ] Entity counts match the dry-run plan.
-- [ ] Draft/published counts are exactly 100/0.
-- [ ] Null main/thumbnail counts are exactly 100/100.
-- [ ] Post 64 English remains the sole incomplete translation.
-- [ ] Idempotent replay writes zero items and reports all planned items unchanged.
+- [x] Exact development target re-resolved immediately before execution.
+- [x] Execute completed: 496 writes in 102 transactions, zero unchanged.
+- [x] Verification valid; missing/mismatched/extra fingerprints all zero.
+- [x] Source and target contain the same 100 post IDs.
+- [x] All 100 source/target deterministic post hashes match; sorted evidence
+      digest begins `a587c574…`.
+- [x] Entity counts match the dry-run plan: 100 posts, 100 summaries, 199 slug
+      locks, 3 categories, 94 keywords, and zero reference segments.
+- [x] Draft/published counts are exactly 100/0.
+- [x] Null main/thumbnail counts are exactly 100/100.
+- [x] Post 64 English remains the sole incomplete translation.
+- [x] Idempotent replay writes zero items and reports all 496 planned items unchanged.
 
 ## Admin UI
 
@@ -175,7 +188,7 @@ content has been changed through the AWS admin.
 
 ## Discrepancies
 
-- [Issue #44: reconcile pre-existing dev content before rehearsal](https://github.com/boversauros/admintonibover/issues/44) — open and blocking.
+- [Issue #44: reconcile pre-existing dev content before rehearsal](https://github.com/boversauros/admintonibover/issues/44) — resolved and closed after validated backup and exact cleanup.
 
 Every future discrepancy requires a linked blocking issue; it must not be
 waived as close enough.
