@@ -14,6 +14,7 @@ ignored by Git.
 | Dependency #20                     | Pass        | Closed and merged as PR #43                                                                                                  |
 | AWS CLI                            | Pass        | Version 2.36.40 installed locally                                                                                            |
 | Operator session                   | Pass        | Login renewed 2026-09-10; credentials resolve a 12-digit account and identifiers remain redacted                             |
+| Operator MFA                       | Pass        | Current daily-use operator has one assigned MFA device; identifier remains private                                           |
 | Root-account MFA                   | Pass        | IAM account summary reports account MFA enabled; application Cognito settings do not alter it                                |
 | Region                             | Pass        | Every remote preflight command explicitly used `eu-west-1`; local default is intentionally not trusted                       |
 | Development stack                  | Pass        | `UPDATE_COMPLETE`                                                                                                            |
@@ -31,7 +32,7 @@ ignored by Git.
 | Development observed usage         | Pass        | Previous 31 days: 459 Lambda invocations, zero errors, and zero throttles                                                    |
 | Official service pricing           | Pass        | Current AWS Lambda, HTTP API, DynamoDB, S3, Cognito, and CloudWatch pricing pages rechecked on 2026-09-10                    |
 | Current AWS cost baseline          | Pass        | September month-to-date estimated unblended cost rounds to USD 0.00                                                          |
-| Account plan, credits, and expiry  | Pending     | A credit offsets current usage; plan, remaining balance, and expiry need console/operator confirmation before a change set   |
+| Account plan, credits, and expiry  | Pass        | Active plan, sufficient remaining credit, and future expiry confirmed privately; exact billing details are not committed     |
 | Monthly estimate and spend ceiling | Pass        | Expected cost is below USD 1/month; maximum accepted monthly spend of USD 1 approved on 2026-09-10                           |
 | Local automated gate               | Pass        | Secrets, dual synthesis/schema lint, lint, typecheck, 157 tests, webpack production build, browser artifacts, and audit pass |
 | Default Turbopack build            | Pass        | GitHub CI `Validate` passed on PR #45                                                                                        |
@@ -69,9 +70,9 @@ enforced Supabase-only CSP and its Cognito login route returned 404, so the
 production AWS backend remains off.
 
 Cost Explorer shows a credit currently offsets the month-to-date usage. The
-available CLI APIs do not expose the account plan, remaining credit balance, or
-expiry, so those values remain a manual billing-console sign-off before the
-change set.
+operator supplied private Billing evidence for the remaining credit and expiry,
+and the Free Tier account-plan API confirmed the plan is active. The balance,
+date, and account identifiers are intentionally not committed.
 
 ## Pricing recheck
 
@@ -130,7 +131,7 @@ set is created.
       observed account quota.
 - [x] Exact Vercel Production origin/callback/logout are recorded; no fixed
       Preview origin is included.
-- [ ] Account plan, credits, expiry, root/operator MFA, and Region are rechecked.
+- [x] Account plan, credits, expiry, root/operator MFA, and Region are rechecked.
 - [x] Current official service pricing and observed development usage are
       rechecked.
 - [x] Conservative monthly estimate and USD 1 maximum accepted monthly spend

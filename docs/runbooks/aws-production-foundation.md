@@ -39,12 +39,10 @@ the bucket uses `RetainExceptOnCreate`; all three use
 every data-bearing resource. DynamoDB and Cognito deletion protection add a
 second deliberate step before full teardown.
 
-The template intentionally follows the accepted ADR by using the account's
-unreserved Lambda pool. Issue #21's older `reserved concurrency = 2` wording
-must be corrected before execution unless a separate ADR and quota change are
-approved. AWS requires at least 100 executions to remain unreserved, so a
-regional account quota below 102 cannot reserve two for this function. API
-Gateway throttling remains the workload-level limit.
+The template intentionally follows the accepted ADR and issue #21 contract by
+using the account's unreserved Lambda pool, with no reserved or provisioned
+concurrency and no VPC. API Gateway throttling at two requests per second with
+burst four is the workload-level limit.
 
 ## Stop conditions
 
