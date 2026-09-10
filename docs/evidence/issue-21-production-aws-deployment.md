@@ -8,37 +8,38 @@ ignored by Git.
 
 ## Status
 
-| Gate                                             | Result      | Evidence                                                                                                                     |
-| ------------------------------------------------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Latest `main`                                    | Pass        | Branch created from the current `origin/main` after fetch                                                                    |
-| Dependency #20                                   | Pass        | Closed and merged as PR #43                                                                                                  |
-| AWS CLI                                          | Pass        | Version 2.36.40 installed locally                                                                                            |
-| Operator session                                 | Pass        | Login renewed 2026-09-10; credentials resolve a 12-digit account and identifiers remain redacted                             |
-| Root-account MFA                                 | Pass        | IAM account summary reports account MFA enabled; application Cognito settings do not alter it                                |
-| Region                                           | Pass        | Every remote preflight command explicitly used `eu-west-1`; local default is intentionally not trusted                       |
-| Development stack                                | Pass        | `UPDATE_COMPLETE`                                                                                                            |
-| Development stack drift                          | Pass        | Fresh 2026-09-10 CloudFormation scan completed `IN_SYNC` with zero drifted resources                                         |
-| Production stack baseline                        | Pass        | Named production stack does not exist                                                                                        |
-| Lambda regional quota                            | Blocked     | Total and unreserved concurrency are both 10; reserved concurrency 2 cannot leave AWS's required 100 unreserved executions   |
-| Issue/ADR concurrency agreement                  | Blocked     | Issue #21 says reserved concurrency 2; accepted ADR and current validator require no reservation plus API throttle 2/burst 4 |
-| Production IaC synthesis                         | Pass        | Separate prod artifact from shared source; 36 approved resources                                                             |
-| Production retention                             | Pass        | Protected table/User Pool use `Retain`; bucket uses `RetainExceptOnCreate`; all replacements retain                          |
-| Production deletion protection                   | Pass        | DynamoDB and Cognito protection are hard-coded on in the prod artifact                                                       |
-| Production origin contract                       | Pass        | Template accepts exact HTTPS origins only; no localhost or wildcard                                                          |
-| Production Vercel origin                         | Pass        | Existing repository contract is `https://admin.tonibover.cat`; the public endpoint returned HTTP 200 on 2026-09-10           |
-| Fixed Preview origin                             | None        | No fixed Preview origin is approved; ephemeral deployment URLs remain prohibited                                             |
-| Cognito domain prefix                            | Pass        | `admintonibover-prod` was unused in `eu-west-1` when checked on 2026-09-10; availability is rechecked before deployment      |
-| Development observed usage                       | Pass        | Previous 31 days: 459 Lambda invocations, zero errors, and zero throttles                                                    |
-| Official service pricing                         | Pass        | Current AWS Lambda, HTTP API, DynamoDB, S3, Cognito, and CloudWatch pricing pages rechecked on 2026-09-10                    |
-| Current AWS cost baseline                        | Pass        | September month-to-date estimated unblended cost rounds to USD 0.00                                                          |
-| Account plan, credits, expiry, and spend ceiling | Pending     | Console/operator approval required immediately before change-set creation                                                    |
-| Local automated gate                             | Pass        | Secrets, dual synthesis/schema lint, lint, typecheck, 157 tests, webpack production build, browser artifacts, and audit pass |
-| Default Turbopack build                          | Pass        | GitHub CI `Validate` passed on PR #45                                                                                        |
-| Change set                                       | Not started | No production CloudFormation write has occurred                                                                              |
-| Production deployment                            | Not started | No production resource exists                                                                                                |
-| Cognito administrator                            | Not started | Created only after terminal stack success                                                                                    |
-| Vercel/backend guard                             | Pass        | Live CSP remains Supabase-only and `/auth/login` returns 404, confirming the AWS backend is off                              |
-| Immediate/24-hour billing checks                 | Not started | Required after deployment                                                                                                    |
+| Gate                               | Result      | Evidence                                                                                                                     |
+| ---------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Latest `main`                      | Pass        | Branch created from the current `origin/main` after fetch                                                                    |
+| Dependency #20                     | Pass        | Closed and merged as PR #43                                                                                                  |
+| AWS CLI                            | Pass        | Version 2.36.40 installed locally                                                                                            |
+| Operator session                   | Pass        | Login renewed 2026-09-10; credentials resolve a 12-digit account and identifiers remain redacted                             |
+| Root-account MFA                   | Pass        | IAM account summary reports account MFA enabled; application Cognito settings do not alter it                                |
+| Region                             | Pass        | Every remote preflight command explicitly used `eu-west-1`; local default is intentionally not trusted                       |
+| Development stack                  | Pass        | `UPDATE_COMPLETE`                                                                                                            |
+| Development stack drift            | Pass        | Fresh 2026-09-10 CloudFormation scan completed `IN_SYNC` with zero drifted resources                                         |
+| Production stack baseline          | Pass        | Named production stack does not exist                                                                                        |
+| Lambda regional quota              | Pass        | Total/unreserved concurrency are both 10; the approved design uses no reserved/provisioned concurrency                       |
+| Issue/ADR concurrency agreement    | Pass        | Issue #21 was aligned on 2026-09-10: no reservation or VPC, plus HTTP API throttle 2 requests/second with burst 4            |
+| Production IaC synthesis           | Pass        | Separate prod artifact from shared source; 36 approved resources                                                             |
+| Production retention               | Pass        | Protected table/User Pool use `Retain`; bucket uses `RetainExceptOnCreate`; all replacements retain                          |
+| Production deletion protection     | Pass        | DynamoDB and Cognito protection are hard-coded on in the prod artifact                                                       |
+| Production origin contract         | Pass        | Template accepts exact HTTPS origins only; no localhost or wildcard                                                          |
+| Production Vercel origin           | Pass        | Existing repository contract is `https://admin.tonibover.cat`; the public endpoint returned HTTP 200 on 2026-09-10           |
+| Fixed Preview origin               | None        | No fixed Preview origin is approved; ephemeral deployment URLs remain prohibited                                             |
+| Cognito domain prefix              | Pass        | `admintonibover-prod` was unused in `eu-west-1` when checked on 2026-09-10; availability is rechecked before deployment      |
+| Development observed usage         | Pass        | Previous 31 days: 459 Lambda invocations, zero errors, and zero throttles                                                    |
+| Official service pricing           | Pass        | Current AWS Lambda, HTTP API, DynamoDB, S3, Cognito, and CloudWatch pricing pages rechecked on 2026-09-10                    |
+| Current AWS cost baseline          | Pass        | September month-to-date estimated unblended cost rounds to USD 0.00                                                          |
+| Account plan, credits, and expiry  | Pending     | A credit offsets current usage; plan, remaining balance, and expiry need console/operator confirmation before a change set   |
+| Monthly estimate and spend ceiling | Pass        | Expected cost is below USD 1/month; maximum accepted monthly spend of USD 1 approved on 2026-09-10                           |
+| Local automated gate               | Pass        | Secrets, dual synthesis/schema lint, lint, typecheck, 157 tests, webpack production build, browser artifacts, and audit pass |
+| Default Turbopack build            | Pass        | GitHub CI `Validate` passed on PR #45                                                                                        |
+| Change set                         | Not started | No production CloudFormation write has occurred                                                                              |
+| Production deployment              | Not started | No production resource exists                                                                                                |
+| Cognito administrator              | Not started | Created only after terminal stack success                                                                                    |
+| Vercel/backend guard               | Pass        | Live CSP remains Supabase-only and `/auth/login` returns 404, confirming the AWS backend is off                              |
+| Immediate/24-hour billing checks   | Not started | Required after deployment                                                                                                    |
 
 ## Preflight observations
 
@@ -56,17 +57,21 @@ rechecked immediately before change-set creation.
 
 The regional Lambda account limit is 10 total executions with 10 currently
 unreserved. AWS requires 100 executions to remain unreserved when function
-concurrency is reserved. The issue's `reserved concurrency = 2` requirement is
-therefore impossible in this account today. The production artifact retains
-the accepted ADR behavior: no reserved or provisioned concurrency, with the
-HTTP API stage limited to two requests per second and burst four. No change set
-may be created until the issue contract is reconciled.
+concurrency is reserved, so reserving two was impossible in this account. On
+2026-09-10, issue #21 was updated to match the accepted ADR: no reserved or
+provisioned concurrency or VPC, with the HTTP API stage limited to two requests
+per second and burst four.
 
 For the 31 days ending 2026-09-10, the development Lambda recorded 459
 invocations, zero errors, and zero throttles. The September month-to-date AWS
 estimated unblended cost rounds to USD 0.00. The live admin origin returned an
 enforced Supabase-only CSP and its Cognito login route returned 404, so the
 production AWS backend remains off.
+
+Cost Explorer shows a credit currently offsets the month-to-date usage. The
+available CLI APIs do not expose the account plan, remaining credit balance, or
+expiry, so those values remain a manual billing-console sign-off before the
+change set.
 
 ## Pricing recheck
 
@@ -91,9 +96,10 @@ The following current official pages were reviewed on 2026-09-10:
 
 At the observed hobby usage, an empty production table/bucket, one Cognito user,
 14-day logs, and no excluded paid features, the conservative expected total is
-below USD 1 per month. This is an estimate rather than a spending cap: the
-operator must still confirm plan/credit eligibility and explicitly approve the
-maximum accepted monthly spend before a change set is created.
+below USD 1 per month. The maximum accepted monthly spend of USD 1 was approved
+on 2026-09-10. This is an estimate and approval threshold rather than a spending
+cap; the operator must still confirm plan/credit eligibility before a change
+set is created.
 
 ## Repository preparation
 
@@ -120,15 +126,15 @@ maximum accepted monthly spend before a change set is created.
 
 ## Required private sign-off before a change set
 
-- [ ] Issue #21's concurrency acceptance text matches the approved ADR and the
-      observed account quota, or a separate ADR/quota change is approved.
+- [x] Issue #21's concurrency acceptance text matches the approved ADR and the
+      observed account quota.
 - [x] Exact Vercel Production origin/callback/logout are recorded; no fixed
       Preview origin is included.
 - [ ] Account plan, credits, expiry, root/operator MFA, and Region are rechecked.
 - [x] Current official service pricing and observed development usage are
       rechecked.
-- [ ] Conservative monthly estimate and maximum accepted monthly spend are
-      approved.
+- [x] Conservative monthly estimate and USD 1 maximum accepted monthly spend
+      are approved.
 - [ ] Exact resource names, tags, retention policies, recovery ownership, and
       deliberate teardown path are approved.
 - [ ] The local artifact SHA-256 and commit match the reviewed PR head.
@@ -177,9 +183,8 @@ successful stack create, application rollback remains Supabase because the
 feature flag never moves. Infrastructure teardown follows the separate,
 deliberate protected-resource procedure in the production runbook.
 
-## Discrepancies
+## Resolved discrepancies
 
-- **Concurrency contract:** issue #21 requires reserved concurrency 2, while
-  the accepted ADR prohibits it and the observed regional account quota makes
-  it impossible. This blocks change-set creation until reconciled; it must not
-  be waived as close enough.
+- **Concurrency contract:** resolved on 2026-09-10 by aligning issue #21 with
+  the accepted ADR and observed quota: no reserved/provisioned concurrency or
+  VPC, with HTTP API throttling at 2 requests/second and burst 4.
