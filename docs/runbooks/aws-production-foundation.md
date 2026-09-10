@@ -22,6 +22,7 @@ AWS service console. CloudFormation owns every application resource.
 | Artifact                   | `infra/generated/prod-foundation.template.json`                           |
 | Parameter example          | `infra/parameters/prod.example.json`                                      |
 | Production origin          | `https://admin.tonibover.cat`                                             |
+| Cognito domain prefix      | `admintonibover-prod`                                                     |
 | Data backend at completion | `ADMIN_DATA_BACKEND=supabase`                                             |
 | CSP                        | `ADMIN_CSP_MODE=enforce`                                                  |
 | DynamoDB                   | Standard, on-demand, deletion protection on, no PITR or Streams           |

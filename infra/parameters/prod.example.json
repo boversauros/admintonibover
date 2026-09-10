@@ -21,6 +21,6 @@
   },
   {
     "ParameterKey": "CognitoDomainPrefix",
-    "ParameterValue": "replace-me-admintonibover-prod"
+    "ParameterValue": "admintonibover-prod"
   }
 ]
