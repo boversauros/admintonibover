@@ -39,7 +39,7 @@ ignored by Git.
 | Change set                         | Pass    | Exactly 36 adds, no modify/remove/replacement, and only the approved resource types                                          |
 | Production deployment              | Pass    | Single execution completed from the reviewed commit; staged template object was removed afterward                            |
 | Cognito administrator              | Partial | Exactly one enabled, verified-email administrator awaits the required first-login password change; self-sign-up is blocked   |
-| Vercel/backend guard               | Partial | Live application remains Supabase-only; approved server-only configuration is a manual operator handoff                      |
+| Vercel/backend guard               | Pass    | Operator confirmed the server-only Preview/Production configuration; redeployed Production remains Supabase-only             |
 | Immediate/24-hour billing checks   | Partial | Immediate estimated unblended cost is USD 0.00; delayed 24-hour observation remains pending                                  |
 
 ## Preflight observations
@@ -100,6 +100,12 @@ factor, and the required first-login password-change state. Confirmation,
 recovery, and authenticated health checks remain pending until the operator
 completes that first login. The immediate Cost Explorer result was an estimated
 USD 0.00; AWS billing data is delayed, so the 24-hour check remains open.
+
+On 2026-09-11, the operator confirmed the approved server-only AWS values were
+configured manually in Vercel for Preview and Production and redeployed the
+latest Production deployment. A public recheck returned HTTP 200 with the
+enforced Supabase-only CSP, and `/auth/login` remained unavailable while the
+backend flag was off. No cutover, migration, or Supabase write occurred.
 
 ## Pricing recheck
 
@@ -186,7 +192,7 @@ set is created.
       throttled at 2 requests/second with burst 4; logs retain 14 days.
 - [x] IAM is limited to the exact log group, table, and approved bucket
       prefixes.
-- [ ] Production finishes with `ADMIN_DATA_BACKEND=supabase`; Supabase remains
+- [x] Production finishes with `ADMIN_DATA_BACKEND=supabase`; Supabase remains
       untouched and no content/image migration or publication occurs.
 - [x] Staged deployment object and any health fixture are removed exactly.
 - [ ] Immediate and 24-hour cost observations are approved with no unexplained
