@@ -7,29 +7,32 @@ screenshots remain outside Git or under the ignored `.artifacts/` directory.
 
 ## Status
 
-| Gate                                 | Result  | Evidence                                                                                                         |
-| ------------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------- |
-| Latest `main`                        | Pass    | Branch created from current `origin/main` at `eafd3dd` on 2026-09-11                                             |
-| Dependency #21                       | Pass    | Merged to `main` as PR #45                                                                                       |
-| Production stack/table preflight     | Pass    | `CREATE_COMPLETE`; table active, on-demand, deletion-protected, string `PK`/`SK`, account/Region binding matched |
-| Production table empty               | Pass    | Fresh strongly consistent scan returned zero items on 2026-09-11                                                 |
-| June source candidate located        | Pass    | Private path outside repository; 1,089,785 bytes; SHA-256 prefix `875442fca1f6`                                  |
-| June source integrity                | Pass    | Fresh validation reports unchanged hash and modification time; SHA-256 matches issue #20 rehearsal               |
-| June baseline and dry-run            | Pass    | Validator/tool/schema v1; zero errors; known baseline matched; 100 projected posts and 496 total planned items   |
-| Supabase reachability                | Blocked | Configured project hostname returned DNS `ENOTFOUND` on IPv4 and IPv6 on 2026-09-11                              |
-| Final source approval                | Pending | June candidate cannot be final until the owner confirms no later edits or exports exist elsewhere                |
-| Supabase write freeze                | Pending | Freeze start and all inactive write-capable paths must be recorded before final export/approval                  |
-| Production Cognito/Vercel readiness  | Blocked | Issue #21 ledger retains first-login/health and failed Production AWS-mode configuration acceptance              |
-| Fixed Preview origin                 | Blocked | No fixed Preview origin is currently approved; ephemeral Preview origins are prohibited                          |
-| Production migration/reconciliation  | Pending | No production content write has occurred                                                                         |
-| Pre-write rollback checkpoint        | Pending | Requires reconciled import and accepted read-only Preview                                                        |
-| AWS source-of-truth checkpoint       | Pending | Requires first accepted reversible Production AWS mutation                                                       |
-| Image upload and AWS backup restore  | Pending | Waits until the post-checkpoint acceptance stage                                                                 |
-| Immediate/24-hour/7-day observations | Pending | No cutover usage window has started                                                                              |
+| Gate                                 | Result  | Evidence                                                                                                            |
+| ------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------- |
+| Latest `main`                        | Pass    | Branch created from current `origin/main` at `eafd3dd` on 2026-09-11                                                |
+| Dependency #21                       | Pass    | Merged to `main` as PR #45                                                                                          |
+| Production stack/table preflight     | Pass    | `CREATE_COMPLETE`; table active, on-demand, deletion-protected, string `PK`/`SK`, account/Region binding matched    |
+| Production table empty               | Pass    | Fresh strongly consistent scan returned zero items on 2026-09-11                                                    |
+| June source candidate located        | Pass    | Private path outside repository; 1,089,785 bytes; SHA-256 prefix `875442fca1f6`                                     |
+| June source integrity                | Pass    | Fresh validation reports unchanged hash and modification time; SHA-256 matches issue #20 rehearsal                  |
+| June baseline and dry-run            | Pass    | Validator/tool/schema v1; zero errors; known baseline matched; 100 projected posts and 496 total planned items      |
+| Supabase reachability                | Blocked | Configured project hostname returned DNS `ENOTFOUND` on IPv4 and IPv6 on 2026-09-11                                 |
+| Final source approval                | Pending | June candidate cannot be final until the owner confirms no later edits or exports exist elsewhere                   |
+| Supabase write freeze                | Pending | Freeze start and all inactive write-capable paths must be recorded before final export/approval                     |
+| Production Cognito administrator     | Pass    | Fresh read-only check finds exactly one enabled, confirmed, verified-email user                                     |
+| Production Vercel/backend guard      | Partial | Public root is HTTP 200, login redirects, and CSP is AWS-only; authenticated health is unverified                   |
+| Fixed Preview origin                 | Blocked | No fixed Preview origin is currently approved; ephemeral Preview origins are prohibited                             |
+| Local automated gate                 | Pass    | Secrets, dual infrastructure validation, lint, typecheck, 157 tests, webpack build, and browser artifact audit pass |
+| GitHub/Vercel checks                 | Pass    | PR #46 Validate, dependency review, Vercel deployment, and Preview Comments checks pass                             |
+| Production migration/reconciliation  | Pending | No production content write has occurred                                                                            |
+| Pre-write rollback checkpoint        | Pending | Requires reconciled import and accepted read-only Preview                                                           |
+| AWS source-of-truth checkpoint       | Pending | Requires first accepted reversible Production AWS mutation                                                          |
+| Image upload and AWS backup restore  | Pending | Waits until the post-checkpoint acceptance stage                                                                    |
+| Immediate/24-hour/7-day observations | Pending | No cutover usage window has started                                                                                 |
 
 No Supabase write, AWS content write, S3 upload, Vercel change, Cognito change,
-publication, Astro change, webhook change, or destructive operation occurred
-during this initial evidence pass.
+publication, Astro change, webhook change, or destructive operation was made by
+this branch during the initial evidence pass.
 
 ## Initial offline source evidence
 
@@ -65,6 +68,36 @@ protected, and has string `PK` hash plus `SK` range keys. Table ARN account and
 Region fields match the current operator identity and explicit Region. A
 strongly consistent scan returned zero items. Identifiers remain private.
 
+## Production application observation
+
+A fresh unauthenticated public check on 2026-09-11 returned HTTP 200 for the
+Production root, a redirect from `/auth/login`, and an enforced AWS-only CSP.
+The Production application therefore appears to have been switched to the AWS
+backend outside this branch after issue #21's recorded rollback. The empty table
+means this is not yet an accepted content cutover. Keep the admin mutation-free
+and restore the required pre-cutover posture, or explicitly approve an amended
+maintenance posture, before the final source and import stages proceed.
+
+A read-only Cognito query found exactly one enabled, `CONFIRMED`, verified-email
+administrator. This resolves the prior forced-password-change state, but it does
+not by itself prove browser login, recovery, token claims, or authenticated
+health.
+
+The PR #46 Vercel deployment is ready, but its generated branch URL is ephemeral
+and returned a deployment-protection redirect. It is evidence that the build
+deployed, not the fixed-origin, authenticated, read-only acceptance required by
+this issue.
+
+## Automated verification
+
+The local secret check, dual infrastructure synthesis/validation, lint,
+typecheck, all 157 tests, an explicit Next.js 16 webpack production build, and
+the browser artifact audit pass. Lint retains the existing 31 warnings and no
+errors. The default Turbopack build cannot create its local CSS worker in this
+execution environment because binding a local port is prohibited; the same
+commit's GitHub `Validate` job passes with the default build. GitHub dependency
+review and both Vercel status checks also pass.
+
 ## Required owner approvals
 
 - [ ] Confirm there were no Supabase content, taxonomy, keyword, reference,
@@ -75,8 +108,8 @@ strongly consistent scan returned zero items. Identifiers remain private.
 - [ ] Start the Supabase write freeze and record its UTC timestamp.
 - [ ] Approve one fixed HTTPS Vercel Preview origin and its exact callback and
       logout URLs.
-- [ ] Complete Cognito first-login/recovery and corrected Vercel AWS-mode health
-      acceptance inherited from issue #21.
+- [ ] Complete Cognito browser login/recovery, token-claim, and authenticated
+      health acceptance inherited from issue #21.
 - [ ] Approve the pre-write and post-write rollback procedures in the cutover
       runbook.
 
@@ -110,7 +143,8 @@ strongly consistent scan returned zero items. Identifiers remain private.
 The initial work adds documentation and performs only local/offline validation
 plus read-only AWS/Supabase transport checks. It adds no permission, endpoint,
 resource, secret, browser trust, or data copy. The production table remains
-empty and the live application remains on Supabase.
+empty. The live application currently selects AWS because of a configuration
+change outside this branch.
 
 Expected fixed monthly cost delta from this documentation is USD 0. Future
 cutover activity uses the existing request-based production stack. Migration,
@@ -129,9 +163,10 @@ AWS backup, repairs/restores AWS, and repeats read-only acceptance.
 - **Final-source provenance:** Supabase DNS currently fails. The June source is
   valid and matches rehearsal but lacks the required owner confirmation that no
   later edit or export exists.
-- **Production authentication/configuration:** issue #21 recorded an incomplete
-  Cognito first login and a failed Production AWS-mode Vercel smoke test. Both
-  must be resolved before content migration.
+- **Production application posture:** Cognito's administrator is now confirmed
+  and the public AWS login route is configured, but authenticated health is not
+  proven and Production already selects AWS while its table is empty. Resolve
+  the pre-cutover posture before content migration.
 - **Preview origin:** the production stack intentionally has no approved fixed
   Preview origin, while issue #22 requires Preview acceptance. Approve one exact
   HTTPS origin and update the production CORS/Cognito configuration through a
