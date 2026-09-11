@@ -152,7 +152,7 @@ test('create/read/list/update/delete round trip preserves all supported fields',
     author: 'Updated Author',
     createdAt: '2024-01-01T00:00:00.000Z',
     migration: {
-      source: 'supabase-backup',
+      source: 'legacy-backup',
       runId: 'client-cannot-change-this',
     },
     translations: {
@@ -231,7 +231,7 @@ test('migration create preserves legacy IDs, timestamps, and an incomplete trans
   imported.createdAt = '2025-01-02T03:04:05.000Z';
   imported.updatedAt = '2025-02-03T04:05:06.000Z';
   imported.migration = {
-    source: 'supabase-backup',
+    source: 'legacy-backup',
     runId: 'migration-fixture-run',
   };
   imported.translations.en = {

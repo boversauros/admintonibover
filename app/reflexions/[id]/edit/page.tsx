@@ -1,5 +1,5 @@
-import { SupabaseEditReflexion } from '@/components/admin/SupabaseEditReflexion';
+import { EditReflexion } from '@/components/admin/EditReflexion';
 
 export default function EditReflexionPage() {
-  return <SupabaseEditReflexion />;
+  return <EditReflexion />;
 }

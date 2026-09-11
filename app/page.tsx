@@ -1,5 +1,5 @@
-import { SupabaseAdmin } from '@/components/admin/SupabaseAdmin';
+import { Admin } from '@/components/admin/Admin';
 
 export default function Home() {
-  return <SupabaseAdmin />;
+  return <Admin />;
 }

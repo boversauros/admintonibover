@@ -1,5 +1,3 @@
-import type { AdminDataBackend } from '@/lib/config/adminBackend';
-
 import {
   TRACER_API_VERSION,
   type TracerApiResponse,
@@ -13,7 +11,6 @@ const POST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 type TracerClientOptions = {
   accessToken?: string;
   apiUrl: string;
-  backend: AdminDataBackend;
   correlationId: string;
   fetchImplementation?: typeof fetch;
   postId: string;
@@ -93,19 +90,10 @@ function errorForStatus(
 export async function fetchTracerPost({
   accessToken,
   apiUrl,
-  backend,
   correlationId,
   fetchImplementation = fetch,
   postId,
 }: TracerClientOptions): Promise<TracerClientResult> {
-  if (backend !== 'aws') {
-    return {
-      body: errorForStatus(404, correlationId),
-      correlationId,
-      status: 404,
-    };
-  }
-
   if (!accessToken) {
     return {
       body: errorForStatus(401, correlationId),

@@ -234,7 +234,7 @@ test('the browser AWS adapter makes one same-origin request without a bearer tok
   };
 
   try {
-    const page = await getAdminPostsPage('aws', {
+    const page = await getAdminPostsPage({
       limit: 10,
       direction: 'descending',
     });
@@ -278,7 +278,7 @@ test('the browser inventory count covers all four image combinations', async () 
     );
 
   try {
-    assert.deepEqual(await getAdminImageInventory('aws'), {
+    assert.deepEqual(await getAdminImageInventory(), {
       complete: 1,
       'missing-main': 1,
       'missing-thumbnail': 1,
@@ -289,7 +289,7 @@ test('the browser inventory count covers all four image combinations', async () 
   }
 });
 
-test('AWS categories include the three original Supabase categories when its catalog is empty', async () => {
+test('AWS categories include the original category catalog when storage is empty', async () => {
   const originalFetch = globalThis.fetch;
   const requestedPaths: string[] = [];
   globalThis.fetch = async input => {
@@ -299,7 +299,7 @@ test('AWS categories include the three original Supabase categories when its cat
   };
 
   try {
-    assert.deepEqual(await getAdminCategories('aws'), [
+    assert.deepEqual(await getAdminCategories(), [
       {
         id: '1',
         slug: 'vivencies',
@@ -354,7 +354,7 @@ test('new AWS catalog categories extend the original category list', async () =>
 
   try {
     assert.deepEqual(
-      (await getAdminCategories('aws')).map(category => ({
+      (await getAdminCategories()).map(category => ({
         id: category.id,
         slug: category.slug,
       })),

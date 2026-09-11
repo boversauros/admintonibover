@@ -264,7 +264,7 @@ export function createMigrationPlan(
 
   const runId = deriveMigrationRunId(projection.report.source.sha256, target);
   const migration: PostMigrationMetadata = {
-    source: 'supabase-backup',
+    source: 'legacy-backup',
     runId,
   };
   const taxonomyItems = [

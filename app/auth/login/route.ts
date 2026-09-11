@@ -4,15 +4,10 @@ import { getCognitoConfig } from '@/lib/auth/cognito/config';
 import { setCognitoTransientCookies } from '@/lib/auth/cognito/cookies';
 import { createPkceArtifacts } from '@/lib/auth/cognito/oauth';
 import { safeReturnTo } from '@/lib/auth/cognito/http';
-import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest): Promise<Response> {
-  if (getAdminDataBackend() !== 'aws') {
-    return Response.json({ error: 'Not found' }, { status: 404 });
-  }
-
   const config = getCognitoConfig();
   const artifacts = createPkceArtifacts(config);
   const response = NextResponse.redirect(artifacts.authorizeUrl, {

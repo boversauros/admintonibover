@@ -457,9 +457,9 @@ function parseImage(value: unknown, path: string): PostImage | null {
 function parseMigration(value: unknown): PostMigrationMetadata | null {
   if (value === null) return null;
   const record = recordValue(value, 'migration');
-  if (record.source !== 'supabase-backup') dataError('migration.source:value');
+  if (record.source !== 'legacy-backup') dataError('migration.source:value');
   return {
-    source: 'supabase-backup',
+    source: 'legacy-backup',
     runId: stringValue(record.runId, 'migration.runId'),
   };
 }

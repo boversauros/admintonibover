@@ -174,11 +174,11 @@ export function parseAdminPost(value: unknown, path = 'data.post'): Post {
   let migration: Post['migration'] = null;
   if (post.migration !== null) {
     const metadata = recordValue(post.migration, `${path}.migration`);
-    if (metadata.source !== 'supabase-backup') {
+    if (metadata.source !== 'legacy-backup') {
       throw new TypeError(`${path}.migration.source is invalid`);
     }
     migration = {
-      source: 'supabase-backup',
+      source: 'legacy-backup',
       runId: stringValue(metadata.runId, `${path}.migration.runId`),
     };
   }

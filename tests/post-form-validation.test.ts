@@ -72,7 +72,7 @@ test('post form validation enforces the category and server title limit', () => 
   );
 });
 
-test('legacy Supabase drafts retain partial-translation behavior', () => {
+test('legacy imported drafts retain partial-translation behavior', () => {
   const values = formData();
   values.translations.en.title = '';
   values.translations.en.content = '';

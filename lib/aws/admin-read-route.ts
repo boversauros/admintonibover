@@ -7,7 +7,6 @@ import {
   setCognitoSessionCookies,
 } from '@/lib/auth/cognito/cookies';
 import { readCognitoSession } from '@/lib/auth/cognito/session';
-import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
 import { AdminApiClient, type AdminApiClientResult } from './admin-api-client';
 import { ADMIN_API_VERSION } from './admin-read-contract';
@@ -52,10 +51,6 @@ export async function handleAwsAdminRead<T>(
   operation: AdminReadOperation<T>
 ): Promise<Response> {
   const requestId = requestCorrelationId(request);
-  if (getAdminDataBackend() !== 'aws') {
-    return localError(404, 'NOT_FOUND', 'Route not found', requestId);
-  }
-
   const config = getCognitoConfig();
   const session = await readCognitoSession(config);
   if (!session) {

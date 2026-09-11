@@ -103,8 +103,7 @@ function PostsContent() {
   const operationLockRef = useRef(false);
 
   const router = useRouter();
-  const { backend, user, signOut } = useAuth();
-  const isAws = backend === 'aws';
+  const { user, signOut } = useAuth();
   const cursor = pageCursors[currentPage - 1];
 
   useEffect(() => {
@@ -131,7 +130,7 @@ function PostsContent() {
   useEffect(() => {
     const controller = new AbortController();
 
-    void getAdminPostsPage(backend, {
+    void getAdminPostsPage({
       limit: POSTS_PER_PAGE,
       cursor,
       direction: sortDirection === 'desc' ? 'descending' : 'ascending',
@@ -176,7 +175,6 @@ function PostsContent() {
 
     return () => controller.abort();
   }, [
-    backend,
     cursor,
     debouncedSearch,
     filterCategory,
@@ -188,7 +186,7 @@ function PostsContent() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void getAdminCategories(backend, controller.signal)
+    void getAdminCategories(controller.signal)
       .then(nextCategories => {
         setCategories(nextCategories);
         setCategoriesError(null);
@@ -206,11 +204,11 @@ function PostsContent() {
         );
       });
     return () => controller.abort();
-  }, [backend, categoryAttempt]);
+  }, [categoryAttempt]);
 
   useEffect(() => {
     const controller = new AbortController();
-    void getAdminImageInventory(backend, controller.signal)
+    void getAdminImageInventory(controller.signal)
       .then(counts => {
         setInventoryCounts(counts);
         setInventoryError(null);
@@ -225,7 +223,7 @@ function PostsContent() {
         );
       });
     return () => controller.abort();
-  }, [backend, inventoryAttempt]);
+  }, [inventoryAttempt]);
 
   const categoryLabels = useMemo(
     () => new Map(categories.map(category => [category.id, category.nameCa])),
@@ -301,7 +299,7 @@ function PostsContent() {
   const handleBackup = async () => {
     setIsBackingUp(true);
     try {
-      const result = await downloadBackupAsJson(backend);
+      const result = await downloadBackupAsJson();
       alert(
         `Còpia de seguretat descarregada correctament: ${result.filename} (${result.itemCount} registres).`
       );
@@ -319,7 +317,6 @@ function PostsContent() {
   const handleLogout = async () => {
     try {
       await signOut();
-      router.push('/');
     } catch {
       // The authenticated UI remains mounted so the administrator can retry.
     }
@@ -331,7 +328,7 @@ function PostsContent() {
     setIsCountingDrafts(true);
     setMutationMessage(null);
     try {
-      const count = await countDraftPosts(backend);
+      const count = await countDraftPosts();
       setUnpublishedCount(count);
       if (count === 0) {
         setMutationMessage({
@@ -371,17 +368,9 @@ function PostsContent() {
     setDeletingPostId(value.post.id);
     setMutationMessage(null);
     try {
-      let result = await deleteAdminPost(
-        backend,
-        value.post,
-        value.idempotencyKey
-      );
+      let result = await deleteAdminPost(value.post, value.idempotencyKey);
       if (result.cleanup.retryWithSameIdempotencyKey) {
-        result = await deleteAdminPost(
-          backend,
-          value.post,
-          value.idempotencyKey
-        );
+        result = await deleteAdminPost(value.post, value.idempotencyKey);
       }
       setConfirmation(null);
       setMutationMessage({
@@ -422,35 +411,26 @@ function PostsContent() {
     setMutationMessage(null);
     try {
       const result = await publishAllAdminPosts(
-        backend,
         value.count,
         value.idempotencyKey
       );
       setConfirmation(null);
       setBulkConfirmationText('');
-      if (isAws) {
-        try {
-          const remainingCount = await countDraftPosts(backend);
-          setUnpublishedCount(remainingCount);
-          setMutationMessage({
-            type: remainingCount === 0 ? 'success' : 'warning',
-            text:
-              remainingCount === 0
-                ? `${result.publishedCount} article(s) publicats i recompte reconciliat: 0 esborranys pendents.`
-                : `${result.publishedCount} article(s) publicats. La reconciliació mostra ${remainingCount} esborrany(s) nou(s) o pendents.`,
-          });
-        } catch {
-          setUnpublishedCount(undefined);
-          setMutationMessage({
-            type: 'warning',
-            text: `${result.publishedCount} article(s) publicats, però no s’ha pogut reconciliar el recompte final.`,
-          });
-        }
-      } else {
-        setUnpublishedCount(0);
+      try {
+        const remainingCount = await countDraftPosts();
+        setUnpublishedCount(remainingCount);
         setMutationMessage({
-          type: 'success',
-          text: `${result.publishedCount} article(s) publicats correctament.`,
+          type: remainingCount === 0 ? 'success' : 'warning',
+          text:
+            remainingCount === 0
+              ? `${result.publishedCount} article(s) publicats i recompte reconciliat: 0 esborranys pendents.`
+              : `${result.publishedCount} article(s) publicats. La reconciliació mostra ${remainingCount} esborrany(s) nou(s) o pendents.`,
+        });
+      } catch {
+        setUnpublishedCount(undefined);
+        setMutationMessage({
+          type: 'warning',
+          text: `${result.publishedCount} article(s) publicats, però no s’ha pogut reconciliar el recompte final.`,
         });
       }
       refreshPosts();
@@ -467,12 +447,11 @@ function PostsContent() {
         text: requestId ? `${message} Correlació: ${requestId}` : message,
       });
       if (
-        isAws &&
         error instanceof AdminMutationError &&
         error.code === 'BULK_COUNT_MISMATCH'
       ) {
         try {
-          setUnpublishedCount(await countDraftPosts(backend));
+          setUnpublishedCount(await countDraftPosts());
         } catch {
           setUnpublishedCount(undefined);
         }
@@ -519,14 +498,12 @@ function PostsContent() {
               >
                 Toni Bover
               </Heading>
-              {isAws ? (
-                <Badge
-                  variant="accent"
-                  className="text-2xs uppercase tracking-wider"
-                >
-                  AWS
-                </Badge>
-              ) : null}
+              <Badge
+                variant="accent"
+                className="text-2xs uppercase tracking-wider"
+              >
+                AWS
+              </Badge>
             </div>
             <Text
               variant="small"
@@ -553,17 +530,15 @@ function PostsContent() {
         </div>
       </header>
 
-      {isAws ? (
-        <div className="border-b border-slate-500/20 bg-slate-500/5">
-          <div className="mx-auto flex max-w-6xl items-start gap-3 px-4 py-3 sm:px-6">
-            <Icon name="check" size="4" className="mt-0.5 text-slate-400" />
-            <Text variant="small" className="text-primary-60">
-              Mode AWS actiu. Les lectures i les operacions d’articles passen
-              exclusivament per l’API autenticada d’AWS.
-            </Text>
-          </div>
+      <div className="border-b border-slate-500/20 bg-slate-500/5">
+        <div className="mx-auto flex max-w-6xl items-start gap-3 px-4 py-3 sm:px-6">
+          <Icon name="check" size="4" className="mt-0.5 text-slate-400" />
+          <Text variant="small" className="text-primary-60">
+            Les lectures i les operacions d’articles passen exclusivament per
+            l’API autenticada d’AWS.
+          </Text>
         </div>
-      ) : null}
+      </div>
 
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <ImageInventorySummary
@@ -713,9 +688,7 @@ function PostsContent() {
                     filterCategory !== 'all' ||
                     filterImageStatus !== 'all'
                       ? 'Prova una altra cerca o elimina algun filtre'
-                      : isAws
-                        ? 'La font AWS no conté articles per mostrar'
-                        : 'Crea el teu primer article per començar'}
+                      : 'La font AWS no conté articles per mostrar'}
                   </Text>
                 </div>
               ) : null}
@@ -767,7 +740,6 @@ function PostsContent() {
                 loading={!!deletingPostId || isPublishingAll}
                 disabled={
                   confirmation.kind === 'bulk' &&
-                  isAws &&
                   !isExactBulkConfirmation(
                     bulkConfirmationText,
                     confirmation.count
@@ -814,36 +786,32 @@ function PostsContent() {
               Els articles importats no canvien d’estat fins que confirmis
               explícitament aquesta operació.
             </Text>
-            {isAws ? (
-              <div className="border-l-2 border-amber-400/60 bg-amber-400/5 px-4 py-3">
-                <Input
-                  id="bulk-publication-count"
-                  label={`Escriu ${confirmation.count} per confirmar`}
-                  value={bulkConfirmationText}
-                  onChange={event =>
-                    setBulkConfirmationText(event.target.value)
-                  }
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  autoComplete="off"
-                  aria-describedby="bulk-publication-help"
-                  isInvalid={
-                    bulkConfirmationText.length > 0 &&
-                    !isExactBulkConfirmation(
-                      bulkConfirmationText,
-                      confirmation.count
-                    )
-                  }
-                  className="font-mono tabular-nums"
-                />
-                <div id="bulk-publication-help">
-                  <Text variant="small" className="mt-2 text-amber-100/70">
-                    El recompte queda vinculat a aquesta operació. Si canvia
-                    abans d’executar-la, no es publicarà cap esborrany.
-                  </Text>
-                </div>
+            <div className="border-l-2 border-amber-400/60 bg-amber-400/5 px-4 py-3">
+              <Input
+                id="bulk-publication-count"
+                label={`Escriu ${confirmation.count} per confirmar`}
+                value={bulkConfirmationText}
+                onChange={event => setBulkConfirmationText(event.target.value)}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="off"
+                aria-describedby="bulk-publication-help"
+                isInvalid={
+                  bulkConfirmationText.length > 0 &&
+                  !isExactBulkConfirmation(
+                    bulkConfirmationText,
+                    confirmation.count
+                  )
+                }
+                className="font-mono tabular-nums"
+              />
+              <div id="bulk-publication-help">
+                <Text variant="small" className="mt-2 text-amber-100/70">
+                  El recompte queda vinculat a aquesta operació. Si canvia abans
+                  d’executar-la, no es publicarà cap esborrany.
+                </Text>
               </div>
-            ) : null}
+            </div>
           </div>
         ) : null}
       </Modal>
@@ -851,7 +819,7 @@ function PostsContent() {
   );
 }
 
-export function SupabaseAdmin() {
+export function Admin() {
   return (
     <AuthGuard
       fallback={

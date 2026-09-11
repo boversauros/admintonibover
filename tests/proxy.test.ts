@@ -9,11 +9,10 @@ const productionEnvironment = {
   ADMIN_CSP_MODE: 'enforce',
   AWS_CONTENT_BUCKET_ORIGIN:
     'https://private-content.s3.eu-west-1.amazonaws.com',
-  NEXT_PUBLIC_SUPABASE_URL: 'https://legacy.supabase.co',
 } as const;
 
 test('AWS production CSP trusts only self and the exact S3 origin', () => {
-  const csp = buildContentSecurityPolicy('aws', productionEnvironment);
+  const csp = buildContentSecurityPolicy(productionEnvironment);
 
   assert.match(
     csp,
@@ -25,54 +24,39 @@ test('AWS production CSP trusts only self and the exact S3 origin', () => {
   );
   assert.match(csp, /form-action 'self'/);
   assert.match(csp, /frame-ancestors 'none'/);
-  assert.equal(csp.includes('legacy.supabase.co'), false);
   assert.equal(csp.includes('picsum.photos'), false);
   assert.equal(csp.includes("'unsafe-eval'"), false);
   assert.equal(csp.includes('*'), false);
 });
 
-test('Supabase rollback CSP restores only the exact legacy service origins', () => {
-  const csp = buildContentSecurityPolicy('supabase', productionEnvironment);
-
-  assert.match(
-    csp,
-    /connect-src 'self' https:\/\/legacy\.supabase\.co wss:\/\/legacy\.supabase\.co/
-  );
-  assert.match(
-    csp,
-    /img-src 'self' data: blob: https:\/\/legacy\.supabase\.co/
-  );
-  assert.equal(csp.includes('amazonaws.com'), false);
-});
-
 test('CSP configuration rejects wildcard, path, and production HTTP origins', () => {
   assert.throws(() =>
-    buildContentSecurityPolicy('aws', {
+    buildContentSecurityPolicy({
       ...productionEnvironment,
       AWS_CONTENT_BUCKET_ORIGIN: 'https://*.amazonaws.com',
     })
   );
   assert.throws(() =>
-    buildContentSecurityPolicy('aws', {
+    buildContentSecurityPolicy({
       ...productionEnvironment,
       AWS_CONTENT_BUCKET_ORIGIN:
         'https://private-content.s3.eu-west-1.amazonaws.com/path',
     })
   );
   assert.throws(() =>
-    buildContentSecurityPolicy('supabase', {
+    buildContentSecurityPolicy({
       ...productionEnvironment,
-      NEXT_PUBLIC_SUPABASE_URL: 'http://localhost:54321',
+      AWS_CONTENT_BUCKET_ORIGIN: 'http://localhost:4566',
     })
   );
 });
 
 test('development-only eval and report-only review are explicit', () => {
-  const headers = securityHeaders('supabase', {
+  const headers = securityHeaders({
     NODE_ENV: 'development',
     ADMIN_CSP_MODE: 'report-only',
-    AWS_CONTENT_BUCKET_ORIGIN: undefined,
-    NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
+    AWS_CONTENT_BUCKET_ORIGIN:
+      'https://private-content.s3.eu-west-1.amazonaws.com',
   });
   const values = new Map(headers);
 
@@ -84,12 +68,10 @@ test('development-only eval and report-only review are explicit', () => {
   assert.equal(values.has('Strict-Transport-Security'), false);
 });
 
-test('AWS mode allows the new-post route to reach its page', async () => {
+test('the new-post route reaches its page with AWS security headers', async () => {
   const previous = {
-    backend: process.env.ADMIN_DATA_BACKEND,
     bucketOrigin: process.env.AWS_CONTENT_BUCKET_ORIGIN,
   };
-  process.env.ADMIN_DATA_BACKEND = 'aws';
   process.env.AWS_CONTENT_BUCKET_ORIGIN =
     'https://private-content.s3.eu-west-1.amazonaws.com';
 
@@ -103,8 +85,6 @@ test('AWS mode allows the new-post route to reach its page', async () => {
     assert.equal(response.headers.get('x-middleware-next'), '1');
     assert.equal(response.headers.get('x-frame-options'), 'DENY');
   } finally {
-    if (previous.backend === undefined) delete process.env.ADMIN_DATA_BACKEND;
-    else process.env.ADMIN_DATA_BACKEND = previous.backend;
     if (previous.bucketOrigin === undefined) {
       delete process.env.AWS_CONTENT_BUCKET_ORIGIN;
     } else {

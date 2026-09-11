@@ -1,15 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-import {
-  getAdminDataBackend,
-  type AdminDataBackend,
-} from '@/lib/config/adminBackend';
-
 type SecurityEnvironment = {
   ADMIN_CSP_MODE?: string;
   AWS_CONTENT_BUCKET_ORIGIN?: string;
-  NEXT_PUBLIC_SUPABASE_URL?: string;
   NODE_ENV?: string;
 };
 
@@ -56,40 +50,23 @@ function cspMode(value: string | undefined): CspMode {
   throw new Error('ADMIN_CSP_MODE must be enforce or report-only');
 }
 
-function activeBackendSources(
-  backend: AdminDataBackend,
-  environment: SecurityEnvironment
-): { connect: string[]; images: string[] } {
-  if (backend === 'aws') {
-    const s3Origin = exactOrigin(
-      'AWS_CONTENT_BUCKET_ORIGIN',
-      environment.AWS_CONTENT_BUCKET_ORIGIN,
-      false,
-      environment
-    );
-    return { connect: [s3Origin], images: [s3Origin] };
-  }
-
-  const supabaseOrigin = exactOrigin(
-    'NEXT_PUBLIC_SUPABASE_URL',
-    environment.NEXT_PUBLIC_SUPABASE_URL,
-    true,
+function awsSources(environment: SecurityEnvironment): {
+  connect: string[];
+  images: string[];
+} {
+  const s3Origin = exactOrigin(
+    'AWS_CONTENT_BUCKET_ORIGIN',
+    environment.AWS_CONTENT_BUCKET_ORIGIN,
+    false,
     environment
   );
-  const realtimeOrigin = new URL(supabaseOrigin);
-  realtimeOrigin.protocol =
-    realtimeOrigin.protocol === 'https:' ? 'wss:' : 'ws:';
-  return {
-    connect: [supabaseOrigin, realtimeOrigin.origin],
-    images: [supabaseOrigin],
-  };
+  return { connect: [s3Origin], images: [s3Origin] };
 }
 
 export function buildContentSecurityPolicy(
-  backend: AdminDataBackend,
   environment: SecurityEnvironment = process.env
 ): string {
-  const sources = activeBackendSources(backend, environment);
+  const sources = awsSources(environment);
   const isDevelopment = environment.NODE_ENV !== 'production';
   const scriptSources = ["'self'", "'unsafe-inline'"];
   if (isDevelopment) scriptSources.push("'unsafe-eval'");
@@ -113,7 +90,6 @@ export function buildContentSecurityPolicy(
 }
 
 export function securityHeaders(
-  backend: AdminDataBackend,
   environment: SecurityEnvironment = process.env
 ): Array<[string, string]> {
   const mode = cspMode(environment.ADMIN_CSP_MODE);
@@ -122,7 +98,7 @@ export function securityHeaders(
       mode === 'report-only'
         ? 'Content-Security-Policy-Report-Only'
         : 'Content-Security-Policy',
-      buildContentSecurityPolicy(backend, environment),
+      buildContentSecurityPolicy(environment),
     ],
     ['Cross-Origin-Opener-Policy', 'same-origin'],
     ['X-Frame-Options', 'DENY'],
@@ -139,18 +115,10 @@ export function securityHeaders(
   return headers;
 }
 
-export async function proxy(request: NextRequest) {
-  const backend = getAdminDataBackend();
-  let response: NextResponse;
+export function proxy(request: NextRequest) {
+  const response = NextResponse.next({ request });
 
-  if (backend === 'aws') {
-    response = NextResponse.next({ request });
-  } else {
-    const { updateSession } = await import('@/lib/supabase/middleware');
-    response = await updateSession(request);
-  }
-
-  for (const [name, value] of securityHeaders(backend)) {
+  for (const [name, value] of securityHeaders()) {
     response.headers.set(name, value);
   }
   return response;

@@ -41,8 +41,8 @@ Cognito does not accept arbitrary callback wildcards. If an AWS-authenticated
 preview becomes necessary, assign it a stable HTTPS domain, review that domain
 as an environment boundary, and add its exact origin, callback, and logout URL
 through the CloudFormation parameters. Remove the entry after the preview is
-retired. Ordinary Vercel previews keep `ADMIN_DATA_BACKEND=supabase` or remain
-deployment-protected and do not receive the AWS Cognito configuration.
+retired. Unapproved Vercel previews remain deployment-protected and do not
+receive the AWS Cognito configuration.
 
 ## Update the development stack
 
@@ -95,7 +95,6 @@ Resolve all non-secret values from the named stack outputs. For local testing,
 store them only in the ignored `.env.local`:
 
 ```env
-ADMIN_DATA_BACKEND=aws
 AWS_ADMIN_API_URL=<ApiUrl output>
 AWS_COGNITO_CLIENT_ID=<UserPoolClientId output>
 AWS_COGNITO_ISSUER=<UserPoolIssuer output>
@@ -123,9 +122,7 @@ values. Changing `AWS_COGNITO_SESSION_SECRET` logs out all local sessions.
 Run the credential-free suite before live testing:
 
 ```bash
-NEXT_PUBLIC_SUPABASE_URL=https://ci.invalid \
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-placeholder \
-  pnpm run ci
+pnpm run ci
 ```
 
 The tests cover PKCE, exact state/nonce binding, required refresh tokens,
@@ -139,40 +136,35 @@ Use the existing single administrator and fictional fixture content only.
 Never attach tokens, cookies, authorization codes, account identifiers, email
 addresses, or private screenshots to the PR.
 
-1. With `ADMIN_DATA_BACKEND=supabase`, confirm the existing Supabase login and
-   admin path still work and every `/auth/*` or `/api/aws/*` request returns no
-   AWS application data.
-2. Set `ADMIN_DATA_BACKEND=aws`, restart the app, and choose **Continue to
-   secure sign-in**. Sign in with email and password. No MFA enrollment or
+1. Start the app and choose **Continue to secure sign-in**. Sign in with email
+   and password. No MFA enrollment or
    challenge may appear.
-3. Confirm the callback is exactly `/auth/callback`, returns to `/`, and never
+2. Confirm the callback is exactly `/auth/callback`, returns to `/`, and never
    loops back through login while the session is valid.
-4. In browser storage, confirm the Cognito cookies are HttpOnly and their values
+3. In browser storage, confirm the Cognito cookies are HttpOnly and their values
    are encrypted JWE strings, not recognizable JWTs or refresh tokens. In
    production they must also be Secure. Local storage and session storage must
    contain no Cognito or AWS value.
-5. Inspect HTML, request URLs, Console, and error telemetry. An authorization
+4. Inspect HTML, request URLs, Console, and error telemetry. An authorization
    code and state may appear only on the one-time callback URL. No access token,
    refresh token, presigned URL, password, or AWS credential may appear.
-6. Alter one encrypted session cookie and reload. The BFF must return `401`,
+5. Alter one encrypted session cookie and reload. The BFF must return `401`,
    clear the cookies, and return the UI to login. Repeat after access expiry to
    verify refresh and cookie rotation.
-7. Submit a mutation with a cross-origin `Origin` or non-JSON content type. The
+6. Submit a mutation with a cross-origin `Origin` or non-JSON content type. The
    BFF must reject it before an AWS request. A normal same-origin mutation must
    retain its idempotency key and succeed.
-8. Sign out. Confirm local cookies are cleared, the refresh token is revoked,
+7. Sign out. Confirm local cookies are cleared, the refresh token is revoked,
    Cognito managed login is cleared, and restoring a pre-logout encrypted
    cookie set produces `401` through the revocation-aware `userInfo` check.
-9. Use **Forgot password?** on managed login. The verified-email recovery code
+8. Use **Forgot password?** on managed login. The verified-email recovery code
    must reset the same administrator account and return it to normal login.
 
 ## Rollback
 
-Before the first accepted AWS content mutation, set
-`ADMIN_DATA_BACKEND=supabase` and redeploy. One request resolves exactly one
-backend flag value, so the Supabase path does not read Cognito cookies and the
-AWS BFF routes return no data while the flag is off. Keep the Cognito stack and
-administrator intact for investigation.
+Before the first accepted AWS content mutation, stop mutations and take the
+admin offline or keep it read-only. Keep the Cognito stack and administrator
+intact for investigation.
 
 If callback configuration itself must be rolled back, use a reviewed
 CloudFormation change set with the prior exact parameter values. Never repair
@@ -180,7 +172,7 @@ it with a direct Console edit. Rotate the Vercel session secret if encrypted
 cookie material might have escaped; this invalidates every local session.
 
 After the first accepted AWS mutation, follow the source-of-truth checkpoint in
-the architecture ADR. Do not restore Supabase writes by changing the flag alone.
+the architecture ADR and preserve AWS as the only data source.
 
 ## Cost impact
 

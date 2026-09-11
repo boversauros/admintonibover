@@ -14,7 +14,7 @@ production-shaped read through the AWS administration boundary:
 `Next.js → Cognito → HTTP API/JWT authorizer → Lambda → DynamoDB → rendered fixture`
 
 The tracer is read-only. It does not migrate a backup, enable an AWS write
-operation, change the public site, or cut over from Supabase.
+operation, or change the public site.
 
 ## Fixed scope
 
@@ -22,7 +22,7 @@ operation, change the public site, or cut over from Supabase.
 | --------------------- | ----------------------------------------------- |
 | Region                | `eu-west-1`                                     |
 | Stack                 | `admintonibover-dev`                            |
-| Feature flag          | `ADMIN_DATA_BACKEND=supabase` or `aws`          |
+| Runtime               | AWS only                                        |
 | Fixture ID            | `issue-9-fixture`                               |
 | DynamoDB key          | `POST#issue-9-fixture` / `POST#issue-9-fixture` |
 | Application route     | `GET /posts/{id}`                               |
@@ -47,7 +47,7 @@ Repository code owns:
 - the Lambda repository operation and typed API contract;
 - the protected HTTP API route and exact invoke permission;
 - the Cognito PKCE/session implementation;
-- the server-only backend flag and Supabase isolation;
+- the same-origin AWS boundary and session isolation;
 - the fictional fixture;
 - cloud-free unit and contract tests; and
 - this repeatable verification procedure.
@@ -86,9 +86,7 @@ Use the pinned Node and pnpm versions. No real AWS or Cognito value is required:
 
 ```bash
 pnpm install --frozen-lockfile
-NEXT_PUBLIC_SUPABASE_URL=https://ci.invalid \
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-placeholder \
-  pnpm run ci
+pnpm run ci
 ```
 
 Expected infrastructure summary: 18 resources with the same 16
@@ -230,7 +228,6 @@ Set these values only in a gitignored `.env.local` or the deployment platform's
 encrypted environment settings:
 
 ```env
-ADMIN_DATA_BACKEND=aws
 AWS_ADMIN_API_URL=<ApiUrl output>
 AWS_COGNITO_CLIENT_ID=<UserPoolClientId output>
 AWS_COGNITO_ISSUER=<UserPoolIssuer output>
@@ -242,10 +239,10 @@ AWS_COGNITO_SESSION_SECRET=<uncommitted base64url-encoded 32-byte value>
 
 There is no Cognito client secret. Do not add AWS credentials to Next.js.
 
-With `ADMIN_DATA_BACKEND=supabase`, the existing Supabase application remains
-unchanged and the AWS session/data routes return no application data. With
-`ADMIN_DATA_BACKEND=aws`, the UI exposes only the Cognito login and tracer read;
-direct create/edit navigation redirects to the tracer.
+The UI exposes only Cognito login and the authenticated AWS data path. During
+the original tracer acceptance, direct create/edit navigation redirected to the
+tracer; the completed admin now uses the same protected boundary for all reads
+and mutations.
 
 ## Integration verification
 
@@ -353,8 +350,7 @@ The draft pull request must include:
 - security and rollback impact; and
 - immediate and settled billing attestations.
 
-If verification fails, switch `ADMIN_DATA_BACKEND` back to `supabase` first.
-Restart or redeploy the Next.js process so it receives the changed runtime
-environment; the request-time backend boundary does not require a new build.
+If verification fails, stop admin mutations, take the application offline or
+keep it read-only, and revert or repair the AWS path without changing data.
 Do not enable an AWS write path. Preserve the fixture and stack for diagnosis
 unless an exact, reviewed rollback is approved.

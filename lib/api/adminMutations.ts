@@ -6,7 +6,6 @@ import {
   parsePostDetailEnvelope,
   type AdminApiSuccessEnvelope,
 } from '@/lib/aws/admin-read-contract';
-import type { AdminDataBackend } from '@/lib/config/adminBackend';
 import {
   type ConfirmedImageUpload,
   type DetachedImage,
@@ -594,25 +593,10 @@ export async function setAwsPostPublication(
 }
 
 export async function deleteAdminPost(
-  backend: AdminDataBackend,
   post: { id: string; version?: number },
   idempotencyKey = mutationKey('post-delete'),
   fetchImplementation?: typeof fetch
 ): Promise<DeletePostMutationResult> {
-  if (backend === 'supabase') {
-    const { deletePost } = await import('./posts');
-    await deletePost(post.id);
-    return {
-      postId: post.id,
-      cleanup: {
-        pending: false,
-        failedCount: 0,
-        retryWithSameIdempotencyKey: false,
-      },
-      replayed: false,
-    };
-  }
-
   if (!post.version) {
     throw new AdminMutationError(
       'Falta la versió actual de l’article. Recarrega el llistat.',
@@ -632,18 +616,10 @@ export async function deleteAdminPost(
 }
 
 export async function publishAllAdminPosts(
-  backend: AdminDataBackend,
   expectedCount: number,
   idempotencyKey = mutationKey('posts-publish-all'),
   fetchImplementation?: typeof fetch
 ): Promise<BulkPublicationResult> {
-  if (backend === 'supabase') {
-    const { publishAllPosts } = await import('./posts');
-    return {
-      publishedCount: await publishAllPosts(),
-      replayed: false,
-    };
-  }
   const response = await requestAwsMutation({
     path: '/api/aws/posts/publication/bulk',
     method: 'POST',
@@ -655,22 +631,12 @@ export async function publishAllAdminPosts(
   return response.data;
 }
 
-export async function countDraftPosts(
-  backend: AdminDataBackend,
-  signal?: AbortSignal
-): Promise<number> {
-  if (backend === 'supabase') {
-    const { getPosts } = await import('./posts');
-    const posts = await getPosts();
-    signal?.throwIfAborted();
-    return posts.filter(post => !post.is_published).length;
-  }
-
+export async function countDraftPosts(signal?: AbortSignal): Promise<number> {
   let cursor: string | undefined;
   let count = 0;
   const seenCursors = new Set<string>();
   do {
-    const page = await getAdminPostsPage('aws', {
+    const page = await getAdminPostsPage({
       limit: AWS_ADMIN_POST_PAGE_LIMIT,
       cursor,
       direction: 'ascending',
@@ -700,22 +666,12 @@ export async function countDraftPosts(
   return count;
 }
 
-export async function countAdminPosts(
-  backend: AdminDataBackend,
-  signal?: AbortSignal
-): Promise<number> {
-  if (backend === 'supabase') {
-    const { getPostsCount } = await import('./posts');
-    const count = await getPostsCount();
-    signal?.throwIfAborted();
-    return count;
-  }
-
+export async function countAdminPosts(signal?: AbortSignal): Promise<number> {
   let cursor: string | undefined;
   let count = 0;
   const seenCursors = new Set<string>();
   do {
-    const page = await getAdminPostsPage('aws', {
+    const page = await getAdminPostsPage({
       limit: AWS_ADMIN_POST_PAGE_LIMIT,
       cursor,
       direction: 'ascending',

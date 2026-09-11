@@ -282,7 +282,7 @@ function validateTranslation(
 
 export function validatePost(post: Post): PostValidationIssue[] {
   const issues: PostValidationIssue[] = [];
-  const allowIncomplete = post.migration?.source === 'supabase-backup';
+  const allowIncomplete = post.migration?.source === 'legacy-backup';
 
   validateId(issues, 'id', post.id);
   validateId(issues, 'category.id', post.category.id);

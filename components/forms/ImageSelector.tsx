@@ -4,8 +4,18 @@ import { useState, useRef, useEffect } from 'react';
 import { Icon, Button, Text, Image } from '@/components/ui';
 import {
   ALLOWED_IMAGE_MIME_TYPES,
-  validateImageFile,
-} from '@/lib/api/images';
+  MAX_IMAGE_BYTES,
+} from '@/lib/domain/media/contracts';
+
+function validateImageFile(file: File): string | null {
+  if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type as never)) {
+    return `Unsupported file type. Allowed: ${ALLOWED_IMAGE_MIME_TYPES.join(', ')}`;
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    return `File too large. Max ${MAX_IMAGE_BYTES / 1024 / 1024} MB`;
+  }
+  return null;
+}
 
 interface ImageSelectorProps {
   label: string;

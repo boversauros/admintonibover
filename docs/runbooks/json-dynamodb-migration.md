@@ -1,9 +1,9 @@
 # Offline JSON-to-DynamoDB migration runner
 
 This runbook covers the operator-safe migration command introduced by issue
-#19. The command reads one validated Supabase JSON backup from a user-supplied
+#19. The command reads one validated legacy JSON backup from a user-supplied
 local path and creates the current DynamoDB post, taxonomy, summary, reference,
-and slug-lock item shapes. It never calls Supabase, S3, an image URL, Lambda, or
+and slug-lock item shapes. It never calls S3, an image URL, Lambda, or
 the public admin API.
 
 The real backup and every generated migration manifest are private operational
@@ -320,9 +320,8 @@ ALLOW PRODUCTION <account-id>/<region>/<table-name> <64-character-sha256>
 ```
 
 Supply it with both `--allow-production` and `--production-confirmation`. Keep
-`ADMIN_DATA_BACKEND=supabase` until import reconciliation is accepted. Freeze
-Supabase writes before taking the final backup, and never restore Supabase
-writes by a feature-flag change after the first accepted AWS mutation.
+the admin read-only or offline until import reconciliation is accepted. The
+retired service is not a production write or rollback target.
 
 ## Evidence for review
 

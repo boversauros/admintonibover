@@ -480,7 +480,7 @@ function parsePost(value: unknown): Post {
   if (
     isRecord(migration) &&
     migration.source !== undefined &&
-    migration.source !== 'supabase-backup'
+    migration.source !== 'legacy-backup'
   ) {
     throw validation(
       'migration.source',
@@ -511,7 +511,7 @@ function parsePost(value: unknown): Post {
       migration === null || migration === undefined
         ? null
         : {
-            source: 'supabase-backup',
+            source: 'legacy-backup',
             runId: stringField(migration, 'runId', 'migration.runId', 200),
           },
   };

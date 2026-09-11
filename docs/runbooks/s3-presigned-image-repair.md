@@ -58,9 +58,7 @@ Use the pinned Node.js and pnpm versions. The suite is credential-free:
 ```bash
 pnpm install --frozen-lockfile
 pnpm infra:synth
-NEXT_PUBLIC_SUPABASE_URL=https://ci.invalid \
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-placeholder \
-  pnpm run ci
+pnpm run ci
 shasum -a 256 infra/generated/dev-foundation.template.json
 shasum -a 256 infra/fixtures/issue-11-media-post.json
 ```
@@ -272,7 +270,6 @@ Keep the existing AWS/Cognito values in the ignored `.env.local`. Add the exact
 regional S3 API origin derived from the stack's private `BucketName` output:
 
 ```env
-ADMIN_DATA_BACKEND=aws
 AWS_CONTENT_BUCKET_ORIGIN=https://<BucketName>.s3.eu-west-1.amazonaws.com
 ```
 
@@ -362,8 +359,9 @@ Do not bulk-delete `images/`. To investigate a cleanup warning:
 4. leave `temporary/` recovery to the lifecycle rule unless an exact fictional
    test object has been independently verified.
 
-For application rollback, first set `ADMIN_DATA_BACKEND=supabase` and restart
-or redeploy Next.js. Create a new CloudFormation change set from the previously
+For application rollback, stop mutations, export an AWS backup, and take the
+admin read-only or offline before restarting or redeploying Next.js. Create a
+new CloudFormation change set from the previously
 reviewed template, verify it removes only the six issue #11 route/permission
 resources and reverses the listed modifications without replacing the table or
 bucket, then execute it.

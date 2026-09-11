@@ -2,7 +2,7 @@
 
 ## Overview
 
-Create a bilingual post creation form at `/reflexions/new` with React Hook Form, localStorage persistence, and auto-slug generation. The form matches the database schema design for future Supabase integration.
+Create a bilingual post creation form at `/reflexions/new` with React Hook Form, localStorage persistence, and auto-slug generation. The form matches the application content schema.
 
 ## User Preferences (MVP)
 

@@ -3,9 +3,8 @@
 This runbook deploys issue
 [#21](https://github.com/boversauros/admintonibover/issues/21) from the same
 reviewed infrastructure source used by development. It creates an isolated
-`admintonibover-prod` stack while the administration application continues to
-use Supabase. It does not import content, upload application images, publish a
-post, or enable the AWS backend in Production.
+`admintonibover-prod` stack. It does not import content, upload application
+images, publish a post, or deploy the administration application.
 
 The operator must use the approved daily-use AWS identity with MFA. Never use
 root, create an access key, or repair an application resource directly in an
@@ -24,7 +23,7 @@ AWS service console. CloudFormation owns every application resource.
 | Production origin          | `https://admin.tonibover.cat`                                             |
 | Cognito domain prefix      | `admintonibover-prod`                                                     |
 | Maximum accepted spend     | USD 1/month                                                               |
-| Data backend at completion | `ADMIN_DATA_BACKEND=supabase`                                             |
+| Data backend at completion | AWS only                                                                  |
 | CSP                        | `ADMIN_CSP_MODE=enforce`                                                  |
 | DynamoDB                   | Standard, on-demand, deletion protection on, no PITR or Streams           |
 | S3                         | Private, SSE-S3, bucket-owner enforced, versioning off                    |
@@ -249,11 +248,9 @@ Vercel Preview/Production scopes:
 - `ADMIN_CSP_MODE=enforce`
 
 No AWS credential belongs in Vercel and none of these names may gain a
-`NEXT_PUBLIC_` prefix. Production must finish with
-`ADMIN_DATA_BACKEND=supabase`. If an approved fixed Preview temporarily selects
-`aws` for read-only authentication/health verification, it must use only its
-exact allowlisted origin, perform no content mutation, and return to `supabase`
-before acceptance.
+`NEXT_PUBLIC_` prefix. An approved fixed Preview for read-only
+authentication/health verification must use only its exact allowlisted origin
+and perform no content mutation before acceptance.
 
 ## Acceptance verification
 
@@ -278,8 +275,8 @@ Use non-sensitive data and record only redacted status/outcome evidence:
    throttles at 2 requests/second with burst 4.
 9. Verify the Lambda IAM role is limited to the exact log group, table, and the
    `temporary/`, `images/`, and `backups/` bucket prefixes.
-10. Verify Production still selects Supabase, no Supabase write occurred, no
-    production content or image was migrated, and any health fixture is gone.
+10. Verify no production content or image was migrated, the admin remained
+    mutation-free, and any health fixture is gone.
 11. Check Bills/Cost Explorer immediately and after 24 hours. Stop and open a
     blocking discrepancy for any unexplained continuing service or cost.
 
@@ -292,9 +289,8 @@ table or User Pool that was created is retained because its service deletion
 protection is already active. Do not retry into orphaned resources; use a
 separately reviewed recovery, import, or teardown decision.
 
-After successful creation, the application remains on Supabase, so application
-rollback requires no backend change. Do not delete the production stack as a
-routine rollback. Its table, bucket, and User Pool are retained and protected,
+After successful creation, do not delete the production stack as a routine
+rollback. Its table, bucket, and User Pool are retained and protected,
 but the API and Lambda would be removed.
 
 A full teardown requires a separate approved issue and change set. It must:

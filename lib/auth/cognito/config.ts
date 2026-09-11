@@ -1,5 +1,3 @@
-import { getAdminDataBackend } from '@/lib/config/adminBackend';
-
 import { getCognitoSessionKey } from './seal';
 
 export type CognitoConfig = {
@@ -17,7 +15,7 @@ const REQUIRED_SCOPE = 'admintonibover-api/admin';
 function requireEnvironmentValue(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
-    throw new Error(`${name} is required when ADMIN_DATA_BACKEND=aws`);
+    throw new Error(`${name} is required`);
   }
   return value;
 }
@@ -65,10 +63,6 @@ function requireCallbackUrl(name: string): string {
 }
 
 export function getCognitoConfig(): CognitoConfig {
-  if (getAdminDataBackend() !== 'aws') {
-    throw new Error('Cognito configuration is disabled');
-  }
-
   const config = {
     apiUrl: requireHttpsUrl('AWS_ADMIN_API_URL'),
     callbackUrl: requireCallbackUrl('AWS_COGNITO_CALLBACK_URL'),

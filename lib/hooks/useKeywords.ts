@@ -1,14 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   getAdminKeywords,
   type AdminKeywordsByLanguage,
 } from '@/lib/api/adminReads';
-import { useAuth } from '@/lib/auth/AuthContext';
-
-const CACHE_KEY_PREFIX = 'admin_keywords:v2';
+const CACHE_KEY = 'admin_keywords:v3';
 const CACHE_DURATION = 1000 * 60 * 60;
 
 interface CachedData {
@@ -50,8 +48,6 @@ function writeCache(cacheKey: string, keywords: AdminKeywordsByLanguage) {
 }
 
 export function useKeywords() {
-  const { backend } = useAuth();
-  const cacheKey = useMemo(() => `${CACHE_KEY_PREFIX}:${backend}`, [backend]);
   const [keywords, setKeywords] = useState<AdminKeywordsByLanguage>({
     ca: [],
     en: [],
@@ -63,7 +59,7 @@ export function useKeywords() {
     const controller = new AbortController();
     void Promise.resolve().then(async () => {
       if (controller.signal.aborted) return;
-      const cached = readCache(cacheKey);
+      const cached = readCache(CACHE_KEY);
       if (cached) {
         setKeywords(cached.keywords);
         setIsLoading(false);
@@ -74,12 +70,9 @@ export function useKeywords() {
       setIsLoading(true);
       setError(null);
       try {
-        const freshKeywords = await getAdminKeywords(
-          backend,
-          controller.signal
-        );
+        const freshKeywords = await getAdminKeywords(controller.signal);
         setKeywords(freshKeywords);
-        writeCache(cacheKey, freshKeywords);
+        writeCache(CACHE_KEY, freshKeywords);
       } catch (reason) {
         if (reason instanceof Error && reason.name === 'AbortError') return;
         setError(
@@ -93,15 +86,15 @@ export function useKeywords() {
     });
 
     return () => controller.abort();
-  }, [backend, cacheKey]);
+  }, []);
 
   const refetch = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const freshKeywords = await getAdminKeywords(backend);
+      const freshKeywords = await getAdminKeywords();
       setKeywords(freshKeywords);
-      writeCache(cacheKey, freshKeywords);
+      writeCache(CACHE_KEY, freshKeywords);
     } catch (reason) {
       setError(
         reason instanceof Error
@@ -111,15 +104,15 @@ export function useKeywords() {
     } finally {
       setIsLoading(false);
     }
-  }, [backend, cacheKey]);
+  }, []);
 
   const clearCache = useCallback(() => {
     try {
-      localStorage.removeItem(cacheKey);
+      localStorage.removeItem(CACHE_KEY);
     } catch {
       // Clearing an optional cache is best-effort.
     }
-  }, [cacheKey]);
+  }, []);
 
   return { keywords, isLoading, error, refetch, clearCache };
 }

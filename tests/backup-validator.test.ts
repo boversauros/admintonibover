@@ -179,7 +179,7 @@ test('sanitized fixture validates and projects the ADR aggregate shape', async (
     thumbImage: null,
     version: 1,
     migration: {
-      source: 'supabase-backup',
+      source: 'legacy-backup',
       runId: `validation-${'a'.repeat(16)}`,
     },
   });
@@ -320,17 +320,17 @@ test('reference-heavy fixture uses bounded ordered segments', async () => {
   );
 });
 
-test('embedded Supabase URL fixture fails without printing content', async () => {
+test('embedded retired-service URL fixture fails without printing content', async () => {
   const fixture = await loadFixture();
   fixture.tables.post_translations[0].content =
-    'See https://example.supabase.co/storage/v1/object/public/private';
+    'See https://fixture.invalid/storage/v1/object/public/private';
 
   const report = validateBackupDocument(fixture, fixtureMetadata);
   const issue = report.issues.find(
-    candidate => candidate.code === 'EMBEDDED_SUPABASE_URL'
+    candidate => candidate.code === 'EMBEDDED_LEGACY_SERVICE_URL'
   );
 
   assert.equal(report.valid, false);
   assert.ok(issue);
-  assert.equal(issue.message.includes('example.supabase.co'), false);
+  assert.equal(issue.message.includes('fixture.invalid'), false);
 });

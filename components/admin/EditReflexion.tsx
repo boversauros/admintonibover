@@ -7,7 +7,6 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { PostForm } from '@/components/forms/PostForm';
 import { Badge, Button, Container, Heading, Text, Link } from '@/components/ui';
 import { AdminReadError, getAdminPostById } from '@/lib/api/adminReads';
-import { useAuth } from '@/lib/auth/AuthContext';
 import type { StoredPost } from '@/lib/types/post';
 
 type EditLoadState =
@@ -19,13 +18,12 @@ type EditLoadState =
 function EditReflexionContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { backend } = useAuth();
   const [state, setState] = useState<EditLoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
-    void getAdminPostById(backend, params.id, controller.signal)
+    void getAdminPostById(params.id, controller.signal)
       .then(post => {
         setState(post ? { status: 'ready', post } : { status: 'not-found' });
       })
@@ -44,7 +42,7 @@ function EditReflexionContent() {
         });
       });
     return () => controller.abort();
-  }, [attempt, backend, params.id]);
+  }, [attempt, params.id]);
 
   const handleSuccess = () => router.push('/');
 
@@ -123,7 +121,7 @@ function EditReflexionContent() {
   return <PostForm initialData={state.post} onSuccess={handleSuccess} />;
 }
 
-export function SupabaseEditReflexion() {
+export function EditReflexion() {
   return (
     <AuthGuard fallback={null}>
       <EditReflexionContent />

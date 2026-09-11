@@ -4,10 +4,8 @@ import { useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Select, Heading, Text } from '@/components/ui';
 import { getAdminCategories, type AdminCategory } from '@/lib/api/adminReads';
-import { useAuth } from '@/lib/auth/AuthContext';
 
 export function PostMetadataSection() {
-  const { backend } = useAuth();
   const {
     register,
     formState: { errors },
@@ -19,10 +17,7 @@ export function PostMetadataSection() {
     const controller = new AbortController();
     async function loadCategories() {
       try {
-        const fetchedCategories = await getAdminCategories(
-          backend,
-          controller.signal
-        );
+        const fetchedCategories = await getAdminCategories(controller.signal);
         setCategories(fetchedCategories);
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
@@ -34,7 +29,7 @@ export function PostMetadataSection() {
 
     loadCategories();
     return () => controller.abort();
-  }, [backend]);
+  }, []);
 
   const categoryOptions = categories.map(cat => ({
     value: cat.id,

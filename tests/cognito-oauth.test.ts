@@ -12,7 +12,6 @@ import {
   validateCognitoClaims,
   verifyCognitoTokenActive,
 } from '../lib/auth/cognito/oauth';
-import { parseAdminDataBackend } from '../lib/config/adminBackend';
 
 const config: CognitoConfig = {
   apiUrl: 'https://api.example.invalid',
@@ -31,13 +30,6 @@ function fakeJwt(exp: number): string {
   const payload = Buffer.from(JSON.stringify({ exp })).toString('base64url');
   return `${header}.${payload}.signature`;
 }
-
-test('backend flag defaults to Supabase and rejects ambiguous values', () => {
-  assert.equal(parseAdminDataBackend(undefined), 'supabase');
-  assert.equal(parseAdminDataBackend(''), 'supabase');
-  assert.equal(parseAdminDataBackend('aws'), 'aws');
-  assert.throws(() => parseAdminDataBackend('AWS'));
-});
 
 test('PKCE authorization request binds verifier, state, nonce, and exact callback', () => {
   const artifacts = createPkceArtifacts(config);
