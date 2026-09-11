@@ -39,7 +39,7 @@ ignored by Git.
 | Change set                         | Pass    | Exactly 36 adds, no modify/remove/replacement, and only the approved resource types                                          |
 | Production deployment              | Pass    | Single execution completed from the reviewed commit; staged template object was removed afterward                            |
 | Cognito administrator              | Partial | Exactly one enabled, verified-email administrator awaits the required first-login password change; self-sign-up is blocked   |
-| Vercel/backend guard               | Pass    | Operator confirmed the server-only Preview/Production configuration; redeployed Production remains Supabase-only             |
+| Vercel/backend guard               | Partial | Supabase rollback is healthy; Production AWS-mode configuration requires correction after a failed read-only smoke test      |
 | Immediate/24-hour billing checks   | Partial | Immediate estimated unblended cost is USD 0.00; delayed 24-hour observation remains pending                                  |
 
 ## Preflight observations
@@ -101,11 +101,14 @@ recovery, and authenticated health checks remain pending until the operator
 completes that first login. The immediate Cost Explorer result was an estimated
 USD 0.00; AWS billing data is delayed, so the 24-hour check remains open.
 
-On 2026-09-11, the operator confirmed the approved server-only AWS values were
-configured manually in Vercel for Preview and Production and redeployed the
-latest Production deployment. A public recheck returned HTTP 200 with the
-enforced Supabase-only CSP, and `/auth/login` remained unavailable while the
-backend flag was off. No cutover, migration, or Supabase write occurred.
+On 2026-09-11, the operator configured the approved server-only AWS values
+manually in Vercel for Preview and Production. A temporary Production AWS-mode
+smoke test returned a server error before sign-in, indicating that at least one
+required Production value or scope still needs correction. The backend flag
+was immediately restored to Supabase and Production redeployed. A public
+recheck returned HTTP 200 with the enforced Supabase-only CSP, and
+`/auth/login` returned 404. No content mutation, migration, or Supabase write
+occurred.
 
 ## Pricing recheck
 
@@ -223,3 +226,11 @@ rollback for retained data-bearing resources.
 - **Concurrency contract:** resolved on 2026-09-10 by aligning issue #21 with
   the accepted ADR and observed quota: no reserved/provisioned concurrency or
   VPC, with HTTP API throttling at 2 requests/second and burst 4.
+
+## Open discrepancies
+
+- **Vercel Production AWS configuration:** a temporary read-only AWS-mode smoke
+  test on 2026-09-11 returned a server error before sign-in. Supabase rollback
+  restored the live site immediately. Revalidate every required Production
+  scope/value, replace the write-only Production session secret, and rerun the
+  login/health test without content mutation.
