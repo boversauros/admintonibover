@@ -59,7 +59,10 @@ jobs:
         run: pnpm check:secrets
 
       - name: Validate CloudFormation schema
-        run: cfn-lint infra/generated/dev-foundation.template.json
+        run: >-
+          cfn-lint
+          infra/generated/dev-foundation.template.json
+          infra/generated/prod-foundation.template.json
 
       - name: Lint
         run: pnpm lint

@@ -108,7 +108,9 @@ Use the pinned runtimes and the lockfile:
 pnpm install --frozen-lockfile
 pnpm audit:dependencies
 pnpm run ci
-cfn-lint infra/generated/dev-foundation.template.json
+cfn-lint \
+  infra/generated/dev-foundation.template.json \
+  infra/generated/prod-foundation.template.json
 ```
 
 CI also runs GitHub's dependency review on pull requests and rejects newly

@@ -95,10 +95,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
   offline without modifying it or contacting a cloud service
 - `pnpm migration:run -- --input <path> --input-sha256 <sha256> --manifest <path>` -
   Dry-run the offline JSON-to-DynamoDB migration
-- `pnpm infra:synth` - Generate the reviewable native CloudFormation template
-  without contacting AWS
-- `pnpm infra:validate` - Validate the approved resource inventory and confirm
-  the committed CloudFormation synthesis is current
+- `pnpm infra:synth` - Generate the reviewable development CloudFormation
+  template without contacting AWS
+- `pnpm infra:synth -- --environment prod` - Generate the isolated production
+  template from the same infrastructure source
+- `pnpm infra:validate` - Validate both approved resource inventories and
+  confirm both committed CloudFormation syntheses are current
 - `pnpm run ci` - Run the complete local validation suite
 - `pnpm format` - Format code with Prettier
 - `pnpm format:check` - Check code formatting
@@ -115,6 +117,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [Admin-only AWS data and security contract](docs/adr/0001-admin-only-aws-data-security-contract.md)
 - [AWS account guardrails](docs/runbooks/aws-account-guardrails.md)
 - [AWS development foundation](docs/runbooks/aws-development-foundation.md)
+- [AWS production foundation](docs/runbooks/aws-production-foundation.md)
 - [Single Cognito administrator](docs/runbooks/cognito-single-administrator.md)
 - [Secure Cognito admin session](docs/runbooks/cognito-admin-session.md)
 - [Authenticated DynamoDB read tracer](docs/runbooks/authenticated-read-tracer.md)

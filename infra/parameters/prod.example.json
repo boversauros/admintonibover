@@ -1,0 +1,26 @@
+[
+  {
+    "ParameterKey": "GuardrailsEvidenceConfirmed",
+    "ParameterValue": "STOP-UNTIL-ISSUE-21-PREDEPLOYMENT-GATE-PASSES"
+  },
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "prod"
+  },
+  {
+    "ParameterKey": "AllowedOrigins",
+    "ParameterValue": "https://admin.tonibover.cat"
+  },
+  {
+    "ParameterKey": "CallbackUrls",
+    "ParameterValue": "https://admin.tonibover.cat/auth/callback"
+  },
+  {
+    "ParameterKey": "LogoutUrls",
+    "ParameterValue": "https://admin.tonibover.cat/"
+  },
+  {
+    "ParameterKey": "CognitoDomainPrefix",
+    "ParameterValue": "admintonibover-prod"
+  }
+]

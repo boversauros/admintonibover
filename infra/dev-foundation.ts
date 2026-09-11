@@ -19,6 +19,10 @@ export type CloudFormationTemplate = {
   Outputs: Record<string, Record<string, unknown>>;
 };
 
+export const FOUNDATION_ENVIRONMENTS = ['dev', 'prod'] as const;
+
+export type FoundationEnvironment = (typeof FOUNDATION_ENVIRONMENTS)[number];
+
 export const EXPECTED_RESOURCE_TYPE_COUNTS = {
   'AWS::ApiGatewayV2::Api': 1,
   'AWS::ApiGatewayV2::Authorizer': 1,
@@ -49,9 +53,15 @@ const HTTPS_ADMIN_ORIGIN =
   'https://[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(?::[1-9][0-9]{0,4})?';
 const LOCAL_ADMIN_ORIGIN =
   'http://(?:localhost|127\\.0\\.0\\.1)(?::[1-9][0-9]{0,4})?';
+const DNS_LABEL = '[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?';
+const DNS_TOP_LEVEL_LABEL = '[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?';
+const HTTPS_PRODUCTION_ADMIN_ORIGIN = `https://${DNS_LABEL}(?:\\.${DNS_LABEL})*\\.${DNS_TOP_LEVEL_LABEL}`;
 export const EXACT_ADMIN_ORIGIN_PATTERN = `^(?:${HTTPS_ADMIN_ORIGIN}|${LOCAL_ADMIN_ORIGIN})$`;
 export const EXACT_CALLBACK_URL_PATTERN = `^(?:${HTTPS_ADMIN_ORIGIN}|${LOCAL_ADMIN_ORIGIN})/auth/callback$`;
 export const EXACT_LOGOUT_URL_PATTERN = `^(?:${HTTPS_ADMIN_ORIGIN}|${LOCAL_ADMIN_ORIGIN})/$`;
+export const EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN = `^${HTTPS_PRODUCTION_ADMIN_ORIGIN}$`;
+export const EXACT_PRODUCTION_CALLBACK_URL_PATTERN = `^${HTTPS_PRODUCTION_ADMIN_ORIGIN}/auth/callback$`;
+export const EXACT_PRODUCTION_LOGOUT_URL_PATTERN = `^${HTTPS_PRODUCTION_ADMIN_ORIGIN}/$`;
 
 export const LEGACY_FOUNDATION_LAMBDA_CODE = String.raw`'use strict';
 
@@ -280,13 +290,31 @@ const protectedRoute = (routeKey: string): CloudFormationResource => ({
   },
 });
 
-export function createDevFoundationTemplate(): CloudFormationTemplate {
+export function createFoundationTemplate(
+  environment: FoundationEnvironment
+): CloudFormationTemplate {
+  const isProduction = environment === 'prod';
+  const environmentLabel = isProduction ? 'production' : 'development';
+  const protectedResourceDeletionPolicy = isProduction ? 'Retain' : 'Delete';
+  const bucketDeletionPolicy = isProduction ? 'RetainExceptOnCreate' : 'Delete';
+  const dataUpdateReplacePolicy = isProduction ? 'Retain' : 'Delete';
+  const originPattern = isProduction
+    ? EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN
+    : EXACT_ADMIN_ORIGIN_PATTERN;
+  const callbackPattern = isProduction
+    ? EXACT_PRODUCTION_CALLBACK_URL_PATTERN
+    : EXACT_CALLBACK_URL_PATTERN;
+  const logoutPattern = isProduction
+    ? EXACT_PRODUCTION_LOGOUT_URL_PATTERN
+    : EXACT_LOGOUT_URL_PATTERN;
+
   return {
     AWSTemplateFormatVersion: '2010-09-09',
-    Description:
-      'Cost-safe AWS development foundation and authenticated admin API for the admintonibover migration.',
+    Description: `Cost-safe AWS ${environmentLabel} foundation and authenticated admin API for the admintonibover migration.`,
     Metadata: {
-      Issue: 'https://github.com/boversauros/admintonibover/issues/7',
+      Issue: isProduction
+        ? 'https://github.com/boversauros/admintonibover/issues/21'
+        : 'https://github.com/boversauros/admintonibover/issues/7',
       MediaRepairIssue:
         'https://github.com/boversauros/admintonibover/issues/11',
       AdminApiIssue: 'https://github.com/boversauros/admintonibover/issues/12',
@@ -294,21 +322,25 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
         'https://github.com/boversauros/admintonibover/issues/18',
       ArchitectureDecision:
         'docs/adr/0001-admin-only-aws-data-security-contract.md',
-      Runbook: 'docs/runbooks/aws-development-foundation.md',
+      Runbook: isProduction
+        ? 'docs/runbooks/aws-production-foundation.md'
+        : 'docs/runbooks/aws-development-foundation.md',
       AdminApiRunbook: 'docs/runbooks/authenticated-admin-api.md',
       AdminWebSecurityRunbook: 'docs/runbooks/admin-web-security.md',
       'AWS::CloudFormation::Interface': {
         ParameterGroups: [
           {
             Label: { default: 'Deployment safety' },
-            Parameters: [
-              'GuardrailsEvidenceConfirmed',
-              'Environment',
-              'EnableTableDeletionProtection',
-            ],
+            Parameters: isProduction
+              ? ['GuardrailsEvidenceConfirmed', 'Environment']
+              : [
+                  'GuardrailsEvidenceConfirmed',
+                  'Environment',
+                  'EnableTableDeletionProtection',
+                ],
           },
           {
-            Label: { default: 'Exact development origins' },
+            Label: { default: `Exact ${environmentLabel} origins` },
             Parameters: ['AllowedOrigins', 'CallbackUrls', 'LogoutUrls'],
           },
           {
@@ -320,9 +352,13 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
           GuardrailsEvidenceConfirmed: {
             default: 'Issue #3 evidence rechecked',
           },
-          EnableTableDeletionProtection: {
-            default: 'DynamoDB deletion protection',
-          },
+          ...(isProduction
+            ? {}
+            : {
+                EnableTableDeletionProtection: {
+                  default: 'DynamoDB deletion protection',
+                },
+              }),
         },
       },
     },
@@ -335,33 +371,33 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
       },
       Environment: {
         Type: 'String',
-        Default: 'dev',
-        AllowedValues: ['dev'],
-        Description:
-          'Issue #7 intentionally permits only the isolated development environment.',
+        Default: environment,
+        AllowedValues: [environment],
+        Description: `This artifact permits only the isolated ${environmentLabel} environment.`,
       },
       AllowedOrigins: {
         Type: 'CommaDelimitedList',
-        AllowedPattern: EXACT_ADMIN_ORIGIN_PATTERN,
-        ConstraintDescription:
-          'Each origin must be one exact HTTPS origin or an HTTP localhost development origin, without paths or wildcards.',
-        Description:
-          'Exact admin origins for API Gateway and S3 CORS. HTTP is restricted to local development; do not use wildcards.',
+        AllowedPattern: originPattern,
+        ConstraintDescription: isProduction
+          ? 'Each production origin must be one exact HTTPS origin, without paths or wildcards.'
+          : 'Each origin must be one exact HTTPS origin or an HTTP localhost development origin, without paths or wildcards.',
+        Description: `Exact ${environmentLabel} admin origins for API Gateway and S3 CORS. Do not use wildcards.`,
       },
       CallbackUrls: {
         Type: 'CommaDelimitedList',
-        AllowedPattern: EXACT_CALLBACK_URL_PATTERN,
-        ConstraintDescription:
-          'Each callback must be an exact HTTPS or localhost URL ending in /auth/callback, without wildcards.',
-        Description:
-          'Exact Cognito authorization-code callback URLs. HTTPS is required except for localhost.',
+        AllowedPattern: callbackPattern,
+        ConstraintDescription: isProduction
+          ? 'Each production callback must be an exact HTTPS URL ending in /auth/callback, without wildcards.'
+          : 'Each callback must be an exact HTTPS or localhost URL ending in /auth/callback, without wildcards.',
+        Description: `Exact ${environmentLabel} Cognito authorization-code callback URLs.`,
       },
       LogoutUrls: {
         Type: 'CommaDelimitedList',
-        AllowedPattern: EXACT_LOGOUT_URL_PATTERN,
-        ConstraintDescription:
-          'Each logout URL must be an exact HTTPS or localhost origin with a trailing slash, without wildcards.',
-        Description: 'Exact Cognito logout redirect URLs.',
+        AllowedPattern: logoutPattern,
+        ConstraintDescription: isProduction
+          ? 'Each production logout URL must be an exact HTTPS origin with a trailing slash, without wildcards.'
+          : 'Each logout URL must be an exact HTTPS or localhost origin with a trailing slash, without wildcards.',
+        Description: `Exact ${environmentLabel} Cognito logout redirect URLs.`,
       },
       CognitoDomainPrefix: {
         Type: 'String',
@@ -370,16 +406,19 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
         AllowedPattern: '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$',
         ConstraintDescription:
           'Use a globally unique 3-63 character lowercase prefix containing only letters, numbers, and internal hyphens.',
-        Description:
-          'Globally unique prefix for the development Cognito managed-login domain.',
+        Description: `Globally unique prefix for the ${environmentLabel} Cognito managed-login domain.`,
       },
-      EnableTableDeletionProtection: {
-        Type: 'String',
-        Default: 'false',
-        AllowedValues: ['true', 'false'],
-        Description:
-          'Keep false for the first deployment; update to true immediately after verification. Disable only for the documented dev deletion rehearsal.',
-      },
+      ...(isProduction
+        ? {}
+        : {
+            EnableTableDeletionProtection: {
+              Type: 'String',
+              Default: 'false',
+              AllowedValues: ['true', 'false'],
+              Description:
+                'Keep false for the first deployment; update to true immediately after verification. Disable only for the documented dev deletion rehearsal.',
+            },
+          }),
     },
     Rules: {
       GuardrailsMustBeConfirmed: {
@@ -397,16 +436,18 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
         ],
       },
     },
-    Conditions: {
-      TableDeletionProtectionEnabled: {
-        'Fn::Equals': [{ Ref: 'EnableTableDeletionProtection' }, 'true'],
-      },
-    },
+    Conditions: isProduction
+      ? {}
+      : {
+          TableDeletionProtectionEnabled: {
+            'Fn::Equals': [{ Ref: 'EnableTableDeletionProtection' }, 'true'],
+          },
+        },
     Resources: {
       ContentTable: {
         Type: 'AWS::DynamoDB::Table',
-        DeletionPolicy: 'Delete',
-        UpdateReplacePolicy: 'Delete',
+        DeletionPolicy: protectedResourceDeletionPolicy,
+        UpdateReplacePolicy: dataUpdateReplacePolicy,
         Properties: {
           AttributeDefinitions: [
             { AttributeName: 'PK', AttributeType: 'S' },
@@ -418,9 +459,11 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
           ],
           BillingMode: 'PAY_PER_REQUEST',
           TableClass: 'STANDARD',
-          DeletionProtectionEnabled: {
-            'Fn::If': ['TableDeletionProtectionEnabled', true, false],
-          },
+          DeletionProtectionEnabled: isProduction
+            ? true
+            : {
+                'Fn::If': ['TableDeletionProtectionEnabled', true, false],
+              },
           PointInTimeRecoverySpecification: {
             PointInTimeRecoveryEnabled: false,
           },
@@ -433,8 +476,8 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
       },
       ContentBucket: {
         Type: 'AWS::S3::Bucket',
-        DeletionPolicy: 'Delete',
-        UpdateReplacePolicy: 'Delete',
+        DeletionPolicy: bucketDeletionPolicy,
+        UpdateReplacePolicy: dataUpdateReplacePolicy,
         Properties: {
           BucketEncryption: {
             ServerSideEncryptionConfiguration: [
@@ -522,14 +565,14 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
       },
       UserPool: {
         Type: 'AWS::Cognito::UserPool',
-        DeletionPolicy: 'Delete',
-        UpdateReplacePolicy: 'Delete',
+        DeletionPolicy: protectedResourceDeletionPolicy,
+        UpdateReplacePolicy: dataUpdateReplacePolicy,
         Properties: {
           UserPoolName: {
             'Fn::Sub': '${AWS::StackName}-admins',
           },
           UserPoolTier: 'LITE',
-          DeletionProtection: 'INACTIVE',
+          DeletionProtection: isProduction ? 'ACTIVE' : 'INACTIVE',
           AdminCreateUserConfig: {
             AllowAdminCreateUserOnly: true,
           },
@@ -639,8 +682,7 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
       LambdaExecutionRole: {
         Type: 'AWS::IAM::Role',
         Properties: {
-          Description:
-            'Least-privilege execution role for the issue #7 foundation Lambda.',
+          Description: `Least-privilege execution role for the ${environmentLabel} foundation Lambda.`,
           Path: '/admintonibover/',
           AssumeRolePolicyDocument: {
             Version: '2012-10-17',
@@ -725,8 +767,7 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
           FunctionName: {
             'Fn::Sub': '${AWS::StackName}-foundation',
           },
-          Description:
-            'Authenticated post, taxonomy, backup, and private media operations for the development admin.',
+          Description: `Authenticated post, taxonomy, backup, and private media operations for the ${environmentLabel} admin.`,
           PackageType: 'Zip',
           Runtime: 'nodejs24.x',
           Handler: 'index.handler',
@@ -767,8 +808,7 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
         Type: 'AWS::ApiGatewayV2::Api',
         Properties: {
           Name: { 'Fn::Sub': '${AWS::StackName}-http-api' },
-          Description:
-            'Authenticated HTTP API for the admintonibover development admin.',
+          Description: `Authenticated HTTP API for the admintonibover ${environmentLabel} admin.`,
           ProtocolType: 'HTTP',
           CorsConfiguration: {
             AllowCredentials: false,
@@ -807,8 +847,7 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
         Type: 'AWS::ApiGatewayV2::Integration',
         Properties: {
           ApiId: { Ref: 'HttpApi' },
-          Description:
-            'Lambda proxy integration for protected development admin operations.',
+          Description: `Lambda proxy integration for protected ${environmentLabel} admin operations.`,
           IntegrationType: 'AWS_PROXY',
           IntegrationMethod: 'POST',
           IntegrationUri: {
@@ -868,7 +907,7 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
     },
     Outputs: {
       Region: {
-        Description: 'AWS Region containing the development stack.',
+        Description: `AWS Region containing the ${environmentLabel} stack.`,
         Value: { Ref: 'AWS::Region' },
       },
       Environment: {
@@ -916,4 +955,12 @@ export function createDevFoundationTemplate(): CloudFormationTemplate {
       },
     },
   };
+}
+
+export function createDevFoundationTemplate(): CloudFormationTemplate {
+  return createFoundationTemplate('dev');
+}
+
+export function createProductionFoundationTemplate(): CloudFormationTemplate {
+  return createFoundationTemplate('prod');
 }
