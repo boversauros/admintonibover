@@ -7,8 +7,7 @@ and independent repair controls for the main image and thumbnail.
 
 The workflow reuses the private S3 upload contract from issue #11 and the
 admin mutation contract from issue #15. It does not make S3 public, introduce
-browser AWS credentials, change the public site, transform images, or mix the
-AWS and Supabase adapters.
+browser AWS credentials, change the public site, or transform images.
 
 ## Fixed behavior
 
@@ -45,9 +44,7 @@ Use the pinned Node.js and pnpm versions:
 pnpm install --frozen-lockfile
 pnpm lambda:build
 pnpm infra:synth
-NEXT_PUBLIC_SUPABASE_URL=https://ci.invalid \
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-placeholder \
-  pnpm run ci
+pnpm run ci
 shasum -a 256 infra/generated/dev-foundation.template.json
 ```
 
@@ -65,8 +62,7 @@ The issue-specific tests must prove:
   transaction succeeds;
 - replacement follows presign, upload, and confirmation order, and a cancelled
   or failed upload never confirms or deletes the current image; and
-- the browser AWS adapter uses same-origin authenticated routes while the
-  Supabase rollback adapter remains isolated.
+- the browser uses same-origin authenticated AWS routes only.
 
 ## Review and deploy the CloudFormation change
 
@@ -111,7 +107,7 @@ temporary credentials.
 
 ### Inventory and combined filters
 
-1. Start with `ADMIN_DATA_BACKEND=aws`, sign in, and record the four displayed
+1. Sign in and record the four displayed
    counts. Confirm they sum to the known total number of posts.
 2. Select each inventory tile in turn. Confirm every displayed card has the
    matching text status and that no broken image URL is rendered for a missing
@@ -160,13 +156,9 @@ temporary credentials.
 
 ## Rollback isolation, security, and cost
 
-Set `ADMIN_DATA_BACKEND=supabase`, restart, and perform one non-production list
-and image-edit cycle. Confirm the inventory derives from Supabase metadata and
-there are no AWS admin API, Lambda, DynamoDB, or S3 requests. Switch back to
-AWS and confirm the same operation does not change a Supabase row or object.
-If the project has formally decommissioned or disabled its Supabase environment,
-record this manual check as not applicable with that reason. Do not restore an
-obsolete backend or its credentials solely for this acceptance run; the
+Stop mutations, download and validate an AWS backup, then keep the admin
+read-only or offline while reverting application code. Do not restore an
+obsolete backend or credentials solely for an acceptance run; the
 credential-free adapter-isolation tests remain required.
 
 The browser receives neither AWS credentials nor a Cognito bearer token. It

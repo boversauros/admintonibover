@@ -24,16 +24,13 @@
     "infra:validate": "node --import tsx scripts/synthesize-infrastructure.ts --check",
     "ci": "pnpm check:secrets && pnpm infra:validate && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:browser-artifacts",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "seed": "tsx scripts/seed.ts"
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "3.1101.0",
     "@aws-sdk/client-s3": "3.1101.0",
     "@aws-sdk/lib-dynamodb": "3.1101.0",
     "@aws-sdk/s3-request-presigner": "3.1101.0",
-    "@supabase/ssr": "^0.10.3",
-    "@supabase/supabase-js": "2.115.0",
     "jose": "6.2.4",
     "next": "16.3.4",
     "react": "19.2.8",

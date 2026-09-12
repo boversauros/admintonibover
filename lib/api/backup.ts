@@ -6,128 +6,16 @@ import {
   type DynamoDbBackupV2,
 } from '../aws/backup-contract';
 import { redirectIfSessionExpired } from '../auth/client-session';
-import type { AdminDataBackend } from '../config/adminBackend';
-import type { Database } from '../types/database';
-
-const PAGE_SIZE = 1000;
-
-/** Insertion-safe FK order for restore scripts */
-export const BACKUP_TABLE_ORDER = [
-  'languages',
-  'categories',
-  'category_translations',
-  'images',
-  'posts',
-  'post_translations',
-  'keywords',
-  'post_keywords',
-  'post_references',
-] as const;
-
-export type BackupTableName = (typeof BACKUP_TABLE_ORDER)[number];
-
-const LATEST_SCHEMA_MIGRATION = '012_add_length_constraints.sql';
-
-export type BackupManifest = {
-  version: 1;
-  exported_at: string;
-  source_project_url: string;
-  schema_migration: string;
-  row_counts: Record<BackupTableName, number>;
-};
-
-export type Backup = {
-  manifest: BackupManifest;
-  tables: Record<BackupTableName, Record<string, unknown>[]>;
-};
-
-type PublicTableName = keyof Database['public']['Tables'];
-
-async function fetchAllRows(
-  table: PublicTableName
-): Promise<Record<string, unknown>[]> {
-  const { createClient } = await import('../supabase');
-  const supabase = createClient();
-  const rows: Record<string, unknown>[] = [];
-  let from = 0;
-
-  while (true) {
-    const to = from + PAGE_SIZE - 1;
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .range(from, to);
-
-    if (error) throw error;
-
-    const page = (data ?? []) as Record<string, unknown>[];
-    rows.push(...page);
-
-    if (page.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-
-  return rows;
-}
-
-/**
- * Exports every public table as raw rows (insertion-safe FK order in manifest).
- */
-export async function exportFullBackup(): Promise<Backup> {
-  const failures: string[] = [];
-  const tables = {} as Record<BackupTableName, Record<string, unknown>[]>;
-  const row_counts = {} as Record<BackupTableName, number>;
-
-  await Promise.all(
-    BACKUP_TABLE_ORDER.map(async tableName => {
-      try {
-        const rows = await fetchAllRows(tableName);
-        tables[tableName] = rows;
-        row_counts[tableName] = rows.length;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        failures.push(`${tableName}: ${message}`);
-        tables[tableName] = [];
-        row_counts[tableName] = 0;
-      }
-    })
-  );
-
-  if (failures.length > 0) {
-    throw new Error(
-      `Backup failed for ${failures.length} table(s):\n${failures.join('\n')}`
-    );
-  }
-
-  const sourceUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'unknown';
-
-  return {
-    manifest: {
-      version: 1,
-      exported_at: new Date().toISOString(),
-      source_project_url: sourceUrl,
-      schema_migration: LATEST_SCHEMA_MIGRATION,
-      row_counts,
-    },
-    tables,
-  };
-}
-
-function supabaseBackupFilename(): string {
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  return `tonibover-backup-${stamp}.json`;
-}
 
 export type BackupDownloadResult = {
   filename: string;
-  environment: BackupEnvironment | 'supabase';
+  environment: BackupEnvironment;
   itemCount: number;
 };
 
 type BackupDownloadDependencies = {
   fetchImplementation?: typeof fetch;
   save?: (json: string, filename: string) => void;
-  exportSupabaseBackup?: () => Promise<Backup>;
 };
 
 export class BackupDownloadError extends Error {
@@ -262,28 +150,11 @@ export async function prepareAwsBackupDownload(
   };
 }
 
-/** Builds, validates, and triggers the selected backend backup download. */
+/** Builds, validates, and triggers an AWS backup download. */
 export async function downloadBackupAsJson(
-  backend: AdminDataBackend,
   dependencies: BackupDownloadDependencies = {}
 ): Promise<BackupDownloadResult> {
   const save = dependencies.save ?? saveJsonDownload;
-  if (backend === 'supabase') {
-    const backup = await (
-      dependencies.exportSupabaseBackup ?? exportFullBackup
-    )();
-    const filename = supabaseBackupFilename();
-    save(JSON.stringify(backup, null, 2), filename);
-    return {
-      filename,
-      environment: 'supabase',
-      itemCount: Object.values(backup.manifest.row_counts).reduce(
-        (total, count) => total + count,
-        0
-      ),
-    };
-  }
-
   const prepared = await prepareAwsBackupDownload(
     dependencies.fetchImplementation
   );

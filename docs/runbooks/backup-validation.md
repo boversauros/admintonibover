@@ -1,8 +1,8 @@
-# Offline Supabase backup validation
+# Offline legacy backup validation
 
 This runbook validates a user-supplied version 1 JSON backup before any
-Supabase-to-AWS migration. The command is local, offline, and read-only. It does
-not import data, contact Supabase or AWS, make S3 requests, probe image URLs, or
+legacy-to-AWS migration. The command is local, offline, and read-only. It does
+not import data, contact AWS, make S3 requests, probe image URLs, or
 download image binaries.
 
 The validator implements the aggregate and size contract in
@@ -20,7 +20,7 @@ replace it with a subset copied from the personal backup.
 
 The report contains counts, numeric legacy IDs, hashes, size estimates, issue
 codes, and source-integrity results. It never contains post titles, bodies,
-slugs, keywords, references, image URLs, user UUIDs, or the Supabase project
+slugs, keywords, references, image URLs, user UUIDs, or the legacy project
 URL. Duplicate slugs are represented by a one-way fingerprint.
 
 ## Run the validator
@@ -56,7 +56,7 @@ the JSON report to standard output.
 - primary/composite uniqueness and all representable foreign keys;
 - bilingual post/category relationships and keyword-language consistency;
 - normalized per-language slug locks, with empty incomplete slugs skipped;
-- embedded Supabase URLs in content and references;
+- embedded retired-service URLs in content and references;
 - draft/published state, incomplete translations, image-link inventory, and
   null migration image fields;
 - the documented June 2026 counts and post 64 anomaly;

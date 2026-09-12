@@ -1,7 +1,7 @@
 # Development migration rehearsal
 
 This runbook is the operator contract for issue #20. It proves the June 18
-Supabase backup in the existing `admintonibover-dev` AWS stack, rolls back only
+legacy backup in the existing `admintonibover-dev` AWS stack, rolls back only
 the imported records, and repeats the import with identical deterministic
 content hashes. It does not authorize a production operation or a cutover.
 
@@ -29,9 +29,8 @@ Stop before the next step if any boundary is not true:
 - The four data decisions below have explicit operator sign-off.
 - The current Bills baseline has no unexplained service.
 
-This rehearsal must not read or change a production stack, write to Supabase,
-upload an S3 object, or publish a post. `ADMIN_DATA_BACKEND` selects exactly one
-backend. Keep browser network details, response bodies, credentials, tokens,
+This rehearsal must not read or change a production stack, upload an S3 object,
+or publish a post. Keep browser network details, response bodies, credentials, tokens,
 resource identifiers, private content, and presigned URLs out of evidence.
 
 ## Required data sign-off
@@ -184,7 +183,7 @@ Inspect the private manifest and prove:
 - all 100 main image roles and 100 thumbnail roles are null; and
 - the only incomplete translation is post 64 English.
 
-With `ADMIN_DATA_BACKEND=aws`, use the authenticated development admin to:
+Use the authenticated development admin to:
 
 1. Confirm list pagination, title search, category, draft state, missing-image
    filters, and both sort directions all return consistent counts.

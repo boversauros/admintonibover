@@ -1,34 +1,29 @@
 # Migration pull-request workflow
 
-This runbook defines the validation and branch discipline for the
-Supabase-to-AWS migration. It supplements the security and rollback boundaries
+This runbook defines the validation and branch discipline for the legacy
+JSON-to-AWS migration. It supplements the security and rollback boundaries
 in [ADR 0001](../adr/0001-admin-only-aws-data-security-contract.md) and the
 [AWS account guardrails](aws-account-guardrails.md).
 
 ## Local and CI baseline
 
 Use the runtime and package-manager versions committed to `.node-version` and
-`package.json`. A clean checkout must pass without real Supabase or AWS
-credentials. To reproduce the GitHub Actions build locally without a
-`.env.local`, use the same inert placeholders:
+`package.json`. A clean checkout must pass without real AWS credentials. To
+reproduce the GitHub Actions build locally without a `.env.local`:
 
 ```bash
 pnpm install --frozen-lockfile
-NEXT_PUBLIC_SUPABASE_URL=https://ci.invalid \
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-placeholder \
-  pnpm run ci
+pnpm run ci
 ```
 
 `pnpm run ci` checks repository files for `.env*` files, private keys, and
-high-confidence AWS, GitHub, and privileged Supabase credential formats. It
+high-confidence AWS and GitHub credential formats. It
 then runs ESLint, validates TypeScript, runs cloud-free unit tests, and creates
 the production build. GitHub Actions runs the same sequence for every pull
 request and every push to `main`. It receives read-only repository permission,
 persists no checkout credential, uploads no artifacts, and defines no cloud
-credential or application secret. Only the production-build step receives the
-non-secret `https://ci.invalid` and `ci-placeholder` values; the reserved
-`.invalid` domain cannot resolve to a live Supabase service, and no build
-artifact is published.
+credential or application secret. The production-build step receives only
+inert `.invalid` AWS/Cognito canaries, and no build artifact is published.
 
 The automated secret check is deliberately high confidence. Reviewers must also
 inspect every added or changed configuration, fixture, screenshot, log excerpt,
@@ -104,9 +99,8 @@ interface.
 For every migration PR that changes an admin read, mutation, authentication, or
 storage workflow:
 
-1. Exercise the affected workflow with `ADMIN_DATA_BACKEND=supabase` and again
-   with `ADMIN_DATA_BACKEND=aws` using equivalent non-sensitive test data.
-2. Confirm that both modes use the same route and shared UI component.
+1. Exercise the affected AWS workflow using non-sensitive test data.
+2. Confirm it uses the shared route and UI component.
 3. Compare the visible layout, labels, controls, validation placement, and
    success path. Record any unavoidable platform-specific state separately.
 4. Attach redacted screenshots for both modes when visible UI changed or a new

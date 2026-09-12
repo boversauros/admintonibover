@@ -5,15 +5,10 @@ import {
   setCognitoSessionCookies,
 } from '@/lib/auth/cognito/cookies';
 import { readCognitoSession } from '@/lib/auth/cognito/session';
-import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(): Promise<Response> {
-  if (getAdminDataBackend() !== 'aws') {
-    return Response.json({ error: 'Not found' }, { status: 404 });
-  }
-
   const session = await readCognitoSession();
   if (!session) {
     const response = NextResponse.json(

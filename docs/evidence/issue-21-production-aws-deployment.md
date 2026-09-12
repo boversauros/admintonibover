@@ -8,39 +8,39 @@ ignored by Git.
 
 ## Status
 
-| Gate                               | Result  | Evidence                                                                                                                     |
-| ---------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Latest `main`                      | Pass    | Branch created from the current `origin/main` after fetch                                                                    |
-| Dependency #20                     | Pass    | Closed and merged as PR #43                                                                                                  |
-| AWS CLI                            | Pass    | Version 2.36.40 installed locally                                                                                            |
-| Operator session                   | Pass    | Login renewed 2026-09-11; credentials resolve a 12-digit account and identifiers remain redacted                             |
-| Operator MFA                       | Pass    | Current daily-use operator has one assigned MFA device; identifier remains private                                           |
-| Root-account MFA                   | Pass    | IAM account summary reports account MFA enabled; application Cognito settings do not alter it                                |
-| Region                             | Pass    | Every remote preflight command explicitly used `eu-west-1`; local default is intentionally not trusted                       |
-| Development stack                  | Pass    | `UPDATE_COMPLETE`                                                                                                            |
-| Development stack drift            | Pass    | Fresh 2026-09-10 CloudFormation scan completed `IN_SYNC` with zero drifted resources                                         |
-| Production stack                   | Pass    | Reviewed stack reached terminal `CREATE_COMPLETE` on 2026-09-11 with all 36 resources complete                               |
-| Lambda regional quota              | Pass    | Total/unreserved concurrency are both 10; the approved design uses no reserved/provisioned concurrency                       |
-| Issue/ADR concurrency agreement    | Pass    | Issue #21 was aligned on 2026-09-10: no reservation or VPC, plus HTTP API throttle 2 requests/second with burst 4            |
-| Production IaC synthesis           | Pass    | Separate prod artifact from shared source; 36 approved resources                                                             |
-| Production retention               | Pass    | Protected table/User Pool use `Retain`; bucket uses `RetainExceptOnCreate`; all replacements retain                          |
-| Production deletion protection     | Pass    | DynamoDB and Cognito protection are hard-coded on in the prod artifact                                                       |
-| Production origin contract         | Pass    | Template accepts exact HTTPS origins only; no localhost or wildcard                                                          |
-| Production Vercel origin           | Pass    | Existing repository contract is `https://admin.tonibover.cat`; the public endpoint returned HTTP 200 on 2026-09-10           |
-| Fixed Preview origin               | None    | No fixed Preview origin is approved; ephemeral deployment URLs remain prohibited                                             |
-| Cognito domain prefix              | Pass    | `admintonibover-prod` was rechecked immediately before deployment and claimed by the reviewed stack                          |
-| Development observed usage         | Pass    | Previous 31 days: 459 Lambda invocations, zero errors, and zero throttles                                                    |
-| Official service pricing           | Pass    | Current AWS Lambda, HTTP API, DynamoDB, S3, Cognito, and CloudWatch pricing pages rechecked on 2026-09-10                    |
-| Current AWS cost baseline          | Pass    | September month-to-date estimated unblended cost rounds to USD 0.00                                                          |
-| Account plan, credits, and expiry  | Pass    | Active plan, sufficient remaining credit, and future expiry confirmed privately; exact billing details are not committed     |
-| Monthly estimate and spend ceiling | Pass    | Expected cost is below USD 1/month; maximum accepted monthly spend of USD 1 approved on 2026-09-10                           |
-| Local automated gate               | Pass    | Secrets, dual synthesis/schema lint, lint, typecheck, 157 tests, webpack production build, browser artifacts, and audit pass |
-| Default Turbopack build            | Pass    | GitHub CI `Validate` passed on PR #45                                                                                        |
-| Change set                         | Pass    | Exactly 36 adds, no modify/remove/replacement, and only the approved resource types                                          |
-| Production deployment              | Pass    | Single execution completed from the reviewed commit; staged template object was removed afterward                            |
-| Cognito administrator              | Partial | Exactly one enabled, verified-email administrator awaits the required first-login password change; self-sign-up is blocked   |
-| Vercel/backend guard               | Partial | Supabase rollback is healthy; Production AWS-mode configuration requires correction after a failed read-only smoke test      |
-| Immediate/24-hour billing checks   | Partial | Immediate estimated unblended cost is USD 0.00; delayed 24-hour observation remains pending                                  |
+| Gate                               | Result  | Evidence                                                                                                                      |
+| ---------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Latest `main`                      | Pass    | Branch created from the current `origin/main` after fetch                                                                     |
+| Dependency #20                     | Pass    | Closed and merged as PR #43                                                                                                   |
+| AWS CLI                            | Pass    | Version 2.36.40 installed locally                                                                                             |
+| Operator session                   | Pass    | Login renewed 2026-09-11; credentials resolve a 12-digit account and identifiers remain redacted                              |
+| Operator MFA                       | Pass    | Current daily-use operator has one assigned MFA device; identifier remains private                                            |
+| Root-account MFA                   | Pass    | IAM account summary reports account MFA enabled; application Cognito settings do not alter it                                 |
+| Region                             | Pass    | Every remote preflight command explicitly used `eu-west-1`; local default is intentionally not trusted                        |
+| Development stack                  | Pass    | `UPDATE_COMPLETE`                                                                                                             |
+| Development stack drift            | Pass    | Fresh 2026-09-10 CloudFormation scan completed `IN_SYNC` with zero drifted resources                                          |
+| Production stack                   | Pass    | Reviewed stack reached terminal `CREATE_COMPLETE` on 2026-09-11 with all 36 resources complete                                |
+| Lambda regional quota              | Pass    | Total/unreserved concurrency are both 10; the approved design uses no reserved/provisioned concurrency                        |
+| Issue/ADR concurrency agreement    | Pass    | Issue #21 was aligned on 2026-09-10: no reservation or VPC, plus HTTP API throttle 2 requests/second with burst 4             |
+| Production IaC synthesis           | Pass    | Separate prod artifact from shared source; 36 approved resources                                                              |
+| Production retention               | Pass    | Protected table/User Pool use `Retain`; bucket uses `RetainExceptOnCreate`; all replacements retain                           |
+| Production deletion protection     | Pass    | DynamoDB and Cognito protection are hard-coded on in the prod artifact                                                        |
+| Production origin contract         | Pass    | Template accepts exact HTTPS origins only; no localhost or wildcard                                                           |
+| Production Vercel origin           | Pass    | Existing repository contract is `https://admin.tonibover.cat`; the public endpoint returned HTTP 200 on 2026-09-10            |
+| Fixed Preview origin               | None    | No fixed Preview origin is approved; ephemeral deployment URLs remain prohibited                                              |
+| Cognito domain prefix              | Pass    | `admintonibover-prod` was rechecked immediately before deployment and claimed by the reviewed stack                           |
+| Development observed usage         | Pass    | Previous 31 days: 459 Lambda invocations, zero errors, and zero throttles                                                     |
+| Official service pricing           | Pass    | Current AWS Lambda, HTTP API, DynamoDB, S3, Cognito, and CloudWatch pricing pages rechecked on 2026-09-10                     |
+| Current AWS cost baseline          | Pass    | September month-to-date estimated unblended cost rounds to USD 0.00                                                           |
+| Account plan, credits, and expiry  | Pass    | Active plan, sufficient remaining credit, and future expiry confirmed privately; exact billing details are not committed      |
+| Monthly estimate and spend ceiling | Pass    | Expected cost is below USD 1/month; maximum accepted monthly spend of USD 1 approved on 2026-09-10                            |
+| Local automated gate               | Pass    | Secrets, dual synthesis/schema lint, lint, typecheck, 157 tests, webpack production build, browser artifacts, and audit pass  |
+| Default Turbopack build            | Pass    | GitHub CI `Validate` passed on PR #45                                                                                         |
+| Change set                         | Pass    | Exactly 36 adds, no modify/remove/replacement, and only the approved resource types                                           |
+| Production deployment              | Pass    | Single execution completed from the reviewed commit; staged template object was removed afterward                             |
+| Cognito administrator              | Partial | Exactly one enabled, verified-email administrator awaits the required first-login password change; self-sign-up is blocked    |
+| Vercel/backend guard               | Partial | legacy service rollback is healthy; Production AWS-mode configuration requires correction after a failed read-only smoke test |
+| Immediate/24-hour billing checks   | Partial | Immediate estimated unblended cost is USD 0.00; delayed 24-hour observation remains pending                                   |
 
 ## Preflight observations
 
@@ -67,7 +67,7 @@ per second and burst four.
 For the 31 days ending 2026-09-10, the development Lambda recorded 459
 invocations, zero errors, and zero throttles. The September month-to-date AWS
 estimated unblended cost rounds to USD 0.00. The live admin origin returned an
-enforced Supabase-only CSP and its Cognito login route returned 404, so the
+enforced legacy service-only CSP and its Cognito login route returned 404, so the
 production AWS backend remains off.
 
 Cost Explorer shows a credit currently offsets the month-to-date usage. The
@@ -105,9 +105,9 @@ On 2026-09-11, the operator configured the approved server-only AWS values
 manually in Vercel for Preview and Production. A temporary Production AWS-mode
 smoke test returned a server error before sign-in, indicating that at least one
 required Production value or scope still needs correction. The backend flag
-was immediately restored to Supabase and Production redeployed. A public
-recheck returned HTTP 200 with the enforced Supabase-only CSP, and
-`/auth/login` returned 404. No content mutation, migration, or Supabase write
+was immediately restored to legacy service and Production redeployed. A public
+recheck returned HTTP 200 with the enforced legacy service-only CSP, and
+`/auth/login` returned 404. No content mutation, migration, or legacy service write
 occurred.
 
 ## Pricing recheck
@@ -195,8 +195,8 @@ set is created.
       throttled at 2 requests/second with burst 4; logs retain 14 days.
 - [x] IAM is limited to the exact log group, table, and approved bucket
       prefixes.
-- [x] Production finishes with `ADMIN_DATA_BACKEND=supabase`; Supabase remains
-      untouched and no content/image migration or publication occurs.
+- [x] Production finished this historical deployment stage on the then-active
+      legacy backend; no content/image migration or publication occurred.
 - [x] Staged deployment object and any health fixture are removed exactly.
 - [ ] Immediate and 24-hour cost observations are approved with no unexplained
       continuing service or cost.
@@ -209,14 +209,15 @@ CloudFormation stack. It adds a private, empty data path and one prepared
 administrator but no application content, public S3 access, VPC, fixed
 concurrency, provisioned capacity, or excluded paid service. Existing
 application configuration remains server-only and the live application still
-uses Supabase.
+uses legacy service.
 
 The immediate post-deployment estimated unblended cost is USD 0.00. This is a
 delayed estimate rather than a guarantee; the approved maximum remains USD 1
 per month and the required 24-hour observation is still pending. No Vercel or
-Supabase write has occurred.
+legacy service write has occurred.
 
-Application rollback remains Supabase because the feature flag never moved.
+At this historical checkpoint, application rollback used the then-active legacy
+backend. The later AWS-only amendment supersedes that rollback path.
 Infrastructure teardown follows the separate, deliberate protected-resource
 procedure in the production runbook; routine stack deletion is not an accepted
 rollback for retained data-bearing resources.
@@ -230,7 +231,7 @@ rollback for retained data-bearing resources.
 ## Open discrepancies
 
 - **Vercel Production AWS configuration:** a temporary read-only AWS-mode smoke
-  test on 2026-09-11 returned a server error before sign-in. Supabase rollback
+  test on 2026-09-11 returned a server error before sign-in. legacy service rollback
   restored the live site immediately. Revalidate every required Production
   scope/value, replace the write-only Production session secret, and rerun the
   login/health test without content mutation.

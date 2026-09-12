@@ -16,13 +16,13 @@ const USAGE = `Usage:
   pnpm backup:validate -- --input <backup.json> [--report <report.json>] [--expect-known-baseline]
 
 Options:
-  -i, --input                   User-supplied Supabase JSON backup path
+  -i, --input                   User-supplied legacy JSON backup path
   -r, --report                  Write the deterministic JSON report to this path
       --expect-known-baseline   Require the documented June 2026 counts/anomaly
   -h, --help                    Show this help
 
 The command reads the source twice to prove its SHA-256 and modification time
-remain unchanged. It makes no Supabase, AWS, S3, or other network request.`;
+remain unchanged. It makes no AWS, S3, or other network request.`;
 
 function requireNextArgument(
   argumentsList: string[],

@@ -12,15 +12,10 @@ import {
   isSameOriginMutation,
 } from '@/lib/auth/cognito/http';
 import { revokeRefreshToken } from '@/lib/auth/cognito/oauth';
-import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest): Promise<Response> {
-  if (getAdminDataBackend() !== 'aws') {
-    return Response.json({ error: 'Not found' }, { status: 404 });
-  }
-
   const config = getCognitoConfig();
   if (!isSameOriginMutation(request, config)) {
     return Response.json(

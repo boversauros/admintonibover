@@ -43,7 +43,7 @@ export type PostImage = {
 };
 
 export type PostMigrationMetadata = {
-  source: 'supabase-backup';
+  source: 'legacy-backup';
   runId: string;
 };
 

@@ -14,7 +14,7 @@ function NewReflexionContent() {
   return <PostForm onSuccess={handleSuccess} />;
 }
 
-export function SupabaseNewReflexion() {
+export function NewReflexion() {
   return (
     <AuthGuard fallback={null}>
       <NewReflexionContent />

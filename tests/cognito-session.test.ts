@@ -40,7 +40,6 @@ test('session secret is exactly 32 bytes of unpadded base64url', () => {
 
 test('AWS configuration requires exact same-origin callback and logout paths', () => {
   const names = [
-    'ADMIN_DATA_BACKEND',
     'AWS_ADMIN_API_URL',
     'AWS_COGNITO_CALLBACK_URL',
     'AWS_COGNITO_CLIENT_ID',
@@ -54,7 +53,6 @@ test('AWS configuration requires exact same-origin callback and logout paths', (
     names.map(name => [name, process.env[name]])
   );
   Object.assign(process.env, {
-    ADMIN_DATA_BACKEND: 'aws',
     AWS_ADMIN_API_URL: config.apiUrl,
     AWS_COGNITO_CALLBACK_URL: config.callbackUrl,
     AWS_COGNITO_CLIENT_ID: config.clientId,

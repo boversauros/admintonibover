@@ -13,31 +13,13 @@ interface UserMenuProps {
 }
 
 function getInitials(user: AuthUser): string {
-  const name = user.user_metadata?.name || user.user_metadata?.full_name;
-  if (typeof name === 'string' && name.trim()) {
-    const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    if (parts[0].length >= 2) {
-      return parts[0].slice(0, 2).toUpperCase();
-    }
-    return parts[0][0].toUpperCase();
-  }
-
   if (user.email) {
     const local = user.email.split('@')[0];
     if (local.length >= 2) return local.slice(0, 2).toUpperCase();
     return user.email.charAt(0).toUpperCase();
   }
 
-  return 'U';
-}
-
-function getDisplayName(user: AuthUser): string | null {
-  const name = user.user_metadata?.name || user.user_metadata?.full_name;
-  if (typeof name === 'string' && name.trim()) return name.trim();
-  return null;
+  return user.id.slice(0, 2).toUpperCase() || 'U';
 }
 
 interface MenuItemProps {
@@ -113,7 +95,6 @@ export function UserMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const initials = getInitials(user);
-  const displayName = getDisplayName(user);
   const email = user.email ?? '';
 
   useEffect(() => {
@@ -160,7 +141,7 @@ export function UserMenu({
         onClick={() => setIsOpen(open => !open)}
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        aria-label={`Menú d'usuari de ${displayName ?? email ?? 'usuari'}`}
+        aria-label={`Menú d'usuari de ${email || user.id}`}
         className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-overlay-10 text-sm font-medium text-primary ring-1 transition-all-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-overlay-50 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
           isOpen
             ? 'bg-overlay-20 ring-overlay-40 scale-105'
@@ -185,40 +166,19 @@ export function UserMenu({
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              {displayName ? (
-                <>
-                  <Text
-                    as="span"
-                    variant="small"
-                    className="block truncate text-primary font-medium"
-                  >
-                    {displayName}
-                  </Text>
-                  <Text
-                    as="span"
-                    variant="small"
-                    className="block truncate text-muted text-xs mt-0.5"
-                  >
-                    {email}
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Text
-                    as="span"
-                    variant="label"
-                    className="block text-2xs uppercase text-subtle"
-                  >
-                    Sessió iniciada com a
-                  </Text>
-                  <span
-                    title={email}
-                    className="block truncate text-sm text-primary mt-0.5"
-                  >
-                    {email}
-                  </span>
-                </>
-              )}
+              <Text
+                as="span"
+                variant="label"
+                className="block text-2xs uppercase text-subtle"
+              >
+                Sessió iniciada com a
+              </Text>
+              <span
+                title={email}
+                className="block truncate text-sm text-primary mt-0.5"
+              >
+                {email}
+              </span>
             </div>
           </div>
 

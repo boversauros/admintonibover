@@ -15,7 +15,6 @@ import {
   matchesState,
   verifyCognitoSession,
 } from '@/lib/auth/cognito/oauth';
-import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,9 +30,6 @@ function failedCallback(
 }
 
 export async function GET(request: NextRequest): Promise<Response> {
-  if (getAdminDataBackend() !== 'aws') {
-    return Response.json({ error: 'Not found' }, { status: 404 });
-  }
   const config = getCognitoConfig();
 
   const code = request.nextUrl.searchParams.get('code');

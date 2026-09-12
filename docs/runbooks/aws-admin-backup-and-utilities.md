@@ -9,7 +9,7 @@ rehearsal and the compatibility contract carried by every backup.
 
 ## Backup contract
 
-With `ADMIN_DATA_BACKEND=aws`, the admin menu calls the same-origin
+The admin menu calls the same-origin
 `GET /api/aws/backup` route. The server-held Cognito session calls the protected
 API Gateway `GET /backup` route; the browser receives no AWS credentials or
 Cognito access token.
@@ -38,10 +38,6 @@ credentials, token/secret fields, account identifiers, and AWS signed URLs.
 The browser recomputes the SHA-256 digest and checks the exact environment-based
 filename before creating a local file. A truncated, partial, incorrectly named,
 or invalid response therefore never reaches the download callback.
-
-With `ADMIN_DATA_BACKEND=supabase`, the menu continues to run the existing
-Supabase JSON export. The AWS route rejects the request before any upstream
-call, so the rollback flag cannot accidentally read AWS data.
 
 ## Development restore rehearsal
 
@@ -127,8 +123,8 @@ Use only redacted, fictional data in the development environment:
    and retry with the same key. Confirm original targets publish once, a draft
    created between attempts remains a draft, and the final displayed count is
    reconciled.
-5. Switch the flag to Supabase, restart, and download the legacy backup. Confirm
-   no `/api/aws/backup` or AWS bulk request occurs.
+5. Download a second AWS backup and confirm it validates independently with the
+   expected environment, item count, and digest.
 
 ## Security, cost, and rollback
 
@@ -145,8 +141,8 @@ scan/read/write usage during downloads, reconciliation, and an explicitly
 approved rehearsal. No scheduled backup, S3 archive, queue, or production
 restore is added.
 
-For application rollback, set `ADMIN_DATA_BACKEND=supabase` and redeploy the
-previously reviewed application. This restores the legacy utility path without
-deleting AWS data or resources. Code rollback does not invalidate already
+For application rollback, stop mutations, download and validate an AWS backup,
+then take the admin read-only or offline before deploying the previously
+reviewed application. Code rollback does not invalidate already
 downloaded v2 archives; restore tooling must continue to select behavior from
 the archive schema and compatibility metadata.

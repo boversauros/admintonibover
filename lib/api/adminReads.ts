@@ -1,4 +1,3 @@
-import type { AdminDataBackend } from '@/lib/config/adminBackend';
 import { INITIAL_CATEGORY_CATALOG } from '@/lib/domain/categories/catalog';
 import {
   emptyImageInventoryCounts,
@@ -204,34 +203,6 @@ function awsSummary(post: PostListItem): AdminPostSummary {
   };
 }
 
-function supabaseSummary(post: StoredPost): AdminPostSummary {
-  return {
-    id: post.id,
-    categoryId: post.category_id,
-    categorySlug: post.category_id,
-    sortOrder: post.sort_order,
-    published: post.is_published,
-    date: post.date,
-    author: post.author,
-    updatedAt: post.updated_at,
-    titles: {
-      ca: post.translations.ca.title,
-      en: post.translations.en.title,
-    },
-    excerpts: {
-      ca: post.translations.ca.content,
-      en: post.translations.en.content,
-    },
-    keywords: {
-      ca: [...post.translations.ca.keywords],
-      en: [...post.translations.en.keywords],
-    },
-    ...(post.image_id ? { mainImageKey: post.image_id } : {}),
-    ...(post.thumbnail?.url ? { thumbnailUrl: post.thumbnail.url } : {}),
-    ...(post.thumbnail_id ? { thumbnailKey: post.thumbnail_id } : {}),
-  };
-}
-
 function awsImage(image: PostImage | null): StoredPost['image'] {
   if (!image) return null;
   return {
@@ -297,99 +268,39 @@ export function adaptAwsPost(post: Post): StoredPost {
 }
 
 export async function getAdminPostsPage(
-  backend: AdminDataBackend,
   options: AdminPostListOptions
 ): Promise<AdminPostPage> {
-  if (backend === 'aws') {
-    const query = new URLSearchParams({
-      limit: String(options.limit),
-      direction: options.direction,
-    });
-    if (options.cursor) query.set('cursor', options.cursor);
-    if (options.title) query.set('title', options.title);
-    if (options.published !== undefined) {
-      query.set('published', String(options.published));
-    }
-    if (options.categoryId) query.set('categoryId', options.categoryId);
-    if (options.imageStatus) query.set('imageStatus', options.imageStatus);
-    const response = await requestAwsRead(
-      `/api/aws/posts?${query.toString()}`,
-      parsePostListEnvelope,
-      options.signal
-    );
-    return {
-      items: response.data.items.map(awsSummary),
-      nextCursor: response.data.nextCursor,
-      requestId: response.requestId,
-    };
-  }
-
-  const { getPosts } = await import('./posts');
-  const posts = await getPosts();
-  options.signal?.throwIfAborted();
-  const title = options.title?.trim().toLocaleLowerCase('ca') ?? '';
-  const filtered = posts.filter(post => {
-    const matchesTitle =
-      title.length === 0 ||
-      post.translations.ca.title.toLocaleLowerCase('ca').includes(title) ||
-      post.translations.en.title.toLocaleLowerCase('ca').includes(title);
-    const matchesPublished =
-      options.published === undefined ||
-      post.is_published === options.published;
-    const matchesCategory =
-      options.categoryId === undefined ||
-      post.category_id === options.categoryId;
-    const matchesImages =
-      options.imageStatus === undefined ||
-      imageInventoryStatus({
-        mainImage: post.image_id,
-        thumbImage: post.thumbnail_id,
-      }) === options.imageStatus;
-    return matchesTitle && matchesPublished && matchesCategory && matchesImages;
+  const query = new URLSearchParams({
+    limit: String(options.limit),
+    direction: options.direction,
   });
-  filtered.sort((left, right) =>
-    options.direction === 'descending'
-      ? right.sort_order - left.sort_order
-      : left.sort_order - right.sort_order
+  if (options.cursor) query.set('cursor', options.cursor);
+  if (options.title) query.set('title', options.title);
+  if (options.published !== undefined) {
+    query.set('published', String(options.published));
+  }
+  if (options.categoryId) query.set('categoryId', options.categoryId);
+  if (options.imageStatus) query.set('imageStatus', options.imageStatus);
+  const response = await requestAwsRead(
+    `/api/aws/posts?${query.toString()}`,
+    parsePostListEnvelope,
+    options.signal
   );
-  const offset =
-    options.cursor && /^\d+$/.test(options.cursor) ? Number(options.cursor) : 0;
-  const nextOffset = offset + options.limit;
   return {
-    items: filtered
-      .slice(offset, nextOffset)
-      .map(post => supabaseSummary(post)),
-    nextCursor: nextOffset < filtered.length ? String(nextOffset) : null,
-    totalCount: filtered.length,
-    unpublishedCount: posts.filter(post => !post.is_published).length,
+    items: response.data.items.map(awsSummary),
+    nextCursor: response.data.nextCursor,
+    requestId: response.requestId,
   };
 }
 
 export async function getAdminImageInventory(
-  backend: AdminDataBackend,
   signal?: AbortSignal
 ): Promise<ImageInventoryCounts> {
-  if (backend === 'supabase') {
-    const { getPosts } = await import('./posts');
-    const posts = await getPosts();
-    signal?.throwIfAborted();
-    const counts = emptyImageInventoryCounts();
-    for (const post of posts) {
-      counts[
-        imageInventoryStatus({
-          mainImage: post.image_id,
-          thumbImage: post.thumbnail_id,
-        })
-      ] += 1;
-    }
-    return counts;
-  }
-
   const counts = emptyImageInventoryCounts();
   const seenCursors = new Set<string>();
   let cursor: string | undefined;
   do {
-    const page = await getAdminPostsPage('aws', {
+    const page = await getAdminPostsPage({
       limit: AWS_ADMIN_POST_PAGE_LIMIT,
       cursor,
       direction: 'ascending',
@@ -419,56 +330,37 @@ export async function getAdminImageInventory(
 }
 
 export async function getAdminPostById(
-  backend: AdminDataBackend,
   postId: string,
   signal?: AbortSignal
 ): Promise<StoredPost | null> {
-  if (backend === 'aws') {
-    try {
-      const response = await requestAwsRead(
-        `/api/aws/posts/${encodeURIComponent(postId)}`,
-        parsePostDetailEnvelope,
-        signal
-      );
-      return adaptAwsPost(response.data.post);
-    } catch (error) {
-      if (error instanceof AdminReadError && error.status === 404) return null;
-      throw error;
-    }
+  try {
+    const response = await requestAwsRead(
+      `/api/aws/posts/${encodeURIComponent(postId)}`,
+      parsePostDetailEnvelope,
+      signal
+    );
+    return adaptAwsPost(response.data.post);
+  } catch (error) {
+    if (error instanceof AdminReadError && error.status === 404) return null;
+    throw error;
   }
-  const { getPostById } = await import('./posts');
-  const post = await getPostById(postId);
-  signal?.throwIfAborted();
-  return post;
 }
 
 export async function getAdminCategories(
-  backend: AdminDataBackend,
   signal?: AbortSignal
 ): Promise<AdminCategory[]> {
-  if (backend === 'aws') {
-    const response = await requestAwsRead(
-      '/api/aws/categories',
-      parseCategoriesEnvelope,
-      signal
-    );
-    const categories = response.data.items.map(category => ({
-      id: category.id,
-      slug: category.slug,
-      nameCa: category.names.ca,
-      nameEn: category.names.en,
-    }));
-    return mergeInitialCategories(categories);
-  }
-  const { getCategories } = await import('./categories');
-  const categories = await getCategories();
-  signal?.throwIfAborted();
-  return categories.map(category => ({
-    id: String(category.id),
+  const response = await requestAwsRead(
+    '/api/aws/categories',
+    parseCategoriesEnvelope,
+    signal
+  );
+  const categories = response.data.items.map(category => ({
+    id: category.id,
     slug: category.slug,
-    nameCa: category.name_ca,
-    nameEn: category.name_en,
+    nameCa: category.names.ca,
+    nameEn: category.names.en,
   }));
+  return mergeInitialCategories(categories);
 }
 
 function mergeInitialCategories(
@@ -496,25 +388,18 @@ function mergeInitialCategories(
 }
 
 export async function getAdminKeywords(
-  backend: AdminDataBackend,
   signal?: AbortSignal
 ): Promise<AdminKeywordsByLanguage> {
-  if (backend === 'aws') {
-    const response = await requestAwsRead(
-      '/api/aws/keywords',
-      parseKeywordsEnvelope,
-      signal
-    );
-    return response.data.items.reduce<AdminKeywordsByLanguage>(
-      (keywords, item) => {
-        keywords[item.language].push(item.value);
-        return keywords;
-      },
-      { ca: [], en: [] }
-    );
-  }
-  const { getKeywords } = await import('./keywords');
-  const keywords = await getKeywords();
-  signal?.throwIfAborted();
-  return keywords;
+  const response = await requestAwsRead(
+    '/api/aws/keywords',
+    parseKeywordsEnvelope,
+    signal
+  );
+  return response.data.items.reduce<AdminKeywordsByLanguage>(
+    (keywords, item) => {
+      keywords[item.language].push(item.value);
+      return keywords;
+    },
+    { ca: [], en: [] }
+  );
 }

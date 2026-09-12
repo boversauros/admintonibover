@@ -3,7 +3,6 @@ import { connection } from 'next/server';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { getCognitoConfig } from '@/lib/auth/cognito/config';
 import { readCognitoSession } from '@/lib/auth/cognito/session';
-import { getAdminDataBackend } from '@/lib/config/adminBackend';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -19,18 +18,12 @@ export default async function RootLayout({
   await connection();
 
   const currentYear = new Date().getFullYear();
-  const backend = getAdminDataBackend();
-  const cognitoSession =
-    backend === 'aws' ? await readCognitoSession(getCognitoConfig()) : null;
+  const cognitoSession = await readCognitoSession(getCognitoConfig());
 
   return (
     <html lang="en">
       <body className="min-h-screen bg-background text-primary font-sans antialiased flex flex-col">
-        <AuthProvider
-          backend={backend}
-          initialUser={cognitoSession?.user ?? null}
-          initialExpiresAt={cognitoSession?.accessExpiresAt}
-        >
+        <AuthProvider initialUser={cognitoSession?.user ?? null}>
           {children}
         </AuthProvider>
 

@@ -8,7 +8,6 @@ import {
 } from '@/lib/auth/cognito/cookies';
 import { isJsonRequest, isSameOriginMutation } from '@/lib/auth/cognito/http';
 import { readCognitoSession } from '@/lib/auth/cognito/session';
-import { getAdminDataBackend } from '@/lib/config/adminBackend';
 
 export const MAX_PROXY_BODY_BYTES = 256 * 1024;
 const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
@@ -87,9 +86,6 @@ export async function proxyAwsAdminApi(
   const requestId = correlationId(request);
   const isMutation = method !== 'GET';
   const hasJsonBody = method === 'POST' || method === 'PUT';
-  if (getAdminDataBackend() !== 'aws') {
-    return jsonError(404, 'NOT_FOUND', 'Route not found', requestId);
-  }
   const config = getCognitoConfig();
   if (isMutation && !isSameOriginMutation(request, config)) {
     return jsonError(

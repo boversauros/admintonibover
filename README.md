@@ -1,23 +1,22 @@
 # Admin Toni Bover
 
-Personal blog administration system for managing posts, translations, and content.
+Personal blog administration system for managing multilingual content on AWS.
 
-## Tech Stack
+## Tech stack
 
-- **Next.js 16** with App Router
-- **React 19**
-- **TypeScript**
-- **Tailwind CSS v4**
-- **Supabase** (database & authentication)
-- **React Hook Form** for form management
+- Next.js 16 with App Router
+- React 19 and TypeScript
+- Tailwind CSS v4
+- AWS Cognito, API Gateway, Lambda, DynamoDB, and private S3
+- React Hook Form
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
 - Node.js 24.18.0 (see `.node-version`)
 - pnpm 11.0.9 (pinned in `package.json`)
-- A Supabase account and project
+- Access to the development AWS stack outputs
 
 ### Installation
 
@@ -27,90 +26,55 @@ Personal blog administration system for managing posts, translations, and conten
 pnpm install
 ```
 
-2. Set up environment variables:
+2. Copy `.env.example` to `.env.local` and replace the placeholders with the
+   non-secret development stack outputs. Generate a different
+   `AWS_COGNITO_SESSION_SECRET` for each environment and keep it server-only.
 
-Create a `.env.local` file in the root directory:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
-
-The Supabase adapter remains the default. The issue #9 AWS tracer is an
-explicit, server-controlled development mode:
-
-```env
-ADMIN_DATA_BACKEND=aws
-ADMIN_CSP_MODE=enforce
-AWS_ADMIN_API_URL=stack-output-api-url
-AWS_COGNITO_CLIENT_ID=stack-output-client-id
-AWS_COGNITO_ISSUER=stack-output-user-pool-issuer
-AWS_COGNITO_LOGIN_URL=stack-output-login-url
-AWS_COGNITO_CALLBACK_URL=http://localhost:3000/auth/callback
-AWS_COGNITO_LOGOUT_URL=http://localhost:3000/
-AWS_COGNITO_SESSION_SECRET=base64url-encoded-32-byte-random-value
-AWS_CONTENT_BUCKET_ORIGIN=https://<BucketName>.s3.eu-west-1.amazonaws.com
-```
-
-Use only the non-secret outputs from the named development stack. Never commit
-the real values, generated names, presigned URLs, or Cognito tokens. The bucket
-origin is a CSP allowlist origin, not a public bucket URL; it must use the exact
-regional S3 API origin with no trailing path or wildcard. The deployment,
-fixture, and integration procedures are in the runbooks below.
-The session secret is the only secret in this block: generate a different value
-for each environment, keep it server-only, and never prefix it with
-`NEXT_PUBLIC_`. See the Cognito admin-session runbook for generation, callback,
-preview, Vercel, and rollback procedures.
-
-3. Set up the database:
-
-Follow the instructions in `SUPABASE_SETUP.md` to run the migrations and configure your Supabase project.
-
-4. Start the development server:
+3. Start the development server:
 
 ```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000).
 
-## Available Scripts
+The S3 value is a strict CSP allowlist origin, not a public bucket URL. Use the
+exact regional S3 origin without a trailing path or wildcard. Never commit real
+environment values, generated resource names, presigned URLs, or Cognito
+tokens.
 
-- `pnpm dev` - Start development server with Turbopack
-- `pnpm build` - Build for production
-- `pnpm start` - Start production server
-- `pnpm lint` - Run ESLint
-- `pnpm typecheck` - Validate TypeScript without emitting files
-- `pnpm test` - Run cloud-free unit tests
-- `pnpm check:secrets` - Reject repository `.env*` files and high-confidence
-  AWS, GitHub, and privileged Supabase credentials
-- `pnpm check:browser-artifacts` - Reject source maps, server-only environment
+## Available scripts
+
+- `pnpm dev` — start the development server with Turbopack
+- `pnpm build` — create the production build
+- `pnpm start` — run the production server
+- `pnpm lint` — run ESLint
+- `pnpm typecheck` — validate TypeScript without emitting files
+- `pnpm test` — run cloud-free unit tests
+- `pnpm check:secrets` — reject repository environment files and supported
+  high-confidence credential formats
+- `pnpm check:browser-artifacts` — reject source maps, server-only environment
   names, refresh-token markers, and configured secret canaries in `.next`
-- `pnpm audit:dependencies` - Fail on high-severity production dependency
-  advisories
-- `pnpm lambda:build` - Bundle the deployable foundation Lambda into the
-  generated infrastructure artifact
-- `pnpm lambda:validate` - Confirm the committed Lambda bundle is current
-- `pnpm backup:validate -- --input <path>` - Validate a Supabase JSON backup
-  offline without modifying it or contacting a cloud service
-- `pnpm migration:run -- --input <path> --input-sha256 <sha256> --manifest <path>` -
-  Dry-run the offline JSON-to-DynamoDB migration
-- `pnpm infra:synth` - Generate the reviewable development CloudFormation
-  template without contacting AWS
-- `pnpm infra:synth -- --environment prod` - Generate the isolated production
-  template from the same infrastructure source
-- `pnpm infra:validate` - Validate both approved resource inventories and
-  confirm both committed CloudFormation syntheses are current
-- `pnpm run ci` - Run the complete local validation suite
-- `pnpm format` - Format code with Prettier
-- `pnpm format:check` - Check code formatting
+- `pnpm audit:dependencies` — fail on high-severity production advisories
+- `pnpm lambda:build` — build the deployable Lambda bundle
+- `pnpm lambda:validate` — confirm the committed Lambda bundle is current
+- `pnpm backup:validate -- --input <path>` — validate a legacy JSON content
+  backup offline
+- `pnpm migration:run -- --input <path> --input-sha256 <sha256> --manifest <path>` —
+  dry-run or execute the one-way JSON-to-DynamoDB migration
+- `pnpm infra:synth` — generate the development CloudFormation template
+- `pnpm infra:synth -- --environment prod` — generate the production template
+- `pnpm infra:validate` — validate both infrastructure inventories
+- `pnpm run ci` — run the complete local validation suite
+- `pnpm format` / `pnpm format:check` — write or check Prettier formatting
 
-## Project Structure
+## Project structure
 
-- `app/` - Next.js app router pages and routes
-- `components/` - React components (auth, forms, posts, UI)
-- `lib/` - Utilities, API clients, types, and validation
-- `supabase/migrations/` - Database migration files
+- `app/` — Next.js pages and route handlers
+- `components/` — React components for auth, forms, posts, and UI
+- `lib/` — domain logic, AWS adapters, authentication, and validation
+- `infra/` — isolated development and production AWS infrastructure
+- `scripts/` — validation, migration, and infrastructure utilities
 
 ## Architecture and operations
 
@@ -120,23 +84,23 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [AWS production foundation](docs/runbooks/aws-production-foundation.md)
 - [Single Cognito administrator](docs/runbooks/cognito-single-administrator.md)
 - [Secure Cognito admin session](docs/runbooks/cognito-admin-session.md)
-- [Authenticated DynamoDB read tracer](docs/runbooks/authenticated-read-tracer.md)
-- [DynamoDB post repository boundary](docs/runbooks/dynamodb-post-repository.md)
+- [Authenticated DynamoDB reads](docs/runbooks/authenticated-read-tracer.md)
+- [DynamoDB post repository](docs/runbooks/dynamodb-post-repository.md)
 - [Private S3 image repair](docs/runbooks/s3-presigned-image-repair.md)
 - [AWS admin post mutations](docs/runbooks/aws-admin-post-mutations.md)
-- [AWS admin backup and utility parity](docs/runbooks/aws-admin-backup-and-utilities.md)
-- [Admin web security and AWS cutover](docs/runbooks/admin-web-security.md)
+- [AWS admin backup and utilities](docs/runbooks/aws-admin-backup-and-utilities.md)
+- [Admin web security](docs/runbooks/admin-web-security.md)
 - [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
-- [Offline Supabase backup validation](docs/runbooks/backup-validation.md)
+- [Offline backup validation](docs/runbooks/backup-validation.md)
 - [Offline JSON-to-DynamoDB migration](docs/runbooks/json-dynamodb-migration.md)
 - [Development migration rehearsal](docs/runbooks/development-migration-rehearsal.md)
+- [Production content cutover](docs/runbooks/production-content-cutover.md)
 
 ## Features
 
-- Authentication with Supabase Auth
-- Post management with multi-language support (Catalan/English)
-- Category organization
-- Keyword tagging
-- Image upload and management
-- Publication status control
-- Search and filtering
+- Cognito authentication for one private administrator
+- Multilingual post management in Catalan and English
+- Category organization and keyword tagging
+- Private image upload and replacement
+- Publication controls, search, and filtering
+- Validated backup download and one-way legacy content migration

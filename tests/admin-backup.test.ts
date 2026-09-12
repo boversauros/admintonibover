@@ -5,12 +5,7 @@ import {
   createDynamoDbBackup,
   backupFilename,
 } from '../lib/aws/admin-api/backup';
-import {
-  BACKUP_TABLE_ORDER,
-  BackupDownloadError,
-  downloadBackupAsJson,
-  type Backup,
-} from '../lib/api/backup';
+import { BackupDownloadError, downloadBackupAsJson } from '../lib/api/backup';
 import type { DynamoItem } from '../lib/aws/dynamodb/port';
 
 const EXPORTED_AT = '2026-08-12T10:00:00.000Z';
@@ -65,7 +60,7 @@ function backupResponse(value: unknown): Response {
 test('AWS backup is validated before the browser save receives it', async () => {
   const backup = fixtureBackup();
   const saves: Array<{ json: string; filename: string }> = [];
-  const result = await downloadBackupAsJson('aws', {
+  const result = await downloadBackupAsJson({
     fetchImplementation: async () => backupResponse(backup),
     save: (json, filename) => saves.push({ json, filename }),
   });
@@ -80,48 +75,11 @@ test('AWS backup is validated before the browser save receives it', async () => 
   assert.deepEqual(JSON.parse(saves[0].json), backup);
 });
 
-test('Supabase rollback mode keeps the legacy backup path without an AWS request', async () => {
-  const tables = {} as Backup['tables'];
-  for (const table of BACKUP_TABLE_ORDER) tables[table] = [];
-  tables.languages.push({ id: 'ca', code: 'ca' });
-  const rowCounts = {} as Backup['manifest']['row_counts'];
-  for (const table of BACKUP_TABLE_ORDER) {
-    rowCounts[table] = tables[table].length;
-  }
-  const backup: Backup = {
-    manifest: {
-      version: 1,
-      exported_at: EXPORTED_AT,
-      source_project_url: 'https://ci.invalid',
-      schema_migration: '012_add_length_constraints.sql',
-      row_counts: rowCounts,
-    },
-    tables,
-  };
-  let awsRequests = 0;
-  const saves: Array<{ json: string; filename: string }> = [];
-
-  const result = await downloadBackupAsJson('supabase', {
-    fetchImplementation: async () => {
-      awsRequests += 1;
-      return new Response();
-    },
-    exportSupabaseBackup: async () => backup,
-    save: (json, filename) => saves.push({ json, filename }),
-  });
-
-  assert.equal(awsRequests, 0);
-  assert.equal(result.environment, 'supabase');
-  assert.equal(result.itemCount, 1);
-  assert.match(result.filename, /^tonibover-backup-[0-9T-]+\.json$/);
-  assert.deepEqual(JSON.parse(saves[0].json), backup);
-});
-
 test('truncated and checksum-invalid AWS backups never reach the save callback', async t => {
   await t.test('truncated JSON', async () => {
     let saves = 0;
     await assert.rejects(
-      downloadBackupAsJson('aws', {
+      downloadBackupAsJson({
         fetchImplementation: async () =>
           new Response('{"schema":', {
             headers: {
@@ -145,7 +103,7 @@ test('truncated and checksum-invalid AWS backups never reach the save callback',
     corrupted.items[1].version = 99;
     let saves = 0;
     await assert.rejects(
-      downloadBackupAsJson('aws', {
+      downloadBackupAsJson({
         fetchImplementation: async () => backupResponse(corrupted),
         save: () => {
           saves += 1;
@@ -166,7 +124,7 @@ test('secret fields and signed URLs fail the downloadable archive contract', asy
   });
   let saves = 0;
   await assert.rejects(
-    downloadBackupAsJson('aws', {
+    downloadBackupAsJson({
       fetchImplementation: async () => backupResponse(contaminated),
       save: () => {
         saves += 1;
@@ -182,7 +140,7 @@ test('a mismatched environment filename is rejected before download', async () =
   const backup = fixtureBackup();
   let saves = 0;
   await assert.rejects(
-    downloadBackupAsJson('aws', {
+    downloadBackupAsJson({
       fetchImplementation: async () =>
         new Response(JSON.stringify(backup), {
           headers: {

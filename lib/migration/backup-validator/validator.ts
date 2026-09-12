@@ -96,11 +96,22 @@ const ISO_TIMESTAMP_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SUPABASE_URL_PATTERN =
-  /\b(?:https?:\/\/)?[a-z0-9-]+\.supabase\.(?:co|in)(?:[/:?#]|$)/i;
-
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function containsSourceProjectHost(
+  value: string,
+  sourceProjectUrl: string
+): boolean {
+  try {
+    const hostname = new URL(sourceProjectUrl).hostname.toLocaleLowerCase('en');
+    return (
+      hostname.length > 0 && value.toLocaleLowerCase('en').includes(hostname)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function addIssue(context: ValidationContext, issue: ValidationIssue): void {
@@ -780,6 +791,7 @@ function parseManifest(
     return {
       version: 0,
       exportedAt: '',
+      sourceProjectUrl: '',
       schemaMigration: '',
       rowCounts,
     };
@@ -867,6 +879,10 @@ function parseManifest(
   return {
     version: version === 1 ? 1 : 0,
     exportedAt: exportedAt ?? '',
+    sourceProjectUrl:
+      typeof value.source_project_url === 'string'
+        ? value.source_project_url
+        : '',
     schemaMigration: schemaMigration ?? '',
     rowCounts,
   };
@@ -1051,7 +1067,7 @@ function validateRelationships(
   translationById: Map<string, PostTranslationRow>;
   keywordById: Map<string, KeywordRow>;
   incompleteTranslations: IncompleteTranslation[];
-  embeddedSupabaseUrlCount: number;
+  embeddedLegacyServiceUrlCount: number;
 } {
   validateUniqueIds(context, backup.languages, 'languages');
   validateUniqueIds(context, backup.categories, 'categories');
@@ -1213,7 +1229,7 @@ function validateRelationships(
   const postLanguages = new Map<string, Set<LanguageCode>>();
   const incompleteTranslations: IncompleteTranslation[] = [];
   const normalizedSlugOwners = new Map<string, PostTranslationRow>();
-  let embeddedSupabaseUrlCount = 0;
+  let embeddedLegacyServiceUrlCount = 0;
 
   for (const [rowIndex, row] of backup.postTranslations.entries()) {
     const language = languageById.get(row.languageId);
@@ -1263,12 +1279,14 @@ function validateRelationships(
       });
     }
 
-    if (SUPABASE_URL_PATTERN.test(row.content)) {
-      embeddedSupabaseUrlCount += 1;
+    if (
+      containsSourceProjectHost(row.content, backup.manifest.sourceProjectUrl)
+    ) {
+      embeddedLegacyServiceUrlCount += 1;
       addIssue(context, {
         severity: 'error',
-        code: 'EMBEDDED_SUPABASE_URL',
-        message: 'Translation content contains a Supabase URL',
+        code: 'EMBEDDED_LEGACY_SERVICE_URL',
+        message: 'Translation content contains a retired service URL',
         table: 'post_translations',
         rowIndex,
         recordId: row.id,
@@ -1396,14 +1414,21 @@ function validateRelationships(
       });
     }
     if (
-      SUPABASE_URL_PATTERN.test(row.reference) ||
-      (row.blockquote !== null && SUPABASE_URL_PATTERN.test(row.blockquote))
+      containsSourceProjectHost(
+        row.reference,
+        backup.manifest.sourceProjectUrl
+      ) ||
+      (row.blockquote !== null &&
+        containsSourceProjectHost(
+          row.blockquote,
+          backup.manifest.sourceProjectUrl
+        ))
     ) {
-      embeddedSupabaseUrlCount += 1;
+      embeddedLegacyServiceUrlCount += 1;
       addIssue(context, {
         severity: 'error',
-        code: 'EMBEDDED_SUPABASE_URL',
-        message: 'Reference content contains a Supabase URL',
+        code: 'EMBEDDED_LEGACY_SERVICE_URL',
+        message: 'Reference content contains a retired service URL',
         table: 'post_references',
         rowIndex,
         recordId: row.id,
@@ -1422,7 +1447,7 @@ function validateRelationships(
         idCompare(left.postId, right.postId) ||
         left.language.localeCompare(right.language)
     ),
-    embeddedSupabaseUrlCount,
+    embeddedLegacyServiceUrlCount,
   };
 }
 
@@ -1554,7 +1579,7 @@ function projectPosts(
       thumbImage: null,
       version: 1,
       migration: {
-        source: 'supabase-backup',
+        source: 'legacy-backup',
         runId,
       },
     };
@@ -1672,7 +1697,7 @@ function knownBaseline(
   options: ValidationOptions,
   backup: ParsedBackup,
   incompleteTranslations: IncompleteTranslation[],
-  embeddedSupabaseUrlCount: number,
+  embeddedLegacyServiceUrlCount: number,
   projectedPostCount: number
 ): ValidationReport['knownBaseline'] {
   const post64En = incompleteTranslations.find(
@@ -1700,7 +1725,11 @@ function knownBaseline(
       true,
       post64AnomalyMatches
     ),
-    baselineCheck('embedded_supabase_urls', 0, embeddedSupabaseUrlCount),
+    baselineCheck(
+      'embedded_legacy_service_urls',
+      0,
+      embeddedLegacyServiceUrlCount
+    ),
     baselineCheck('projected_null_main_images', 100, projectedPostCount),
     baselineCheck('projected_null_thumbnail_images', 100, projectedPostCount),
   ];
@@ -1761,7 +1790,7 @@ export function validateAndProjectBackupDocument(
     options,
     backup,
     relations.incompleteTranslations,
-    relations.embeddedSupabaseUrlCount,
+    relations.embeddedLegacyServiceUrlCount,
     projected.length
   );
 
@@ -1790,7 +1819,7 @@ export function validateAndProjectBackupDocument(
       draftPostCount: backup.posts.filter(post => !post.published).length,
       publishedPostCount: backup.posts.filter(post => post.published).length,
       incompleteTranslations: relations.incompleteTranslations,
-      embeddedSupabaseUrlCount: relations.embeddedSupabaseUrlCount,
+      embeddedLegacyServiceUrlCount: relations.embeddedLegacyServiceUrlCount,
       sourceMainImageLinkCount,
       sourceThumbnailImageLinkCount,
       projectedNullMainImageCount: projected.length,

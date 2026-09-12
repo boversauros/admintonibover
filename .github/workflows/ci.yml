@@ -77,10 +77,7 @@ jobs:
         env:
           # Inert, non-secret canaries exercise the production AWS boundary.
           # The artifact step must prove none are copied into browser output.
-          ADMIN_DATA_BACKEND: aws
           ADMIN_CSP_MODE: enforce
-          NEXT_PUBLIC_SUPABASE_URL: https://ci.invalid
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
           AWS_ADMIN_API_URL: https://api.example.invalid
           AWS_ACCESS_KEY_ID: browser-audit-access-key
           AWS_COGNITO_CALLBACK_URL: https://admin.example.invalid/auth/callback
@@ -92,7 +89,6 @@ jobs:
           AWS_CONTENT_BUCKET_ORIGIN: https://private-content.s3.eu-west-1.amazonaws.com
           AWS_SECRET_ACCESS_KEY: browser-audit-secret-access-key
           AWS_SESSION_TOKEN: browser-audit-session-token
-          SUPABASE_SERVICE_ROLE_KEY: browser-audit-service-role
           BROWSER_AUDIT_REFRESH_TOKEN: browser-audit-refresh-token
         run: pnpm build
 
@@ -102,7 +98,6 @@ jobs:
           AWS_SECRET_ACCESS_KEY: browser-audit-secret-access-key
           AWS_SESSION_TOKEN: browser-audit-session-token
           AWS_COGNITO_SESSION_SECRET: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-          SUPABASE_SERVICE_ROLE_KEY: browser-audit-service-role
           BROWSER_AUDIT_REFRESH_TOKEN: browser-audit-refresh-token
         run: pnpm check:browser-artifacts
 

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -20,34 +20,7 @@ const secretDetectors = [
         text
       ),
   },
-  {
-    name: 'Supabase secret key',
-    test: text => /\bsb_secret_[A-Za-z0-9_-]{20,}\b/.test(text),
-  },
-  {
-    name: 'Supabase service-role key',
-    test: containsSupabaseServiceRoleJwt,
-  },
 ];
-
-function containsSupabaseServiceRoleJwt(text) {
-  const jwtPattern = /\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
-
-  for (const match of text.matchAll(jwtPattern)) {
-    try {
-      const payload = JSON.parse(
-        Buffer.from(match[0].split('.')[1], 'base64url').toString('utf8')
-      );
-      if (payload.role === 'service_role') {
-        return true;
-      }
-    } catch {
-      // Malformed JWT-like text is not a Supabase service-role key.
-    }
-  }
-
-  return false;
-}
 
 export function findSecretReasons(text) {
   return secretDetectors
@@ -74,6 +47,7 @@ function run() {
   const violations = [];
 
   for (const file of repositoryFiles) {
+    if (!existsSync(file)) continue;
     if (isEnvironmentFile(file)) {
       violations.push({ file, reason: 'repository .env file' });
     }

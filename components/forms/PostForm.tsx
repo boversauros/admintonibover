@@ -15,10 +15,9 @@ import {
   type SubmitErrorHandler,
 } from 'react-hook-form';
 import { Button, Select, Input, Modal, Text } from '@/components/ui';
-import { useAuth } from '@/lib/auth/AuthContext';
 import { useKeywords } from '@/lib/hooks/useKeywords';
 import { PostFormData, StoredPost, Language } from '@/lib/types/post';
-import { slugify, generateUniqueSlug } from '@/lib/utils/slugify';
+import { slugify } from '@/lib/utils/slugify';
 import {
   AdminMutationError,
   buildAwsPost,
@@ -96,7 +95,6 @@ export function PostForm({
   onSuccess,
   readOnly = false,
 }: PostFormProps) {
-  const { backend } = useAuth();
   const {
     keywords,
     isLoading: areKeywordsLoading,
@@ -127,9 +125,6 @@ export function PostForm({
   );
   const [existingMainImageUrl, setExistingMainImageUrl] = useState<string>(
     initialData?.image?.url || ''
-  );
-  const [existingMainImageAlt, setExistingMainImageAlt] = useState<string>(
-    initialData?.image?.alt || ''
   );
   const [awsMainImage, setAwsMainImage] = useState<ImagePreview | null>(() =>
     initialData?.aws_post?.mainImage
@@ -162,10 +157,7 @@ export function PostForm({
     async function loadCategories() {
       try {
         setCategoryError(null);
-        const fetchedCategories = await getAdminCategories(
-          backend,
-          controller.signal
-        );
+        const fetchedCategories = await getAdminCategories(controller.signal);
         setCategories(fetchedCategories);
         if (fetchedCategories.length === 0) {
           setCategoryError(
@@ -183,7 +175,7 @@ export function PostForm({
     }
     void loadCategories();
     return () => controller.abort();
-  }, [backend, categoryRetry]);
+  }, [categoryRetry]);
 
   const applyAwsInspection = useCallback(
     (inspection: Awaited<ReturnType<typeof getAwsMediaInspection>>) => {
@@ -193,7 +185,6 @@ export function PostForm({
       setAwsThumbnailImage(thumb);
       setExistingMainImageId(main?.image.key ?? null);
       setExistingMainImageUrl(main?.previewUrl ?? '');
-      setExistingMainImageAlt(main?.image.alt ?? '');
       setExistingThumbnailId(thumb?.image.key ?? null);
       setExistingThumbnailUrl(thumb?.previewUrl ?? '');
       setSavedAwsPost(current =>
@@ -211,13 +202,13 @@ export function PostForm({
   );
 
   const refreshAwsMedia = useCallback(async () => {
-    if (backend !== 'aws' || !activeAwsPostId) return;
+    if (!activeAwsPostId) return;
     const inspection = await getAwsMediaInspection(activeAwsPostId);
     applyAwsInspection(inspection);
-  }, [activeAwsPostId, applyAwsInspection, backend]);
+  }, [activeAwsPostId, applyAwsInspection]);
 
   useEffect(() => {
-    if (backend !== 'aws' || !activeAwsPostId) return;
+    if (!activeAwsPostId) return;
     const controller = new AbortController();
     void getAwsMediaInspection(activeAwsPostId, controller.signal)
       .then(applyAwsInspection)
@@ -230,11 +221,11 @@ export function PostForm({
         );
       });
     return () => controller.abort();
-  }, [activeAwsPostId, applyAwsInspection, backend]);
+  }, [activeAwsPostId, applyAwsInspection]);
 
   const methods = useForm<PostFormData, PostFormValidationContext>({
     resolver: postFormResolver,
-    context: { requireCompleteTranslations: backend === 'aws' },
+    context: { requireCompleteTranslations: true },
     defaultValues: initialData
       ? {
           category_id: initialData.category_id,
@@ -310,14 +301,14 @@ export function PostForm({
   useEffect(() => {
     if (initialData || readOnly) return;
     const controller = new AbortController();
-    void countAdminPosts(backend, controller.signal)
+    void countAdminPosts(controller.signal)
       .then(count => setValue('sort_order', count + 1))
       .catch(error => {
         if (error instanceof Error && error.name === 'AbortError') return;
         setSubmissionError('No s’ha pogut calcular l’ordre inicial.');
       });
     return () => controller.abort();
-  }, [backend, initialData, readOnly, setValue]);
+  }, [initialData, readOnly, setValue]);
 
   // Auto-generate slugs from titles
   const [titleCA, titleEN, slugCA, slugEN, isPublished] = useWatch({
@@ -404,84 +395,6 @@ export function PostForm({
     };
   }
 
-  async function submitSupabase(data: PostFormData): Promise<void> {
-    const now = new Date().toISOString();
-    const isEditMode = !!initialData;
-    const [{ savePost, getExistingSlugs }, imageApi] = await Promise.all([
-      import('@/lib/api/posts'),
-      import('@/lib/api/images'),
-    ]);
-    let thumbnailId = existingThumbnailId;
-    let newThumbnailUrl = existingThumbnailUrl;
-    const postTitle =
-      data.translations.ca.title || data.translations.en.title || 'post';
-    const thumbnailAlt = `Miniatura per a ${postTitle}`;
-
-    if (data.thumbnail_file) {
-      const uploadedThumbnail = await imageApi.uploadAndCreateImage(
-        data.thumbnail_file,
-        'post-thumbnails',
-        'Post Thumbnail',
-        thumbnailAlt
-      );
-      thumbnailId = uploadedThumbnail.id;
-      newThumbnailUrl = uploadedThumbnail.url;
-      if (existingThumbnailId && existingThumbnailUrl) {
-        await imageApi.deleteImageCompletely(
-          existingThumbnailId,
-          existingThumbnailUrl,
-          'post-thumbnails'
-        );
-      }
-    } else if (existingThumbnailId) {
-      const existingThumbnailAlt = initialData?.thumbnail?.alt || '';
-      if (thumbnailAlt !== existingThumbnailAlt) {
-        await imageApi.updateImageRecord(existingThumbnailId, thumbnailAlt);
-      }
-    }
-
-    let mainImageId = existingMainImageId;
-    let newMainImageUrl = existingMainImageUrl;
-    const mainImageAlt = data.main_image_alt || '';
-    if (data.main_image_file) {
-      const uploadedMainImage = await imageApi.uploadAndCreateImage(
-        data.main_image_file,
-        'post-images',
-        'Post Main Image',
-        mainImageAlt
-      );
-      mainImageId = uploadedMainImage.id;
-      newMainImageUrl = uploadedMainImage.url;
-      if (existingMainImageId && existingMainImageUrl) {
-        await imageApi.deleteImageCompletely(
-          existingMainImageId,
-          existingMainImageUrl,
-          'post-images'
-        );
-      }
-    } else if (existingMainImageId && mainImageAlt !== existingMainImageAlt) {
-      await imageApi.updateImageRecord(existingMainImageId, mainImageAlt);
-    }
-
-    const [existingSlugsCA, existingSlugsEN] = await Promise.all([
-      getExistingSlugs('ca', isEditMode ? initialData.id : undefined),
-      getExistingSlugs('en', isEditMode ? initialData.id : undefined),
-    ]);
-    const storedPost = formStoredPost(data, initialData, now, {
-      ca: generateUniqueSlug(data.translations.ca.slug, existingSlugsCA),
-      en: generateUniqueSlug(data.translations.en.slug, existingSlugsEN),
-    });
-    storedPost.thumbnail_id = thumbnailId;
-    storedPost.image_id = mainImageId;
-    await savePost(storedPost);
-
-    setExistingThumbnailId(thumbnailId);
-    setExistingThumbnailUrl(newThumbnailUrl);
-    setExistingMainImageId(mainImageId);
-    setExistingMainImageUrl(newMainImageUrl);
-    setExistingMainImageAlt(mainImageAlt);
-  }
-
   async function submitAws(data: PostFormData): Promise<void> {
     const now = new Date().toISOString();
     const current = savedAwsPost ?? initialData?.aws_post;
@@ -563,7 +476,6 @@ export function PostForm({
       setSavedAwsPost(canonical);
       setExistingMainImageId(confirmed.image.image.key);
       setExistingMainImageUrl(confirmed.image.previewUrl ?? '');
-      setExistingMainImageAlt(confirmed.image.image.alt);
       setValue('main_image_file', null);
     }
 
@@ -611,11 +523,7 @@ export function PostForm({
     setConflict(null);
     setRecoveryCopied(false);
     try {
-      if (backend === 'aws') {
-        await submitAws(data);
-      } else {
-        await submitSupabase(data);
-      }
+      await submitAws(data);
       onSuccess?.();
     } catch (error) {
       if (error instanceof AdminMutationError && error.status === 409) {
@@ -701,7 +609,6 @@ export function PostForm({
       setAwsMainImage(change.image);
       setExistingMainImageId(nextImage?.key ?? null);
       setExistingMainImageUrl(change.image?.previewUrl ?? '');
-      setExistingMainImageAlt(nextImage?.alt ?? '');
     } else {
       setAwsThumbnailImage(change.image);
       setExistingThumbnailId(nextImage?.key ?? null);
@@ -869,7 +776,7 @@ export function PostForm({
                 />
 
                 {/* Featured Image */}
-                {backend === 'aws' && savedAwsPost && activeAwsPostId ? (
+                {savedAwsPost && activeAwsPostId ? (
                   <AwsImageSlot
                     activeRole={activeImageRole}
                     alt={mainImageAlt || ''}
@@ -903,7 +810,7 @@ export function PostForm({
                   label="Text alternatiu de la imatge destacada"
                   placeholder="Descriu la imatge per a l'accessibilitat"
                   helperText={
-                    backend === 'aws' && existingMainImageId
+                    existingMainImageId
                       ? 'Per canviar aquest text a AWS, selecciona també una imatge de substitució.'
                       : undefined
                   }
@@ -911,7 +818,7 @@ export function PostForm({
                 />
 
                 {/* Thumbnail */}
-                {backend === 'aws' && savedAwsPost && activeAwsPostId ? (
+                {savedAwsPost && activeAwsPostId ? (
                   <AwsImageSlot
                     activeRole={activeImageRole}
                     alt={`Miniatura per a ${titleCA || titleEN || 'post'}`}

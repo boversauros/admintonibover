@@ -4,7 +4,7 @@ Issue: [#12](https://github.com/boversauros/admintonibover/issues/12)
 
 This runbook covers the development Lambda and HTTP API admin surface. The
 routes reuse the issue #10 post repository and issue #11 media service; they do
-not import Supabase or trigger a Vercel/Astro deployment.
+not trigger a Vercel/Astro deployment.
 
 ## Route contract
 
@@ -121,9 +121,9 @@ operations. No queue, stream, new table, new bucket, provisioned concurrency,
 or recurring resource is added. The existing stage throttle remains two
 requests/second with a burst of four.
 
-For application rollback, switch `ADMIN_DATA_BACKEND` back to `supabase`, then
-deploy the previously reviewed CloudFormation template. Inspect the change set:
-it must remove only issue #12 routes and reverse Lambda/IAM/CORS changes without
+For application rollback, stop admin mutations, export an AWS backup, and take
+the admin read-only or offline before reverting code. Inspect any infrastructure
+change set: it must reverse only the intended Lambda/IAM/CORS change without
 replacing or deleting the table or bucket. Do not roll back by deleting data.
 Taxonomy/idempotency items are schema-versioned and may safely remain; expired
 idempotency items are removed by the existing TTL configuration.

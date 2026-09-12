@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { NextRequest } from 'next/server';
 
 import {
   AdminMutationError,
@@ -17,7 +16,6 @@ import {
 } from '../lib/api/adminMutations';
 import type { Post } from '../lib/domain/posts/types';
 import type { StoredPost } from '../lib/types/post';
-import { proxyAwsAdminApi } from '../lib/aws/admin-api-proxy';
 
 const NOW = '2026-08-22T10:00:00.000Z';
 
@@ -70,7 +68,7 @@ function postFixture(): Post {
     },
     thumbImage: null,
     version: 7,
-    migration: { source: 'supabase-backup', runId: 'migration-1' },
+    migration: { source: 'legacy-backup', runId: 'migration-1' },
   };
 }
 
@@ -237,7 +235,6 @@ test('updates forward the optimistic version and surface a typed conflict withou
 
 test('AWS delete and bulk publication preserve exact result counts', async () => {
   const deleteResult = await deleteAdminPost(
-    'aws',
     { id: 'post-1', version: 7 },
     'post-delete:fixed-key',
     async (_input, init) => {
@@ -262,7 +259,6 @@ test('AWS delete and bulk publication preserve exact result counts', async () =>
   assert.equal(deleteResult.cleanup.pending, false);
 
   const bulk = await publishAllAdminPosts(
-    'aws',
     100,
     'posts-publish-all:fixed-key',
     async (_input, init) => {
@@ -291,7 +287,7 @@ test('bulk publication confirmation matches only the displayed exact count', () 
 
 test('AWS bulk publication reports a stale confirmation count clearly', async () => {
   await assert.rejects(
-    publishAllAdminPosts('aws', 2, 'posts-publish-all:stale-count', async () =>
+    publishAllAdminPosts(2, 'posts-publish-all:stale-count', async () =>
       Response.json(
         {
           version: 1,
@@ -351,8 +347,8 @@ test('AWS count helpers paginate exact list and draft counts without credentials
   };
 
   try {
-    assert.equal(await countAdminPosts('aws'), 2);
-    assert.equal(await countDraftPosts('aws'), 2);
+    assert.equal(await countAdminPosts(), 2);
+    assert.equal(await countDraftPosts(), 2);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -370,44 +366,6 @@ test('AWS count helpers paginate exact list and draft counts without credentials
     paths.filter(path => path.includes('published=false')).length,
     2
   );
-});
-
-test('Supabase rollback flag rejects AWS utility proxies before any upstream request', async () => {
-  const originalBackend = process.env.ADMIN_DATA_BACKEND;
-  const originalFetch = globalThis.fetch;
-  let upstreamRequests = 0;
-  process.env.ADMIN_DATA_BACKEND = 'supabase';
-  globalThis.fetch = async () => {
-    upstreamRequests += 1;
-    return new Response();
-  };
-
-  try {
-    const request = new NextRequest('http://localhost/api/aws/posts', {
-      method: 'POST',
-      body: '{}',
-      headers: {
-        'content-type': 'application/json',
-        origin: 'http://localhost',
-      },
-    });
-    const response = await proxyAwsAdminApi(request, 'posts', 'POST');
-    assert.equal(response.status, 404);
-    const backupResponse = await proxyAwsAdminApi(
-      new NextRequest('http://localhost/api/aws/backup'),
-      'backup',
-      'GET'
-    );
-    assert.equal(backupResponse.status, 404);
-    assert.equal(upstreamRequests, 0);
-  } finally {
-    if (originalBackend === undefined) {
-      delete process.env.ADMIN_DATA_BACKEND;
-    } else {
-      process.env.ADMIN_DATA_BACKEND = originalBackend;
-    }
-    globalThis.fetch = originalFetch;
-  }
 });
 
 test('image replacement presigns, uploads, and confirms in order without a frontend delete', async () => {

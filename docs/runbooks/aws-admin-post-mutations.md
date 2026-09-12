@@ -5,19 +5,15 @@ existing authenticated development API. It covers post create, update, delete,
 publication, bulk-publication confirmation, and private image replacement.
 
 The change adds no AWS resource, IAM permission, database schema, bucket rule,
-or environment variable. The existing `ADMIN_DATA_BACKEND` flag must select
-exactly one adapter for every request; the application must never dual-write.
+or environment variable. Every request uses the single authenticated AWS path.
 
 ## Automated baseline
 
-Use the pinned Node.js and pnpm versions. The full suite is cloud-free and uses
-only inert Supabase placeholders:
+Use the pinned Node.js and pnpm versions. The full suite is cloud-free:
 
 ```bash
 pnpm install --frozen-lockfile
-NEXT_PUBLIC_SUPABASE_URL=https://ci.invalid \
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-placeholder \
-  pnpm run ci
+pnpm run ci
 ```
 
 The issue-specific tests must prove that:
@@ -29,16 +25,15 @@ The issue-specific tests must prove that:
 - transient retries reuse one idempotency key;
 - stale versions return a typed conflict without retrying the write;
 - exact draft counts paginate without credentials in the browser;
-- the Supabase rollback flag rejects AWS mutation proxy calls before upstream
-  access; and
+- missing or invalid AWS sessions fail before upstream access; and
 - image replacement follows presign, private upload, then confirmation, with no
   frontend image deletion.
 
 ## Open the AWS admin safely
 
 Use the existing ignored environment configuration documented in the README.
-Set `ADMIN_DATA_BACKEND=aws`, restart the application, and sign in through the
-existing Cognito flow. Do not paste environment values, tokens, generated
+Restart the application and sign in through the existing Cognito flow. Do not
+paste environment values, tokens, generated
 resource names, account details, or presigned URLs into an issue, PR, log, or
 screenshot.
 
@@ -81,15 +76,9 @@ Use only a new fictional post for destructive checks.
 
 ## Rollback isolation
 
-Set `ADMIN_DATA_BACKEND=supabase`, restart or redeploy, and repeat one
-non-production Supabase create/edit/delete cycle. Verify there are no browser
-AWS mutation requests and no corresponding AWS API/Lambda/DynamoDB mutation
-events. Switch back to `aws` and verify the same operation does not create or
-change a Supabase row.
-
-Rollback requires no data copy or resource deletion. Keep the AWS data in
-place, select the Supabase adapter, and deploy the previously reviewed
-application version if code rollback is also required.
+Rollback requires no data copy or resource deletion. Stop mutations, preserve
+and validate an AWS backup, keep the AWS data in place, and deploy the previously
+reviewed application version while the admin is read-only or offline.
 
 ## Security, cost, and PR evidence
 

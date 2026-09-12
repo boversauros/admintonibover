@@ -36,8 +36,7 @@ synthesizes a standard JSON template and validates the approved inventory
 offline.
 
 This stack is only the protected development shell. It does not create the
-administrator, migrate content, connect the Next.js UI, upload images, or
-modify Supabase.
+administrator, migrate content, connect the Next.js UI, or upload images.
 
 ## Stop conditions
 
@@ -132,9 +131,7 @@ python3 -m venv .artifacts/cfn-lint
   --requirement infra/requirements.txt
 .artifacts/cfn-lint/bin/cfn-lint \
   infra/generated/dev-foundation.template.json
-NEXT_PUBLIC_SUPABASE_URL=https://ci.invalid \
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=ci-placeholder \
-  pnpm run ci
+pnpm run ci
 ```
 
 Regenerate the deployable template and confirm it is current:

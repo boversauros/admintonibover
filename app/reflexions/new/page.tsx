@@ -1,5 +1,5 @@
-import { SupabaseNewReflexion } from '@/components/admin/SupabaseNewReflexion';
+import { NewReflexion } from '@/components/admin/NewReflexion';
 
 export default function NewReflexionPage() {
-  return <SupabaseNewReflexion />;
+  return <NewReflexion />;
 }

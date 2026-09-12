@@ -94,7 +94,7 @@ export type ValidationReport = {
     draftPostCount: number;
     publishedPostCount: number;
     incompleteTranslations: IncompleteTranslation[];
-    embeddedSupabaseUrlCount: number;
+    embeddedLegacyServiceUrlCount: number;
     sourceMainImageLinkCount: number;
     sourceThumbnailImageLinkCount: number;
     projectedNullMainImageCount: number;
@@ -185,6 +185,7 @@ export type ParsedBackup = {
   manifest: {
     version: number;
     exportedAt: string;
+    sourceProjectUrl: string;
     schemaMigration: string;
     rowCounts: Record<BackupTableName, number>;
   };
@@ -245,7 +246,7 @@ export type PostAggregate = {
   thumbImage: null;
   version: 1;
   migration: {
-    source: 'supabase-backup';
+    source: 'legacy-backup';
     runId: string;
   };
 };

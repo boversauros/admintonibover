@@ -23,7 +23,7 @@ and migration manifests remain private and ignored by Git.
 | Admin UI                             | Pass   | Operator confirms the local AWS admin works; exact missing-image inventory verified    |
 | Immediate cost observation           | Pass   | Operator reports no additional cost; delayed observation is a non-blocking follow-up   |
 
-No production access, Supabase write, S3 upload, or publication has occurred.
+No production access, legacy service write, S3 upload, or publication has occurred.
 The only pre-import writes were the approved exact fixture cleanup and revision
 increment in the development stack.
 
@@ -177,7 +177,7 @@ completed valid verification with zero discrepancies.
 ## Security and cost
 
 - [x] All writes were limited to the confirmed development table.
-- [x] No production resource, Supabase write, S3 upload, or publication occurred.
+- [x] No production resource, legacy service write, S3 upload, or publication occurred.
 - [x] Operator reports no additional cost detected after the rehearsal.
 
 Delayed AWS metrics or billing observations are a non-blocking operator
@@ -187,7 +187,7 @@ operator will report it and a dedicated issue will track any required action.
 Security impact: this documentation adds no permission, credential, public
 endpoint, resource, or data path. The completed rehearsal used the existing
 server-mediated Cognito admin boundary and direct, confirmed DynamoDB migration
-tool. Supabase remains unmodified and the browser receives no AWS credential or
+tool. legacy service remains unmodified and the browser receives no AWS credential or
 Cognito bearer token.
 
 Expected monthly cost impact: USD 0 fixed monthly delta. The bounded rehearsal
@@ -199,9 +199,9 @@ or new resource was created.
 Rollback: before an accepted AWS admin mutation, use the migration runner's
 exact run-scoped rollback. It deletes only unchanged records owned by the run
 and leaves unrelated records intact. It never deletes the shared table or
-stack. After the final accepted re-import, application rollback remains
-`ADMIN_DATA_BACKEND=supabase`; do not run the migration rollback after imported
-content has been changed through the AWS admin.
+stack. At rehearsal time the application still had a legacy rollback path; the
+AWS-only amendment now supersedes that path. Do not run migration rollback after
+imported content has been changed through the AWS admin.
 
 ## Discrepancies
 

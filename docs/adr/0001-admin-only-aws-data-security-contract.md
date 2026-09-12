@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-25
-- Amended: 2026-08-27 (admin UI continuity contract)
+- Amended: 2026-09-11 (AWS-only runtime and rollback contract)
 - Decision owner: project owner
 - Related issues:
   [#2](https://github.com/boversauros/admintonibover/issues/2),
@@ -15,10 +15,10 @@ separately approved amendment.
 
 ## Context
 
-The current Next.js administration application stores authentication, posts,
-translations, taxonomy, keywords, references, and image metadata in Supabase.
-The migration replaces the admin runtime with a small AWS serverless backend
-without changing the public site.
+The original Next.js administration application stored authentication, posts,
+translations, taxonomy, keywords, references, and image metadata in a retired
+managed service. The administration runtime now uses a small AWS serverless
+backend without changing the public site.
 
 The known source backup contains 100 posts, 200 translations, 3 categories, 94
 keywords, 1,321 references, and image metadata without image binaries. This is a
@@ -42,23 +42,21 @@ recoverability, security, and a low idle cost rather than for unneeded scale.
 
 ### Admin UI continuity contract
 
-The Supabase-to-AWS migration changes the administration application's
-authentication, data, and storage adapters. It is not an admin redesign. The
-accepted end state must preserve the same administration UI before and after
-`ADMIN_DATA_BACKEND` changes from `supabase` to `aws`.
+The migration changed the administration application's authentication, data,
+and storage boundary. It was not an admin redesign. The accepted AWS-only state
+preserves the established administration UI.
 
 In particular:
 
-- both backends use the same Next.js routes and shared list, create, and edit
-  components;
+- the Next.js routes share list, create, and edit components;
 - the information architecture, page layout, field labels, controls, and normal
-  content-management workflows remain equivalent across the backend switch;
+  content-management workflows remain stable;
 - an AWS-specific duplicate or replacement of the administration UI is not
   permitted as part of this migration;
 - a visual or interaction redesign requires a separate issue, explicit product
   approval, and its own acceptance evidence; and
-- legacy component names containing `Supabase` may be renamed during cleanup,
-  but such a rename does not authorize a visual or workflow change.
+- provider-specific component names are removed during cleanup, but that rename
+  does not authorize a visual or workflow change.
 
 Backend-specific behavior is allowed only where the platform boundary requires
 it, including Cognito sign-in, optimistic-conflict recovery, retry and
@@ -75,17 +73,15 @@ diagnostic route, before the migration is considered complete.
 
 There are three runtime environments:
 
-| Environment    | Backend behavior                                                                                                                                             | AWS isolation                                                                      |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| Local          | Uses the Supabase adapter by default until its AWS adapter is explicitly selected for development testing. Tests use fakes and require no cloud credentials. | No local AWS application resources. Explicit opt-in may target only the dev stack. |
-| Dev AWS        | Uses the dev Cognito, HTTP API, Lambda, table, bucket, and exact local/dev admin origins.                                                                    | Separate dev resource names and data. Safe teardown is documented.                 |
-| Production AWS | Is deployed and verified while the application flag still selects Supabase. It becomes active only at the approved cutover.                                  | Separate production resources, data, origins, and deletion protection.             |
+| Environment    | Backend behavior                                                                        | AWS isolation                                                          |
+| -------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Local          | Uses cloud-free fakes for tests; explicit development runs target only the dev stack.   | No local AWS application resources.                                    |
+| Dev AWS        | Uses dev Cognito, HTTP API, Lambda, table, bucket, and exact local/dev origins.         | Separate dev resource names and data; safe teardown is documented.     |
+| Production AWS | Uses production Cognito, HTTP API, Lambda, table, bucket, and exact production origins. | Separate production resources, data, origins, and deletion protection. |
 
-One server-only feature flag, `ADMIN_DATA_BACKEND=supabase|aws`, selects the
-complete auth/data/storage adapter. It must not mix writes between backends.
-Public code may receive non-secret identifiers such as the API URL, User Pool
-ID, and app-client ID, but the backend flag and session configuration remain
-server controlled.
+There is no runtime backend selector or dormant second adapter. Public code may
+receive only non-secret identifiers required by rendered policy. Session
+configuration remains server controlled.
 
 Infrastructure as code is the source of truth. The framework selected in issue
 #7 must synthesize a reviewable CloudFormation change set. Console-created
@@ -122,7 +118,7 @@ All supported resources receive the tags from the
   wrong issuer, audience/client ID, `token_use`, or administrator claim as
   defense in depth.
 - The single administrator is authorization state, not post ownership. The
-  legacy Supabase `user_id` is not copied into each aggregate.
+  legacy `user_id` is not copied into each aggregate.
 
 ### HTTP API and Lambda
 
@@ -236,7 +232,7 @@ A representative aggregate has this logical shape:
   "thumbImage": null,
   "version": 1,
   "migration": {
-    "source": "supabase-backup",
+    "source": "legacy-backup",
     "runId": "<migration-run-id>"
   }
 }
@@ -388,7 +384,7 @@ The single environment bucket is private:
 - incomplete/unconfirmed temporary uploads expire through a lifecycle rule; and
 - backup objects use a bounded retention rule documented by the backup issue.
 
-Migration does not contact Supabase Storage and does not download an image.
+Migration does not contact retired object storage and does not download an image.
 Every imported post has `mainImage=null` and `thumbImage=null`.
 
 For upload, Lambda validates the post ID, role (`main|thumb`), allowlisted MIME
@@ -416,25 +412,20 @@ origin, public ACL, or public bucket policy.
 
 ## Migration, cutover, and rollback
 
-1. Validate and hash the source backup without contacting Supabase or AWS.
+1. Validate and hash the source backup without contacting a cloud service.
 2. Dry-run the transformation, including every field mapping, slug lock,
    incomplete-translation warning, size estimate, segment, count, and content
    hash.
 3. Import idempotently into an empty dev table, reconcile, and exercise the dev
    admin.
-4. Deploy the same reviewed IaC to production with
-   `ADMIN_DATA_BACKEND=supabase`.
-5. Freeze Supabase writes, take/approve the final source backup, import it, and
-   reconcile before enabling AWS reads.
-6. Before the first AWS mutation, rollback is a feature-flag change to Supabase
-   because both sources remain at the same frozen checkpoint.
+4. Deploy the same reviewed IaC to production without importing content.
+5. Approve the final immutable source backup, import it, and reconcile before
+   enabling admin mutations.
+6. Before the first AWS mutation, rollback takes the admin offline or read-only,
+   preserves the imported table, and reverts or repairs application code.
 7. Record the first accepted AWS mutation as the source-of-truth timestamp.
-   After it, never restore Supabase writes by flag alone. Make the AWS admin
-   read-only, export and verify an AWS backup, repair/restore AWS, or run a
-   separately approved AWS-to-Supabase reconciliation before changing the
-   backend.
-8. Keep Supabase intact for the accepted rollback window. Retirement is a
-   separate, explicit destructive action.
+   After it, make the AWS admin read-only, export and verify an AWS backup, and
+   repair or restore AWS through a separately reviewed procedure.
 
 No dual write is implemented. A partially completed import is rolled back only
 by the migration run ID and exact target confirmation; it never uses a
@@ -546,7 +537,7 @@ Implementation issues must prove:
 - stale versions never overwrite newer content;
 - every current field round-trips or is reported as deferred;
 - inline and segmented posts stay below the 350 KiB guard;
-- migrated image keys are null and no migration S3/Supabase download occurs;
+- migrated image keys are null and no migration object download occurs;
 - list and backup pagination have no duplicates or omissions;
 - presigned upload negative cases and commit-before-delete ordering hold; and
 - actual AWS resources and costs match this ADR and the account guardrails.
