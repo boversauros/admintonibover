@@ -61,6 +61,7 @@ jobs:
       - name: Validate CloudFormation schema
         run: >-
           cfn-lint
+          infra/backup-recovery-disposable-table.template.json
           infra/generated/dev-foundation.template.json
           infra/generated/prod-foundation.template.json
 
