@@ -59,16 +59,86 @@ string sort key `SK`:
 4. Confirm the destination table exists in the intended development account,
    has only the `PK`/`SK` string key schema, and returns zero items from a
    strongly consistent scan. Stop if it is not empty.
-5. Using a reviewed one-off recovery tool, marshal each JSON item with the AWS
-   SDK document client and write bounded batches of at most 25 items. Retry only
-   `UnprocessedItems` with backoff. Never delete, replace, or merge destination
-   records to make the import succeed.
+5. Use `pnpm backup:restore` to marshal each JSON item with the AWS SDK document
+   client and write bounded batches of at most 25 items. The command retries
+   only `UnprocessedItems` with bounded backoff. Never delete, replace, or merge
+   destination records to make the import succeed.
 6. Strongly scan every destination page. Sort by `PK` then `SK`, recompute the
    digest and counts, and compare all manifest values. Read one post aggregate
    and its summary through the repository boundary before considering the
    rehearsal successful.
 7. Delete the isolated rehearsal table only through its reviewed infrastructure
    change. Keep the original archive according to the recovery retention policy.
+
+The legacy `pnpm migration:run` command consumes the retired relational backup
+format and must not be used with a v2 AWS backup.
+
+### Recovery command
+
+First validate and hash the archive without AWS access. Keep both output files
+private; `.artifacts/` and downloaded backup filenames are ignored by Git.
+
+```bash
+pnpm backup:restore -- \
+  --input /absolute/private/path/admintonibover-aws-backup-prod-<timestamp>.json \
+  --manifest .artifacts/issue-23-backup-validation-private.json
+```
+
+Create one stack from
+`infra/backup-recovery-disposable-table.template.json`. Its run ID must match
+`^issue-23-[a-z0-9-]{8,40}$`; use the same value for the stack parameter, stack
+tag, table tag, restore command, evidence, and cleanup. Before restore, require
+that the stack has exactly one `AWS::DynamoDB::Table` resource and that its
+status is `CREATE_COMPLETE`.
+
+```bash
+aws cloudformation create-stack \
+  --region eu-west-1 \
+  --stack-name <unique-disposable-stack-name> \
+  --template-body file://infra/backup-recovery-disposable-table.template.json \
+  --parameters \
+    ParameterKey=PurposeConfirmation,ParameterValue=ISSUE-23-BACKUP-RESTORE \
+    ParameterKey=RecoveryRunId,ParameterValue=<issue-23-run-id> \
+  --tags \
+    Key=Project,Value=admintonibover \
+    Key=Environment,Value=dev \
+    Key=Purpose,Value=ISSUE-23-BACKUP-RESTORE \
+    Key=RecoveryRunId,Value=<issue-23-run-id> \
+  --on-failure DELETE
+
+aws cloudformation wait stack-create-complete \
+  --region eu-west-1 \
+  --stack-name <unique-disposable-stack-name>
+```
+
+Resolve the generated table name and current 12-digit account ID privately.
+The restore command independently checks the table ARN, account, Region,
+`ACTIVE` status, string `PK`/`SK` schema, on-demand billing, disabled deletion
+protection, project/development/purpose tags, exact run tag, and an empty
+strongly consistent scan. It hard-refuses production-looking table names.
+
+```bash
+pnpm backup:restore -- \
+  --execute \
+  --input /absolute/private/path/admintonibover-aws-backup-prod-<timestamp>.json \
+  --manifest .artifacts/issue-23-recovery-private.json \
+  --run-id <issue-23-run-id> \
+  --account-id <12-digit-account-id> \
+  --region eu-west-1 \
+  --table <generated-disposable-table-name> \
+  --confirmation "RESTORE <issue-23-run-id> <account-id>/eu-west-1/<table-name> <manifest-items-sha256>"
+```
+
+Require `status: completed`, exact item and per-entity counts, equal revisions,
+equal canonical source/target digests, zero missing/mismatched/extra items, and
+successful representative aggregate and list reads. If any check fails, do not
+retry against another table or edit the archive; retain the failed private
+manifest and delete only the same run-bound disposable stack.
+
+After evidence is accepted, re-read the stack parameters, tags, and sole table
+resource. Delete the exact stack, wait for `stack-delete-complete`, and confirm
+both stack and table return not-found. Never issue item-level deletes against a
+shared table as rehearsal cleanup.
 
 The archive excludes transient idempotency and upload-intent records by design,
 so a successful readback equals `manifest.itemCount`, not the raw source-table
@@ -106,7 +176,9 @@ The issue-specific tests cover multi-page uniqueness, schema/digest checks,
 transient-record exclusion, secret/signed-URL rejection, truncated download
 rejection, filename/environment binding, exact typed confirmation, stale-count
 rejection before writes, partial-failure retry, completed replay, reconciliation
-reads, and generated infrastructure configuration.
+reads, run-bound recovery target checks, empty-table enforcement, unprocessed
+item retry, exact restore reconciliation, and generated infrastructure
+configuration.
 
 ## Manual acceptance
 
