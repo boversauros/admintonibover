@@ -179,7 +179,7 @@ export function validateFoundationTemplate(
             'Fn::Equals': [{ Ref: 'GuardrailsEvidenceConfirmed' }, 'CONFIRMED'],
           },
           AssertDescription:
-            'Recheck the private account, identity, billing, Region, and resource-baseline evidence from issue #3 before deploying.',
+            'Recheck the private account, identity, billing, Region, and resource baseline before deploying.',
         },
       ],
     },

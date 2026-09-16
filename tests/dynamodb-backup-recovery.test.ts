@@ -26,7 +26,7 @@ const target: RecoveryTarget = {
   accountId: '123456789012',
   region: 'eu-west-1',
   tableName: 'admintonibover-recovery-table',
-  runId: 'issue-23-20260915-a1b2c3d4',
+  runId: 'recovery-20260915-a1b2c3d4',
 };
 
 function backup() {
@@ -183,7 +183,7 @@ test('target verification binds ARN, schema, billing, deletion mode, and run tag
 
   await assert.doesNotReject(verifyRecoveryTarget(target, client));
   await assert.rejects(
-    verifyRecoveryTarget({ ...target, runId: 'issue-23-wrong-run-id' }, client),
+    verifyRecoveryTarget({ ...target, runId: 'recovery-wrong-run-id' }, client),
     /tags/
   );
 });

@@ -63,208 +63,6 @@ export const EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN = `^${HTTPS_PRODUCTION_ADMIN_
 export const EXACT_PRODUCTION_CALLBACK_URL_PATTERN = `^${HTTPS_PRODUCTION_ADMIN_ORIGIN}/auth/callback$`;
 export const EXACT_PRODUCTION_LOGOUT_URL_PATTERN = `^${HTTPS_PRODUCTION_ADMIN_ORIGIN}/$`;
 
-export const LEGACY_FOUNDATION_LAMBDA_CODE = String.raw`'use strict';
-
-const {
-  DynamoDBClient,
-  GetItemCommand,
-} = require('@aws-sdk/client-dynamodb');
-
-const dynamodb = new DynamoDBClient({});
-const API_VERSION = 1;
-const POST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
-const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
-
-function claimContains(value, expected) {
-  if (Array.isArray(value)) return value.includes(expected);
-  return String(value ?? '').split(' ').includes(expected);
-}
-
-function getRequestId(event) {
-  const supplied =
-    event?.headers?.['x-correlation-id'] ??
-    event?.headers?.['X-Correlation-Id'];
-
-  if (
-    typeof supplied === 'string' &&
-    CORRELATION_ID_PATTERN.test(supplied)
-  ) {
-    return supplied;
-  }
-
-  return event?.requestContext?.requestId ?? 'unknown';
-}
-
-function jsonResponse(statusCode, body, requestId) {
-  return {
-    statusCode,
-    headers: {
-      'cache-control': 'no-store',
-      'content-type': 'application/json',
-      'x-correlation-id': requestId,
-    },
-    body: JSON.stringify({
-      version: API_VERSION,
-      ...body,
-      requestId,
-    }),
-  };
-}
-
-function errorResponse(statusCode, code, message, requestId) {
-  return jsonResponse(
-    statusCode,
-    { error: { code, message } },
-    requestId
-  );
-}
-
-function readString(attribute) {
-  return attribute && typeof attribute.S === 'string' ? attribute.S : null;
-}
-
-function readMap(attribute) {
-  return attribute && attribute.M && typeof attribute.M === 'object'
-    ? attribute.M
-    : null;
-}
-
-function projectTracerPost(item) {
-  const id = readString(item?.id);
-  const translations = readMap(item?.translations);
-  const catalan = readMap(translations?.ca);
-  const english = readMap(translations?.en);
-  const title = readString(catalan?.title) ?? readString(english?.title);
-  const migration = readMap(item?.migration);
-  const source = readString(migration?.source);
-  const status = readString(migration?.status);
-
-  if (!id || !title || !source || !status) {
-    const error = new Error('DynamoDB post does not match the tracer contract');
-    error.name = 'InvalidTracerPost';
-    throw error;
-  }
-
-  return {
-    id,
-    title,
-    migration: { source, status },
-  };
-}
-
-async function getPostById(id) {
-  const key = 'POST#' + id;
-  const result = await dynamodb.send(
-    new GetItemCommand({
-      TableName: process.env.CONTENT_TABLE_NAME,
-      Key: {
-        PK: { S: key },
-        SK: { S: key },
-      },
-      ConsistentRead: true,
-    })
-  );
-
-  return result.Item ? projectTracerPost(result.Item) : null;
-}
-
-exports.handler = async event => {
-  const requestId = getRequestId(event);
-  const claims = event?.requestContext?.authorizer?.jwt?.claims ?? {};
-  const clientId = claims.client_id ?? claims.aud;
-  const authorized =
-    claims.iss === process.env.EXPECTED_ISSUER &&
-    clientId === process.env.EXPECTED_CLIENT_ID &&
-    claims.token_use === 'access' &&
-    typeof claims.sub === 'string' &&
-    claims.sub.length > 0 &&
-    claimContains(claims.scope, process.env.REQUIRED_ADMIN_SCOPE);
-
-  if (!authorized) {
-    console.warn(
-      JSON.stringify({
-        level: 'WARN',
-        message: 'authorization_claims_rejected',
-        requestId,
-      })
-    );
-    return errorResponse(403, 'FORBIDDEN', 'Access denied', requestId);
-  }
-
-  const routeKey = event?.routeKey ?? '';
-
-  if (routeKey === 'GET /health') {
-    console.info(
-      JSON.stringify({
-        level: 'INFO',
-        message: 'foundation_request_authorized',
-        requestId,
-        routeKey,
-      })
-    );
-    return jsonResponse(200, { data: { status: 'ok' } }, requestId);
-  }
-
-  if (routeKey !== 'GET /posts/{id}') {
-    return errorResponse(404, 'NOT_FOUND', 'Route not found', requestId);
-  }
-
-  const postId = event?.pathParameters?.id;
-  if (typeof postId !== 'string' || !POST_ID_PATTERN.test(postId)) {
-    return errorResponse(
-      400,
-      'BAD_REQUEST',
-      'Post ID is malformed',
-      requestId
-    );
-  }
-
-  try {
-    const post = await getPostById(postId);
-    if (!post) {
-      console.info(
-        JSON.stringify({
-          level: 'INFO',
-          message: 'post_not_found',
-          requestId,
-          routeKey,
-          postId,
-        })
-      );
-      return errorResponse(404, 'NOT_FOUND', 'Post not found', requestId);
-    }
-
-    console.info(
-      JSON.stringify({
-        level: 'INFO',
-        message: 'post_read_succeeded',
-        requestId,
-        routeKey,
-        postId,
-      })
-    );
-    return jsonResponse(200, { data: post }, requestId);
-  } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'ERROR',
-        message: 'post_read_failed',
-        requestId,
-        routeKey,
-        postId,
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      })
-    );
-    return errorResponse(
-      500,
-      'INTERNAL_ERROR',
-      'The post could not be loaded',
-      requestId
-    );
-  }
-};
-`;
-
 export const FOUNDATION_LAMBDA_CODE = readFileSync(
   new URL('./generated/foundation-lambda.cjs', import.meta.url),
   'utf8'
@@ -310,23 +108,10 @@ export function createFoundationTemplate(
 
   return {
     AWSTemplateFormatVersion: '2010-09-09',
-    Description: `Cost-safe AWS ${environmentLabel} foundation and authenticated admin API for the admintonibover migration.`,
+    Description: `Cost-safe AWS ${environmentLabel} foundation and authenticated admin API for admintonibover.`,
     Metadata: {
-      Issue: isProduction
-        ? 'https://github.com/boversauros/admintonibover/issues/21'
-        : 'https://github.com/boversauros/admintonibover/issues/7',
-      MediaRepairIssue:
-        'https://github.com/boversauros/admintonibover/issues/11',
-      AdminApiIssue: 'https://github.com/boversauros/admintonibover/issues/12',
-      AdminWebSecurityIssue:
-        'https://github.com/boversauros/admintonibover/issues/18',
-      ArchitectureDecision:
-        'docs/adr/0001-admin-only-aws-data-security-contract.md',
-      Runbook: isProduction
-        ? 'docs/runbooks/aws-production-foundation.md'
-        : 'docs/runbooks/aws-development-foundation.md',
-      AdminApiRunbook: 'docs/runbooks/authenticated-admin-api.md',
-      AdminWebSecurityRunbook: 'docs/runbooks/admin-web-security.md',
+      Architecture: 'docs/architecture.md',
+      Operations: 'docs/operations.md',
       'AWS::CloudFormation::Interface': {
         ParameterGroups: [
           {
@@ -350,7 +135,7 @@ export function createFoundationTemplate(
         ],
         ParameterLabels: {
           GuardrailsEvidenceConfirmed: {
-            default: 'Issue #3 evidence rechecked',
+            default: 'Account guardrails rechecked',
           },
           ...(isProduction
             ? {}
@@ -367,7 +152,7 @@ export function createFoundationTemplate(
         Type: 'String',
         AllowedValues: ['CONFIRMED'],
         Description:
-          'Required acknowledgement that the private issue #3 account, identity, billing, Region, and resource-baseline evidence was rechecked immediately before this change set.',
+          'Required acknowledgement that the private account, identity, billing, Region, and resource baseline were rechecked immediately before this change set.',
       },
       Environment: {
         Type: 'String',
@@ -431,7 +216,7 @@ export function createFoundationTemplate(
               ],
             },
             AssertDescription:
-              'Recheck the private account, identity, billing, Region, and resource-baseline evidence from issue #3 before deploying.',
+              'Recheck the private account, identity, billing, Region, and resource baseline before deploying.',
           },
         ],
       },

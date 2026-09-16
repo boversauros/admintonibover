@@ -1,15 +1,15 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "Issue 23 disposable development DynamoDB table for a backup recovery rehearsal.",
+  "Description": "Disposable development DynamoDB table for an AWS backup recovery rehearsal.",
   "Parameters": {
     "PurposeConfirmation": {
       "Type": "String",
-      "AllowedValues": ["ISSUE-23-BACKUP-RESTORE"],
+      "AllowedValues": ["AWS-BACKUP-RESTORE"],
       "Description": "Explicit confirmation that this stack is disposable and development-only."
     },
     "RecoveryRunId": {
       "Type": "String",
-      "AllowedPattern": "^issue-23-[a-z0-9-]{8,40}$",
+      "AllowedPattern": "^recovery-[a-z0-9-]{8,40}$",
       "Description": "Unique run identifier used to bind restore and cleanup operations."
     }
   },
