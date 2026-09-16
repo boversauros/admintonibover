@@ -1,5 +1,6 @@
 # Dependencies
 node_modules
+.agents
 .pnpm-store
 .pnp
 .pnp.js
