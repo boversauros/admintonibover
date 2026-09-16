@@ -92,7 +92,11 @@ export function KeywordsInput({
       {label && (
         <Text variant="label" className="block mb-2">
           {label}
-          <Text as="span" variant="small" className="text-subtle normal-case ml-1">
+          <Text
+            as="span"
+            variant="small"
+            className="text-subtle normal-case ml-1"
+          >
             ({langLabel})
           </Text>
         </Text>

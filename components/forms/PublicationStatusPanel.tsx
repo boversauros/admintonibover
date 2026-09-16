@@ -1,6 +1,6 @@
 'use client';
 
-import { Toggle, StatusBadge } from '@/components/ui';
+import { Toggle } from '@/components/ui';
 
 interface PublicationStatusPanelProps {
   isPublished: boolean;

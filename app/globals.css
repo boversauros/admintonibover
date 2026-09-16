@@ -238,8 +238,8 @@
   --duration-slow: 500ms;
 
   /* Card Hover */
-  --shadow-card-hover: 0 8px 25px -5px rgba(0, 0, 0, 0.3),
-    0 4px 10px -6px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover:
+    0 8px 25px -5px rgba(0, 0, 0, 0.3), 0 4px 10px -6px rgba(0, 0, 0, 0.2);
 }
 
 /* ============================================
@@ -518,8 +518,8 @@
     transition: var(--transition-transform);
   }
 
-  /* ===== Legacy Compatibility (to be migrated) ===== */
-  /* These utilities maintain backwards compatibility during migration */
+  /* ===== Compatibility utilities ===== */
+  /* Named opacity utilities used by the current component styles. */
   .bg-white\/2 {
     background-color: var(--color-white-2);
   }

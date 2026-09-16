@@ -49,6 +49,8 @@ export function Image({
 
   const imageElement = (
     <div className={`group ${overflowClass}`}>
+      {/* Private, expiring S3 URLs must be fetched directly instead of by the Next image optimizer. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt={alt}

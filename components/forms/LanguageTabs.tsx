@@ -12,20 +12,13 @@ interface LanguageTabsProps {
 }
 
 interface LanguageTabProps {
-  code: Language;
   name: string;
   active: boolean;
   hasContent: boolean;
   onClick: () => void;
 }
 
-function LanguageTab({
-  code,
-  name,
-  active,
-  hasContent,
-  onClick,
-}: LanguageTabProps) {
+function LanguageTab({ name, active, hasContent, onClick }: LanguageTabProps) {
   return (
     <Button
       type="button"
@@ -62,14 +55,12 @@ export function LanguageTabs({
     <div className="border-b border-default mb-6">
       <div className="flex">
         <LanguageTab
-          code="ca"
           name="Català"
           active={active === 'ca'}
           hasContent={hasCAContent}
           onClick={() => onChange('ca')}
         />
         <LanguageTab
-          code="en"
           name="English"
           active={active === 'en'}
           hasContent={hasENContent}
