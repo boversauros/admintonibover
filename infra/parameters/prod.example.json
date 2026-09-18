@@ -22,5 +22,9 @@
   {
     "ParameterKey": "CognitoDomainPrefix",
     "ParameterValue": "admintonibover-prod"
+  },
+  {
+    "ParameterKey": "ExistingSuperAdminUsername",
+    "ParameterValue": "replace-with-private-cognito-username"
   }
 ]

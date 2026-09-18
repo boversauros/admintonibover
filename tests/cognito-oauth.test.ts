@@ -8,19 +8,18 @@ import {
   createPkceArtifacts,
   exchangeAuthorizationCode,
   matchesState,
-  refreshCognitoTokens,
   validateCognitoClaims,
-  verifyCognitoTokenActive,
 } from '../lib/auth/cognito/oauth';
 
 const config: CognitoConfig = {
   apiUrl: 'https://api.example.invalid',
   callbackUrl: 'https://admin.example.invalid/auth/callback',
   clientId: 'public-client',
-  issuer: 'https://issuer.example.invalid/pool',
+  hostedAdminScope: 'admintonibover-api/admin',
+  issuer: 'https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_example',
   loginUrl: 'https://login.example.invalid',
   logoutUrl: 'https://admin.example.invalid/',
-  requiredScope: 'admintonibover-api/admin',
+  region: 'eu-west-1',
 };
 
 function fakeJwt(exp: number): string {
@@ -54,6 +53,10 @@ test('PKCE authorization request binds verifier, state, nonce, and exact callbac
   assert.equal(authorizeUrl.searchParams.get('state'), artifacts.state);
   assert.equal(authorizeUrl.searchParams.get('nonce'), artifacts.nonce);
   assert.equal(authorizeUrl.searchParams.get('prompt'), 'login');
+  assert.equal(
+    authorizeUrl.searchParams.get('scope'),
+    `openid email profile aws.cognito.signin.user.admin ${config.hostedAdminScope}`
+  );
   assert.equal(matchesState(artifacts.state, artifacts.state), true);
   assert.equal(matchesState('wrong', artifacts.state), false);
 });
@@ -90,31 +93,13 @@ test('authorization code exchange sends PKCE values without a client secret', as
   });
 });
 
-test('refresh grant retains the public-client contract', async () => {
-  let requestBody = '';
-  await refreshCognitoTokens(config, 'refresh-token', async (_input, init) => {
-    requestBody = String(init?.body);
-    return Response.json({
-      access_token: 'new-access-token',
-      id_token: 'new-id-token',
-      token_type: 'Bearer',
-      expires_in: 900,
-    });
-  });
-
-  const parameters = new URLSearchParams(requestBody);
-  assert.equal(parameters.get('grant_type'), 'refresh_token');
-  assert.equal(parameters.get('refresh_token'), 'refresh-token');
-  assert.equal(parameters.get('client_id'), config.clientId);
-  assert.equal(parameters.get('client_secret'), null);
-});
-
-test('session claims require access-token use, admin scope, nonce, and verified email', () => {
+test('session claims validate token identity and project Cognito groups', () => {
   const access = {
     iss: config.issuer,
     token_use: 'access',
     client_id: config.clientId,
-    scope: `openid ${config.requiredScope}`,
+    scope: 'aws.cognito.signin.user.admin',
+    'cognito:groups': ['super-admins'],
     sub: 'admin-subject',
     exp: 2_000_000_000,
   };
@@ -135,19 +120,21 @@ test('session claims require access-token use, admin scope, nonce, and verified 
       user: {
         id: 'admin-subject',
         email: 'admin@example.invalid',
+        groups: ['super-admins'],
       },
     }
   );
   assert.throws(() =>
     validateCognitoClaims(config, access, identity, 'wrong-nonce')
   );
-  assert.throws(() =>
+  assert.deepEqual(
     validateCognitoClaims(
       config,
-      { ...access, scope: 'openid' },
+      { ...access, scope: undefined, 'cognito:groups': undefined },
       identity,
       'expected-nonce'
-    )
+    ).user.groups,
+    []
   );
   assert.throws(() =>
     validateCognitoClaims(
@@ -196,37 +183,6 @@ test('authorization code exchange requires a durable refresh token', async () =>
           token_type: 'Bearer',
           expires_in: 900,
         })
-    )
-  );
-});
-
-test('Cognito userInfo rejects revoked sessions and binds the active subject', async () => {
-  let authorization = '';
-  await verifyCognitoTokenActive(
-    config,
-    'access-token',
-    'admin-subject',
-    async (_input, init) => {
-      authorization = new Headers(init?.headers).get('authorization') ?? '';
-      return Response.json({ sub: 'admin-subject' });
-    }
-  );
-  assert.equal(authorization, 'Bearer access-token');
-
-  await assert.rejects(() =>
-    verifyCognitoTokenActive(
-      config,
-      'revoked-access-token',
-      'admin-subject',
-      async () => new Response(null, { status: 401 })
-    )
-  );
-  await assert.rejects(() =>
-    verifyCognitoTokenActive(
-      config,
-      'access-token',
-      'admin-subject',
-      async () => Response.json({ sub: 'different-subject' })
     )
   );
 });

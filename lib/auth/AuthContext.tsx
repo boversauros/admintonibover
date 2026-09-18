@@ -2,8 +2,11 @@
 
 import { createContext, useContext, useState } from 'react';
 
+import type { CognitoGroup } from './cognito/groups';
+
 export type AuthUser = {
   email?: string;
+  groups: CognitoGroup[];
   id: string;
 };
 

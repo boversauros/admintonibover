@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 
 import {
+  belongsToAnyCognitoGroup,
+  parseCognitoGroups,
+  type CognitoGroup,
+} from '@/lib/auth/cognito/groups';
+import {
   IMAGE_INVENTORY_STATUSES,
   type ConfirmedImageUpload,
   type ImageInventoryStatus,
@@ -107,13 +112,16 @@ export type AdminApiDependencies = {
   security: {
     issuer: string;
     clientId: string;
-    adminScope: string;
+    allowedGroups: readonly CognitoGroup[];
   };
   clock?: () => Date;
   logger?: AdminLogger;
 };
 
-type AuthenticatedAdmin = { subject: string };
+type AuthenticatedAdmin = {
+  groups: CognitoGroup[];
+  subject: string;
+};
 
 type ValidationIssue = { path: string; code: string; message: string };
 
@@ -318,13 +326,6 @@ function pathImageRole(event: AdminApiEvent): ImageRole {
   return role;
 }
 
-function claimContains(value: unknown, expected: string): boolean {
-  if (Array.isArray(value)) return value.includes(expected);
-  return String(value ?? '')
-    .split(' ')
-    .includes(expected);
-}
-
 function authenticate(
   event: AdminApiEvent,
   security: AdminApiDependencies['security']
@@ -340,10 +341,11 @@ function authenticate(
   ) {
     throw new ApiUnauthorizedError('Authentication claims are invalid');
   }
-  if (!claimContains(claims.scope, security.adminScope)) {
-    throw new ApiForbiddenError('Admin access is required');
+  const groups = parseCognitoGroups(claims['cognito:groups']);
+  if (!belongsToAnyCognitoGroup(groups, security.allowedGroups)) {
+    throw new ApiForbiddenError('Content access is required');
   }
-  return { subject: claims.sub };
+  return { groups, subject: claims.sub };
 }
 
 function requireIdempotencyKey(event: AdminApiEvent): string {

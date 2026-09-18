@@ -34,7 +34,7 @@ test('development foundation passes the offline safety contract', () => {
   const template = createDevFoundationTemplate();
   const summary = validateDevFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 36);
+  assert.equal(summary.resourceCount, 39);
   assert.deepEqual(summary.resourceTypes, EXPECTED_RESOURCE_TYPE_COUNTS);
 });
 
@@ -42,7 +42,7 @@ test('production foundation is isolated and retains data-bearing resources', () 
   const template = createProductionFoundationTemplate();
   const summary = validateProductionFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 36);
+  assert.equal(summary.resourceCount, 39);
   assert.deepEqual(summary.resourceTypes, EXPECTED_RESOURCE_TYPE_COUNTS);
   assert.deepEqual(template.Parameters.Environment.AllowedValues, ['prod']);
   assert.equal(template.Parameters.EnableTableDeletionProtection, undefined);
@@ -82,7 +82,6 @@ test('generated Lambda bundle stays inline-safe and enforces claims', async () =
   assert.equal(FOUNDATION_LAMBDA_CODE.includes('X-Amz-Signature='), false);
   process.env.EXPECTED_ISSUER = 'https://issuer.example.invalid/pool';
   process.env.EXPECTED_CLIENT_ID = 'public-client';
-  process.env.REQUIRED_ADMIN_SCOPE = 'admintonibover-api/admin';
   process.env.CONTENT_TABLE_NAME = 'fixture-table';
   process.env.CONTENT_BUCKET_NAME = 'fixture-bucket';
   process.env.BACKUP_ENVIRONMENT = 'dev';
@@ -93,6 +92,43 @@ test('generated Lambda bundle stays inline-safe and enforces claims', async () =
     requestContext: { requestId: 'generated-denial' },
   });
   assert.equal(denied.statusCode, 401);
+
+  const ungrouped = await generated.handler!({
+    routeKey: 'GET /health',
+    requestContext: {
+      requestId: 'generated-ungrouped',
+      authorizer: {
+        jwt: {
+          claims: {
+            iss: process.env.EXPECTED_ISSUER,
+            client_id: process.env.EXPECTED_CLIENT_ID,
+            token_use: 'access',
+            sub: 'ungrouped-subject',
+          },
+        },
+      },
+    },
+  });
+  assert.equal(ungrouped.statusCode, 403);
+
+  const editor = await generated.handler!({
+    routeKey: 'GET /health',
+    requestContext: {
+      requestId: 'generated-editor',
+      authorizer: {
+        jwt: {
+          claims: {
+            iss: process.env.EXPECTED_ISSUER,
+            client_id: process.env.EXPECTED_CLIENT_ID,
+            token_use: 'access',
+            sub: 'editor-subject',
+            'cognito:groups': ['editors'],
+          },
+        },
+      },
+    },
+  });
+  assert.equal(editor.statusCode, 200);
 });
 
 test('committed CloudFormation syntheses are deterministic and current', async () => {

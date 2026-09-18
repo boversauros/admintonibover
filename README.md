@@ -1,9 +1,9 @@
 # Admin Toni Bover
 
 Private administration application for Toni Bover's bilingual posts. The
-runtime is AWS-only: Next.js holds the administrator session and proxies all
-content operations to a Cognito-protected API Gateway/Lambda service backed by
-DynamoDB and private S3.
+runtime is AWS-only: Next.js holds the private super-admin/editor sessions and
+proxies all content operations to a Cognito-protected API Gateway/Lambda
+service backed by DynamoDB and private S3.
 
 ## Prerequisites
 

@@ -10,11 +10,10 @@ import {
 } from './cookies';
 import {
   accessTokenNeedsRefresh,
-  refreshCognitoTokens,
   verifyCognitoSession,
-  verifyCognitoTokenActive,
   type VerifiedCognitoSession,
 } from './oauth';
+import { refreshCognitoTokens, verifyCognitoTokenActive } from './user-pool';
 
 export type CognitoSessionResult = VerifiedCognitoSession & {
   accessToken: string;

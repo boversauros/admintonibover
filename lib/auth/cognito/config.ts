@@ -4,13 +4,23 @@ export type CognitoConfig = {
   apiUrl: string;
   callbackUrl: string;
   clientId: string;
+  hostedAdminScope: string;
   issuer: string;
   loginUrl: string;
   logoutUrl: string;
-  requiredScope: string;
+  region: string;
 };
 
 const REQUIRED_SCOPE = 'admintonibover-api/admin';
+
+function cognitoRegion(issuer: string): string {
+  const hostname = new URL(issuer).hostname;
+  const [service, region] = hostname.split('.');
+  if (service !== 'cognito-idp' || !region) {
+    throw new Error('AWS_COGNITO_ISSUER must be a Cognito user-pool issuer');
+  }
+  return region;
+}
 
 function requireEnvironmentValue(name: string): string {
   const value = process.env[name]?.trim();
@@ -63,14 +73,16 @@ function requireCallbackUrl(name: string): string {
 }
 
 export function getCognitoConfig(): CognitoConfig {
+  const issuer = requireHttpsUrl('AWS_COGNITO_ISSUER');
   const config = {
     apiUrl: requireHttpsUrl('AWS_ADMIN_API_URL'),
     callbackUrl: requireCallbackUrl('AWS_COGNITO_CALLBACK_URL'),
     clientId: requireEnvironmentValue('AWS_COGNITO_CLIENT_ID'),
-    issuer: requireHttpsUrl('AWS_COGNITO_ISSUER'),
+    hostedAdminScope: REQUIRED_SCOPE,
+    issuer,
     loginUrl: requireHttpsUrl('AWS_COGNITO_LOGIN_URL'),
     logoutUrl: requireCallbackUrl('AWS_COGNITO_LOGOUT_URL'),
-    requiredScope: REQUIRED_SCOPE,
+    region: cognitoRegion(issuer),
   };
 
   if (new URL(config.callbackUrl).pathname !== '/auth/callback') {

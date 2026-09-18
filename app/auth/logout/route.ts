@@ -11,7 +11,7 @@ import {
   buildManagedLogoutUrl,
   isSameOriginMutation,
 } from '@/lib/auth/cognito/http';
-import { revokeRefreshToken } from '@/lib/auth/cognito/oauth';
+import { revokeCognitoRefreshToken } from '@/lib/auth/cognito/user-pool';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   if (refreshToken) {
     try {
-      await revokeRefreshToken(config, refreshToken);
+      await revokeCognitoRefreshToken(config, refreshToken);
     } catch {
       // Continue local and managed logout without logging token material.
     }

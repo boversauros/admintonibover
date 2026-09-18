@@ -170,6 +170,22 @@ export function validateFoundationTemplate(
       'GuardrailsEvidenceConfirmed must not have a default acknowledgement'
     );
   }
+  const existingSuperAdmin = template.Parameters.ExistingSuperAdminUsername;
+  requireEqual(
+    existingSuperAdmin?.NoEcho,
+    true,
+    'ExistingSuperAdminUsername.NoEcho',
+    issues
+  );
+  requireEqual(
+    existingSuperAdmin?.AllowedPattern,
+    '^\\S+$',
+    'ExistingSuperAdminUsername.AllowedPattern',
+    issues
+  );
+  if ('Default' in existingSuperAdmin) {
+    issues.push('ExistingSuperAdminUsername must not have a default');
+  }
   requireEqual(
     template.Rules.GuardrailsMustBeConfirmed,
     {
@@ -234,6 +250,8 @@ export function validateFoundationTemplate(
     ['ContentTable', isProduction ? 'Retain' : 'Delete'],
     ['ContentBucket', isProduction ? 'RetainExceptOnCreate' : 'Delete'],
     ['UserPool', isProduction ? 'Retain' : 'Delete'],
+    ['SuperAdminsGroup', isProduction ? 'Retain' : 'Delete'],
+    ['EditorsGroup', isProduction ? 'Retain' : 'Delete'],
   ] as const) {
     const resource = template.Resources[resourceName];
     requireEqual(
@@ -249,6 +267,19 @@ export function validateFoundationTemplate(
       issues
     );
   }
+  const initialMembership = template.Resources.InitialSuperAdminMembership;
+  requireEqual(
+    initialMembership.DeletionPolicy,
+    isProduction ? 'Retain' : 'Delete',
+    'Resources.InitialSuperAdminMembership.DeletionPolicy',
+    issues
+  );
+  requireEqual(
+    initialMembership.UpdateReplacePolicy,
+    'Delete',
+    'Resources.InitialSuperAdminMembership.UpdateReplacePolicy',
+    issues
+  );
 
   const table = asRecord(
     template.Resources.ContentTable.Properties,
@@ -517,6 +548,65 @@ export function validateFoundationTemplate(
     issues
   );
 
+  for (const [resourceName, groupName, precedence] of [
+    ['SuperAdminsGroup', 'super-admins', 0],
+    ['EditorsGroup', 'editors', 10],
+  ] as const) {
+    const group = asRecord(
+      template.Resources[resourceName].Properties,
+      `Resources.${resourceName}.Properties`,
+      issues
+    );
+    requireEqual(
+      group.GroupName,
+      groupName,
+      `${resourceName}.GroupName`,
+      issues
+    );
+    requireEqual(
+      group.Precedence,
+      precedence,
+      `${resourceName}.Precedence`,
+      issues
+    );
+    requireEqual(
+      group.UserPoolId,
+      { Ref: 'UserPool' },
+      `${resourceName}.UserPoolId`,
+      issues
+    );
+    requireEqual(group.RoleArn, undefined, `${resourceName}.RoleArn`, issues);
+  }
+  const membership = asRecord(
+    initialMembership.Properties,
+    'Resources.InitialSuperAdminMembership.Properties',
+    issues
+  );
+  requireEqual(
+    initialMembership.DependsOn,
+    'SuperAdminsGroup',
+    'InitialSuperAdminMembership.DependsOn',
+    issues
+  );
+  requireEqual(
+    membership.GroupName,
+    'super-admins',
+    'InitialSuperAdminMembership.GroupName',
+    issues
+  );
+  requireEqual(
+    membership.Username,
+    { Ref: 'ExistingSuperAdminUsername' },
+    'InitialSuperAdminMembership.Username',
+    issues
+  );
+  requireEqual(
+    membership.UserPoolId,
+    { Ref: 'UserPool' },
+    'InitialSuperAdminMembership.UserPoolId',
+    issues
+  );
+
   const client = asRecord(
     template.Resources.UserPoolClient.Properties,
     'Resources.UserPoolClient.Properties',
@@ -535,8 +625,20 @@ export function validateFoundationTemplate(
     issues
   );
   requireEqual(
+    client.AllowedOAuthScopes,
+    [
+      'openid',
+      'email',
+      'profile',
+      'aws.cognito.signin.user.admin',
+      'admintonibover-api/admin',
+    ],
+    'UserPoolClient.AllowedOAuthScopes',
+    issues
+  );
+  requireEqual(
     client.ExplicitAuthFlows,
-    ['ALLOW_REFRESH_TOKEN_AUTH'],
+    ['ALLOW_USER_PASSWORD_AUTH', 'ALLOW_REFRESH_TOKEN_AUTH'],
     'UserPoolClient.ExplicitAuthFlows',
     issues
   );
@@ -578,6 +680,12 @@ export function validateFoundationTemplate(
   );
   requireEqual(lambda.MemorySize, 256, 'FoundationFunction.MemorySize', issues);
   requireEqual(lambda.Timeout, 30, 'FoundationFunction.Timeout', issues);
+  requireEqual(
+    template.Resources.FoundationFunction.DependsOn,
+    'InitialSuperAdminMembership',
+    'FoundationFunction.DependsOn',
+    issues
+  );
   const lambdaEnvironment = asRecord(
     lambda.Environment,
     'FoundationFunction.Environment',
@@ -592,6 +700,12 @@ export function validateFoundationTemplate(
     lambdaVariables.BACKUP_ENVIRONMENT,
     { Ref: 'Environment' },
     'FoundationFunction.Environment.BACKUP_ENVIRONMENT',
+    issues
+  );
+  requireEqual(
+    lambdaVariables.REQUIRED_ADMIN_SCOPE,
+    undefined,
+    'FoundationFunction.Environment.REQUIRED_ADMIN_SCOPE',
     issues
   );
   const lambdaCode = asRecord(lambda.Code, 'FoundationFunction.Code', issues);
@@ -670,8 +784,14 @@ export function validateFoundationTemplate(
       issues
     );
     requireEqual(
+      template.Resources[logicalId].DependsOn,
+      'InitialSuperAdminMembership',
+      `${logicalId}.DependsOn`,
+      issues
+    );
+    requireEqual(
       protectedRoute.AuthorizationScopes,
-      ['admintonibover-api/admin'],
+      undefined,
       `${logicalId}.AuthorizationScopes`,
       issues
     );

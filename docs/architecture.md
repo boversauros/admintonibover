@@ -9,10 +9,10 @@ migration decisions are intentionally kept in
 
 ```mermaid
 flowchart LR
-  A[Single administrator] -->|HTTPS| N[Next.js admin on Vercel]
-  N -->|Authorization Code + PKCE| C[Amazon Cognito managed login]
+  A[Private super-admin and editors] -->|HTTPS| N[Next.js admin on Vercel]
+  N -->|Hosted PKCE and user-pool API| C[Amazon Cognito]
   N -->|server-held access token| G[API Gateway HTTP API]
-  G -->|JWT authorizer + admin scope| L[Lambda admin handler]
+  G -->|JWT authorizer| L[Lambda group authorization]
   L --> D[(DynamoDB content table)]
   L --> S[(Private S3 content bucket)]
   N -->|short-lived signed PUT or GET| S
@@ -48,8 +48,8 @@ Authentication route handlers are dynamic and uncached:
 - `GET /auth/login` creates PKCE/state/nonce data and redirects to Cognito.
 - `GET /auth/callback` validates state, exchanges the code, verifies claims,
   and creates encrypted host-only cookies.
-- `GET /auth/session` returns only the administrator subject, verified email,
-  and access expiry; it also rotates refreshed cookies.
+- `GET /auth/session` returns only the subject, verified email, normalized group
+  memberships, and access expiry; it also rotates refreshed cookies.
 - `POST /auth/logout` requires the same origin, revokes the refresh token,
   clears local cookies, and returns the allow-listed Cognito logout URL.
 
@@ -77,17 +77,30 @@ idempotency keys prevent lost updates and duplicate retries.
 
 ## Authentication and authorization
 
-Cognito has one administrator, self-sign-up disabled, a public client with no
-client secret, Authorization Code with PKCE, and the
-`admintonibover-api/admin` scope. State, nonce, verifier, access token, ID token,
-and refresh token are encrypted and authenticated in host-only, HttpOnly,
-SameSite=Lax cookies; production cookies are Secure.
+Cognito self-sign-up is disabled. The public client has no secret, supports
+Authorization Code with PKCE for the transitional hosted login, and permits
+`USER_PASSWORD_AUTH` plus refresh-token authentication for the in-app flow.
+The `super-admins` and `editors` groups can perform content operations; only
+`super-admins` are eligible for user-management operations. The legacy
+`admintonibover-api/admin` scope remains available to the hosted login during
+the transition but is not an authorization requirement.
+
+CloudFormation takes the existing administrator's private Cognito username as
+a no-echo deployment parameter. The Lambda and protected API routes depend on
+that user's `super-admins` attachment, so group enforcement cannot update
+before the initial membership exists.
+
+State, nonce, verifier, access token, ID token, and refresh token are encrypted
+and authenticated in host-only, HttpOnly, SameSite=Lax cookies; production
+cookies are Secure.
 
 Every accepted session verifies signature, issuer, audience/client, token use,
-subject, scope, nonce where applicable, expiry, and verified email. Cognito
-`userInfo` is checked so revocation or global sign-out closes the local session
-window. API Gateway repeats JWT validation, and Lambda repeats issuer, client,
-token-use, subject, and scope checks as defense in depth.
+subject, nonce where applicable, expiry, and verified email, then normalizes the
+`cognito:groups` claim. Cognito `GetUser` verifies that the access token remains
+active, so revocation or global sign-out closes the local session window. API
+Gateway repeats JWT validation. Lambda repeats issuer, client, token-use, and
+subject checks, then requires `super-admins` or `editors`; a valid token without
+an allowed group receives `403`.
 
 `proxy.ts` applies the Content Security Policy, framing denial, MIME-sniffing
 protection, referrer policy, permissions policy, opener isolation, and
@@ -98,10 +111,11 @@ paths, credentials, queries, fragments, and wildcards are rejected.
 
 `infra/dev-foundation.ts` deterministically produces isolated `dev` and `prod`
 CloudFormation templates. Each environment has one Cognito User Pool/client/
-domain/resource server, one HTTP API and JWT authorizer, one arm64 Node.js 24
-Lambda, one on-demand DynamoDB table, one private S3 bucket, and a 14-day Lambda
-log group. The API stage is throttled at two requests per second with a burst of
-four; Lambda has no VPC, reserved concurrency, or provisioned concurrency.
+domain/resource server, `super-admins` and `editors` groups, one HTTP API and
+JWT authorizer, one arm64 Node.js 24 Lambda, one on-demand DynamoDB table, one
+private S3 bucket, and a 14-day Lambda log group. The API stage is throttled at
+two requests per second with a burst of four; Lambda has no VPC, reserved
+concurrency, or provisioned concurrency.
 
 The Lambda role is limited to the exact table and approved S3 prefixes. The S3
 bucket blocks all public access, enforces bucket ownership and TLS, uses SSE-S3,

@@ -7,6 +7,7 @@ import {
   type AdminApiEvent,
   type AdminApiResponse,
 } from '@/lib/aws/admin-api/handler';
+import { CONTENT_OPERATION_GROUPS } from '@/lib/auth/cognito/groups';
 import { DynamoDbAdminStore } from '@/lib/aws/admin-api/store';
 import { AwsDynamoDbPort } from '@/lib/aws/dynamodb/aws-port';
 import { DynamoDbMediaIntentRepository } from '@/lib/aws/dynamodb/media-intent-repository';
@@ -68,7 +69,7 @@ function runtimeHandler() {
     security: {
       issuer: environment('EXPECTED_ISSUER'),
       clientId: environment('EXPECTED_CLIENT_ID'),
-      adminScope: environment('REQUIRED_ADMIN_SCOPE'),
+      allowedGroups: CONTENT_OPERATION_GROUPS,
     },
     logger: {
       info: event => console.info(JSON.stringify(event)),
