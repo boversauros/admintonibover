@@ -1,5 +1,5 @@
 {
-  "name": "nextjs-starter",
+  "name": "admintonibover-admin",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@11.0.9",
@@ -18,9 +18,7 @@
     "audit:dependencies": "pnpm audit --prod --audit-level high",
     "lambda:build": "node --import tsx scripts/build-foundation-lambda.ts",
     "lambda:validate": "node --import tsx scripts/build-foundation-lambda.ts --check",
-    "backup:validate": "node --import tsx scripts/validate-backup.ts",
     "backup:restore": "node --import tsx scripts/restore-dynamodb-backup.ts",
-    "migration:run": "node --import tsx scripts/migrate-json-to-dynamodb.ts",
     "infra:synth": "node --import tsx scripts/synthesize-infrastructure.ts",
     "infra:validate": "node --import tsx scripts/synthesize-infrastructure.ts --check",
     "ci": "pnpm check:secrets && pnpm infra:validate && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:browser-artifacts",
@@ -35,7 +33,6 @@
     "jose": "6.2.4",
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-datepicker": "9.1.0",
     "react-dom": "19.2.8",
     "react-hook-form": "7.69.0"
   },

@@ -21,7 +21,7 @@ export const EXCLUDED_BACKUP_ENTITY_TYPES = [
 ] as const;
 
 export const BACKUP_RESTORE_PROCEDURE =
-  'https://github.com/boversauros/admintonibover/blob/main/docs/runbooks/aws-admin-backup-and-utilities.md' as const;
+  'https://github.com/boversauros/admintonibover/blob/main/docs/operations.md#restore-rehearsal' as const;
 
 export type BackupJsonValue =
   | null

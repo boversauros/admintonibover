@@ -1,106 +1,92 @@
 # Admin Toni Bover
 
-Personal blog administration system for managing multilingual content on AWS.
+Private administration application for Toni Bover's bilingual posts. The
+runtime is AWS-only: Next.js holds the administrator session and proxies all
+content operations to a Cognito-protected API Gateway/Lambda service backed by
+DynamoDB and private S3.
 
-## Tech stack
+## Prerequisites
 
-- Next.js 16 with App Router
-- React 19 and TypeScript
-- Tailwind CSS v4
-- AWS Cognito, API Gateway, Lambda, DynamoDB, and private S3
-- React Hook Form
+- Node.js 24.18.0 (`.node-version`)
+- pnpm 11.0.9 (`package.json`)
+- Non-secret outputs from the intended `admintonibover-dev` stack
+- A unique, server-only 32-byte base64url Cognito session secret
 
-## Getting started
+## Local setup
 
-### Prerequisites
-
-- Node.js 24.18.0 (see `.node-version`)
-- pnpm 11.0.9 (pinned in `package.json`)
-- Access to the development AWS stack outputs
-
-### Installation
-
-1. Install dependencies:
+Install the exact dependency graph:
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 ```
 
-2. Copy `.env.example` to `.env.local` and replace the placeholders with the
-   non-secret development stack outputs. Generate a different
-   `AWS_COGNITO_SESSION_SECRET` for each environment and keep it server-only.
+Create an ignored `.env.local` with the development stack outputs:
 
-3. Start the development server:
+```env
+ADMIN_CSP_MODE=enforce
+AWS_ADMIN_API_URL=<ApiUrl>
+AWS_COGNITO_CLIENT_ID=<UserPoolClientId>
+AWS_COGNITO_ISSUER=<UserPoolIssuer>
+AWS_COGNITO_LOGIN_URL=<CognitoLoginUrl>
+AWS_COGNITO_CALLBACK_URL=http://localhost:3000/auth/callback
+AWS_COGNITO_LOGOUT_URL=http://localhost:3000/
+AWS_COGNITO_SESSION_SECRET=<base64url-encoded-32-byte-secret>
+AWS_CONTENT_BUCKET_ORIGIN=https://<BucketName>.s3.eu-west-1.amazonaws.com
+```
+
+Generate the session secret without committing or logging it:
+
+```bash
+openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'
+```
+
+Start the application and open <http://localhost:3000>:
 
 ```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+All application settings are server-only. Do not add a `NEXT_PUBLIC_` prefix,
+commit `.env*` files, or record credentials, tokens, presigned URLs, account
+identifiers, generated resource names, backups, or private content.
 
-The S3 value is a strict CSP allowlist origin, not a public bucket URL. Use the
-exact regional S3 origin without a trailing path or wildcard. Never commit real
-environment values, generated resource names, presigned URLs, or Cognito
-tokens.
+## Validation
 
-## Available scripts
+```bash
+pnpm install --frozen-lockfile
+pnpm audit:dependencies
+pnpm run ci
+pnpm format:check
+```
 
-- `pnpm dev` — start the development server with Turbopack
-- `pnpm build` — create the production build
-- `pnpm start` — run the production server
-- `pnpm lint` — run ESLint
-- `pnpm typecheck` — validate TypeScript without emitting files
-- `pnpm test` — run cloud-free unit tests
-- `pnpm check:secrets` — reject repository environment files and supported
-  high-confidence credential formats
-- `pnpm check:browser-artifacts` — reject source maps, server-only environment
-  names, refresh-token markers, and configured secret canaries in `.next`
-- `pnpm audit:dependencies` — fail on high-severity production advisories
-- `pnpm lambda:build` — build the deployable Lambda bundle
-- `pnpm lambda:validate` — confirm the committed Lambda bundle is current
-- `pnpm backup:validate -- --input <path>` — validate a legacy JSON content
-  backup offline
-- `pnpm migration:run -- --input <path> --input-sha256 <sha256> --manifest <path>` —
-  dry-run or execute the one-way JSON-to-DynamoDB migration
-- `pnpm infra:synth` — generate the development CloudFormation template
-- `pnpm infra:synth -- --environment prod` — generate the production template
-- `pnpm infra:validate` — validate both infrastructure inventories
-- `pnpm run ci` — run the complete local validation suite
-- `pnpm format` / `pnpm format:check` — write or check Prettier formatting
+`pnpm run ci` performs the secret scan, infrastructure validation, lint,
+typecheck, unit tests, production build, and browser-artifact audit. The build
+requires the inert environment values supplied by CI or a valid local
+`.env.local`.
 
-## Project structure
+Useful focused commands:
 
-- `app/` — Next.js pages and route handlers
-- `components/` — React components for auth, forms, posts, and UI
-- `lib/` — domain logic, AWS adapters, authentication, and validation
-- `infra/` — isolated development and production AWS infrastructure
-- `scripts/` — validation, migration, and infrastructure utilities
+- `pnpm infra:synth -- --environment dev|prod` regenerates a deployable
+  CloudFormation template and its inline Lambda bundle.
+- `pnpm infra:validate` proves both committed templates match their generators
+  and the security/resource contract.
+- `pnpm backup:restore -- --input <backup> --manifest <report>` validates an AWS
+  backup without contacting AWS.
+- `pnpm check:secrets` and `pnpm check:browser-artifacts` enforce the repository
+  and browser disclosure boundaries.
 
-## Architecture and operations
+## Repository map
 
-- [Admin-only AWS data and security contract](docs/adr/0001-admin-only-aws-data-security-contract.md)
-- [AWS account guardrails](docs/runbooks/aws-account-guardrails.md)
-- [AWS development foundation](docs/runbooks/aws-development-foundation.md)
-- [AWS production foundation](docs/runbooks/aws-production-foundation.md)
-- [Single Cognito administrator](docs/runbooks/cognito-single-administrator.md)
-- [Secure Cognito admin session](docs/runbooks/cognito-admin-session.md)
-- [Authenticated DynamoDB reads](docs/runbooks/authenticated-read-tracer.md)
-- [DynamoDB post repository](docs/runbooks/dynamodb-post-repository.md)
-- [Private S3 image repair](docs/runbooks/s3-presigned-image-repair.md)
-- [AWS admin post mutations](docs/runbooks/aws-admin-post-mutations.md)
-- [AWS admin backup and utilities](docs/runbooks/aws-admin-backup-and-utilities.md)
-- [Admin web security](docs/runbooks/admin-web-security.md)
-- [Migration pull-request workflow](docs/runbooks/migration-pull-request-workflow.md)
-- [Offline backup validation](docs/runbooks/backup-validation.md)
-- [Offline JSON-to-DynamoDB migration](docs/runbooks/json-dynamodb-migration.md)
-- [Development migration rehearsal](docs/runbooks/development-migration-rehearsal.md)
-- [Production content cutover](docs/runbooks/production-content-cutover.md)
+- `app/` — App Router pages, Cognito endpoints, and same-origin AWS API routes
+- `components/` — the administrator UI
+- `lib/` — authentication, domain rules, AWS adapters, and recovery logic
+- `infra/` — CloudFormation generators, Lambda entry point, and deploy inputs
+- `scripts/` — deterministic build, validation, and recovery commands
+- `tests/` — cloud-free contract and behavior tests
 
-## Features
+## Canonical documentation
 
-- Cognito authentication for one private administrator
-- Multilingual post management in Catalan and English
-- Category organization and keyword tagging
-- Private image upload and replacement
-- Publication controls, search, and filtering
-- Validated backup download and one-way legacy content migration
+- [Architecture](docs/architecture.md)
+- [Operations](docs/operations.md)
+- [Migration history](docs/migration-history.md)
+- [DynamoDB backup v2 schema](docs/schemas/dynamodb-backup-v2.schema.json)

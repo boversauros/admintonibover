@@ -20,7 +20,7 @@ import {
 
 const USAGE = `Usage:
   pnpm backup:restore -- --input <path> --manifest <path>
-  pnpm backup:restore -- --execute --input <path> --manifest <path> --run-id <issue-23-run-id> --account-id <12-digits> --region <region> --table <name> --confirmation <exact-value>
+  pnpm backup:restore -- --execute --input <path> --manifest <path> --run-id <recovery-run-id> --account-id <12-digits> --region <region> --table <name> --confirmation <exact-value>
 
 Without --execute, the command validates and hashes the backup without contacting AWS.
 Restore mode only accepts an empty, tagged, disposable development table and refuses production-looking names.`;

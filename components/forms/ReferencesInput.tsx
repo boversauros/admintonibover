@@ -25,7 +25,11 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
     onChange([...value, newRef]);
   };
 
-  const handleUpdate = (id: string, field: keyof Reference, newValue: any) => {
+  const handleUpdate = <Field extends keyof Reference>(
+    id: string,
+    field: Field,
+    newValue: Reference[Field]
+  ) => {
     onChange(
       value.map(ref => (ref.id === id ? { ...ref, [field]: newValue } : ref))
     );

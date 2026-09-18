@@ -82,33 +82,36 @@ export function Dropdown<T extends string = string>({
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen) {
-      const initial = options.findIndex(o => o.value === value);
-      setActiveIndex(initial >= 0 ? initial : 0);
-    } else {
-      setActiveIndex(-1);
-    }
-  }, [isOpen, options, value]);
-
-  useEffect(() => {
     if (!isOpen || activeIndex < 0 || !menuRef.current) return;
-    const item = menuRef.current.querySelectorAll<HTMLLIElement>('[role="option"]')[
-      activeIndex
-    ];
+    const item =
+      menuRef.current.querySelectorAll<HTMLLIElement>('[role="option"]')[
+        activeIndex
+      ];
     item?.scrollIntoView({ block: 'nearest' });
   }, [isOpen, activeIndex]);
 
   const select = (next: T) => {
     onChange(next);
     setIsOpen(false);
+    setActiveIndex(-1);
     triggerRef.current?.focus();
+  };
+
+  const openMenu = () => {
+    const initial = options.findIndex(option => option.value === value);
+    setActiveIndex(initial >= 0 ? initial : 0);
+    setIsOpen(true);
   };
 
   const handleTriggerKey = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (disabled) return;
-    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+    if (
+      event.key === 'ArrowDown' ||
+      event.key === 'Enter' ||
+      event.key === ' '
+    ) {
       event.preventDefault();
-      setIsOpen(true);
+      openMenu();
     }
   };
 
@@ -130,6 +133,7 @@ export function Dropdown<T extends string = string>({
       if (activeIndex >= 0) select(options[activeIndex].value);
     } else if (event.key === 'Tab') {
       setIsOpen(false);
+      setActiveIndex(-1);
     }
   };
 
@@ -169,7 +173,15 @@ export function Dropdown<T extends string = string>({
         aria-expanded={isOpen}
         aria-controls={isOpen ? menuId : undefined}
         aria-label={ariaLabel}
-        onClick={() => !disabled && setIsOpen(open => !open)}
+        onClick={() => {
+          if (disabled) return;
+          if (isOpen) {
+            setIsOpen(false);
+            setActiveIndex(-1);
+          } else {
+            openMenu();
+          }
+        }}
         onKeyDown={handleTriggerKey}
         className={triggerClasses}
       >

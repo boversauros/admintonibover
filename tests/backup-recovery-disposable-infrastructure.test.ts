@@ -28,11 +28,11 @@ test('backup recovery IaC creates one run-tagged disposable development table', 
 
   assert.deepEqual(Object.keys(template.Resources), ['RecoveryTable']);
   assert.deepEqual(template.Parameters.PurposeConfirmation.AllowedValues, [
-    'ISSUE-23-BACKUP-RESTORE',
+    'AWS-BACKUP-RESTORE',
   ]);
   assert.equal(
     template.Parameters.RecoveryRunId.AllowedPattern,
-    '^issue-23-[a-z0-9-]{8,40}$'
+    '^recovery-[a-z0-9-]{8,40}$'
   );
 
   const table = template.Resources.RecoveryTable;

@@ -1,7 +1,7 @@
 [
   {
     "ParameterKey": "GuardrailsEvidenceConfirmed",
-    "ParameterValue": "STOP-UNTIL-ISSUE-3-EVIDENCE-IS-RECHECKED"
+    "ParameterValue": "STOP-UNTIL-ACCOUNT-GUARDRAILS-ARE-RECHECKED"
   },
   {
     "ParameterKey": "Environment",

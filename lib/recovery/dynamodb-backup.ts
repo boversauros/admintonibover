@@ -22,15 +22,15 @@ import {
   type RestorableEntityType,
 } from '@/lib/aws/backup-contract';
 import { validateDynamoDbBackup } from '@/lib/aws/admin-api/backup';
-import type { DynamoKey } from '@/lib/aws/dynamodb/port';
 import {
   canonicalJson,
   deterministicHash,
   itemKey,
-} from '@/lib/migration/json-dynamodb/hash';
+} from '@/lib/aws/dynamodb/hash';
+import type { DynamoKey } from '@/lib/aws/dynamodb/port';
 
-export const RECOVERY_PURPOSE = 'ISSUE-23-BACKUP-RESTORE';
-export const RECOVERY_RUN_ID_PATTERN = /^issue-23-[a-z0-9-]{8,40}$/;
+export const RECOVERY_PURPOSE = 'AWS-BACKUP-RESTORE';
+export const RECOVERY_RUN_ID_PATTERN = /^recovery-[a-z0-9-]{8,40}$/;
 
 const DEFAULT_RETRY_DELAYS_MS = [100, 250, 500, 1_000, 2_000, 4_000];
 const DEFAULT_SCAN_PAGE_SIZE = 100;

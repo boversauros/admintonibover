@@ -1,7 +1,7 @@
 [
   {
     "ParameterKey": "GuardrailsEvidenceConfirmed",
-    "ParameterValue": "STOP-UNTIL-ISSUE-21-PREDEPLOYMENT-GATE-PASSES"
+    "ParameterValue": "STOP-UNTIL-PREDEPLOYMENT-GATE-PASSES"
   },
   {
     "ParameterKey": "Environment",
