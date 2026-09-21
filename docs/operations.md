@@ -1,7 +1,7 @@
 # Operations
 
-Owner: the single account/application administrator. Run a procedure only when
-its trigger applies, using the daily-use identity with MFA, temporary
+Owner: the account operator and application super-admin. Run a procedure only
+when its trigger applies, using the daily-use identity with MFA, temporary
 credentials, and explicit Region `eu-west-1`. Never use root for application
 work or create a long-lived access key.
 
@@ -55,13 +55,54 @@ a disabled account.
      --username "$ADMINTONIBOVER_ADMIN_EMAIL"
    ```
 
-6. Confirm exactly one enabled, confirmed, verified-email user, self-sign-up
-   disabled, no client secret, authorization-code flow only, and the exact
-   callback/logout URLs. Clear private shell variables afterward.
+6. Confirm every intended user is enabled, confirmed, verified-email, and in
+   exactly the intended group. Confirm self-sign-up is disabled, the client has
+   no secret, and callback/logout URLs are exact. Clear private shell variables
+   afterward.
 
 Successful logout must revoke the refresh token, clear the local encrypted
 cookies, clear Cognito managed login, and make a restored pre-logout cookie set
 return `401`.
+
+## Bootstrap Cognito groups
+
+Trigger: deploy the `super-admins` and `editors` groups and enable group-based
+API authorization in an environment.
+
+1. Read the exact private Cognito `Username` for the one existing confirmed,
+   enabled administrator. Do not substitute an email alias unless it is the
+   returned `Username`:
+
+   ```bash
+   aws cognito-idp list-users \
+     --region eu-west-1 \
+     --user-pool-id "$ADMINTONIBOVER_USER_POOL_ID" \
+     --query 'Users[].{Username:Username,Status:UserStatus,Enabled:Enabled}'
+   ```
+
+2. Put that value in the ignored deployment parameter file as
+   `ExistingSuperAdminUsername`. Review the change set: it must create exactly
+   two groups and one membership attachment, modify the public client, Lambda,
+   and protected routes in place, and contain no replacement or deletion.
+3. Confirm the Lambda and every protected route depend on
+   `InitialSuperAdminMembership`, then execute the one reviewed change set and
+   wait for `UPDATE_COMPLETE`.
+4. Verify the membership without recording the username or response as public
+   evidence:
+
+   ```bash
+   aws cognito-idp admin-list-groups-for-user \
+     --region eu-west-1 \
+     --user-pool-id "$ADMINTONIBOVER_USER_POOL_ID" \
+     --username "$ADMINTONIBOVER_ADMIN_USERNAME"
+   ```
+
+5. Sign out and back in so Cognito issues fresh tokens with the group claim.
+   Verify content operations succeed. A valid ungrouped development token must
+   receive `403`; missing, modified, ID, or wrong-client tokens must receive
+   `401`.
+6. Keep the hosted login and legacy custom scope configured until the in-app
+   login replacement has been independently verified. Clear private variables.
 
 ## Deploy and verify application or infrastructure
 
@@ -101,7 +142,7 @@ that private S3 object. Creating the change set must not execute it.
 
 Review every action. Expected application updates normally modify the Lambda
 and may update the API stage/integration; route work adds only the reviewed
-route. Stop on a replacement/deletion, new service/resource type, public
+route. Stop on a replacement/deletion, unapproved service/resource type, public
 bucket, wildcard IAM, VPC/NAT, endpoint, WAF, CDN, KMS key, queue, stream,
 schedule, alarm, dashboard, provisioned capacity, or concurrency reservation.
 Execute only the exact reviewed change set. Wait for `UPDATE_COMPLETE`, then
@@ -111,16 +152,18 @@ variables are non-empty and use the deployment prefix.
 ### Post-deployment verification
 
 1. Verify stack status, drift, outputs, tags, protected-resource retention, and
-   the 36-resource/16-type contract.
+   the 39-resource/18-type contract.
 2. Verify DynamoDB is active, on-demand, deletion-protected in production,
    string `PK`/`SK`, with no unexpected indexes, streams, or paid features.
 3. Verify S3 Block Public Access, owner enforcement, exact CORS, TLS policy,
    encryption, and temporary-upload lifecycle.
 4. Verify Lambda Node.js 24/arm64, 256 MiB, 30-second timeout, 14-day logs, no
    VPC/reserved/provisioned concurrency, and exact table/bucket IAM scope.
-5. Verify every API route has the Cognito JWT authorizer/admin scope, exact
-   CORS, and stage throttle 2 requests/second with burst 4.
-6. Verify the single Cognito user and exact allow-listed origins.
+5. Verify every API route has the Cognito JWT authorizer without a route scope,
+   Lambda requires `super-admins` or `editors`, CORS is exact, and the stage
+   throttle remains 2 requests/second with burst 4.
+6. Verify both Cognito groups, `ALLOW_USER_PASSWORD_AUTH`, refresh-token auth,
+   no client secret, disabled self-registration, and exact allow-listed origins.
 7. In a clean private browser, test login/logout, list/detail/filter/pagination,
    create/edit/delete on fictional data, publication confirmation, image
    upload, backup download, and controlled 401/403/409/413/429/5xx paths.

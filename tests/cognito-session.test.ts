@@ -22,10 +22,11 @@ const config: CognitoConfig = {
   apiUrl: 'https://api.example.invalid',
   callbackUrl: 'https://admin.example.invalid/auth/callback',
   clientId: 'public-client',
-  issuer: 'https://issuer.example.invalid/pool',
+  hostedAdminScope: 'admintonibover-api/admin',
+  issuer: 'https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_example',
   loginUrl: 'https://login.example.invalid',
   logoutUrl: 'https://admin.example.invalid/',
-  requiredScope: 'admintonibover-api/admin',
+  region: 'eu-west-1',
 };
 
 const sessionSecret = Buffer.alloc(32, 7).toString('base64url');

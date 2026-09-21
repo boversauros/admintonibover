@@ -32,7 +32,9 @@ export const EXPECTED_RESOURCE_TYPE_COUNTS = {
   'AWS::Cognito::UserPool': 1,
   'AWS::Cognito::UserPoolClient': 1,
   'AWS::Cognito::UserPoolDomain': 1,
+  'AWS::Cognito::UserPoolGroup': 2,
   'AWS::Cognito::UserPoolResourceServer': 1,
+  'AWS::Cognito::UserPoolUserToGroupAttachment': 1,
   'AWS::DynamoDB::Table': 1,
   'AWS::IAM::Role': 1,
   'AWS::Lambda::Function': 1,
@@ -75,10 +77,9 @@ const tagMap = () => ({ ...REQUIRED_TAGS });
 
 const protectedRoute = (routeKey: string): CloudFormationResource => ({
   Type: 'AWS::ApiGatewayV2::Route',
-  DependsOn: 'AdminResourceServer',
+  DependsOn: 'InitialSuperAdminMembership',
   Properties: {
     ApiId: { Ref: 'HttpApi' },
-    AuthorizationScopes: ['admintonibover-api/admin'],
     AuthorizationType: 'JWT',
     AuthorizerId: { Ref: 'JwtAuthorizer' },
     RouteKey: routeKey,
@@ -129,13 +130,16 @@ export function createFoundationTemplate(
             Parameters: ['AllowedOrigins', 'CallbackUrls', 'LogoutUrls'],
           },
           {
-            Label: { default: 'Cognito managed-login domain' },
-            Parameters: ['CognitoDomainPrefix'],
+            Label: { default: 'Cognito access' },
+            Parameters: ['CognitoDomainPrefix', 'ExistingSuperAdminUsername'],
           },
         ],
         ParameterLabels: {
           GuardrailsEvidenceConfirmed: {
             default: 'Account guardrails rechecked',
+          },
+          ExistingSuperAdminUsername: {
+            default: 'Existing super-admin Cognito username',
           },
           ...(isProduction
             ? {}
@@ -192,6 +196,17 @@ export function createFoundationTemplate(
         ConstraintDescription:
           'Use a globally unique 3-63 character lowercase prefix containing only letters, numbers, and internal hyphens.',
         Description: `Globally unique prefix for the ${environmentLabel} Cognito managed-login domain.`,
+      },
+      ExistingSuperAdminUsername: {
+        Type: 'String',
+        NoEcho: true,
+        MinLength: 1,
+        MaxLength: 128,
+        AllowedPattern: '^\\S+$',
+        ConstraintDescription:
+          'Use the exact private Username returned by Cognito list-users.',
+        Description:
+          'Existing confirmed administrator to attach to super-admins before group enforcement is updated.',
       },
       ...(isProduction
         ? {}
@@ -395,6 +410,40 @@ export function createFoundationTemplate(
           UserPoolTags: tagMap(),
         },
       },
+      SuperAdminsGroup: {
+        Type: 'AWS::Cognito::UserPoolGroup',
+        DeletionPolicy: protectedResourceDeletionPolicy,
+        UpdateReplacePolicy: dataUpdateReplacePolicy,
+        Properties: {
+          Description:
+            'Full content access and eligibility for user management.',
+          GroupName: 'super-admins',
+          Precedence: 0,
+          UserPoolId: { Ref: 'UserPool' },
+        },
+      },
+      EditorsGroup: {
+        Type: 'AWS::Cognito::UserPoolGroup',
+        DeletionPolicy: protectedResourceDeletionPolicy,
+        UpdateReplacePolicy: dataUpdateReplacePolicy,
+        Properties: {
+          Description: 'Content operations without user-management access.',
+          GroupName: 'editors',
+          Precedence: 10,
+          UserPoolId: { Ref: 'UserPool' },
+        },
+      },
+      InitialSuperAdminMembership: {
+        Type: 'AWS::Cognito::UserPoolUserToGroupAttachment',
+        DependsOn: 'SuperAdminsGroup',
+        DeletionPolicy: protectedResourceDeletionPolicy,
+        UpdateReplacePolicy: 'Delete',
+        Properties: {
+          GroupName: 'super-admins',
+          Username: { Ref: 'ExistingSuperAdminUsername' },
+          UserPoolId: { Ref: 'UserPool' },
+        },
+      },
       AdminResourceServer: {
         Type: 'AWS::Cognito::UserPoolResourceServer',
         Properties: {
@@ -426,11 +475,15 @@ export function createFoundationTemplate(
             'openid',
             'email',
             'profile',
+            'aws.cognito.signin.user.admin',
             'admintonibover-api/admin',
           ],
           CallbackURLs: { Ref: 'CallbackUrls' },
           LogoutURLs: { Ref: 'LogoutUrls' },
-          ExplicitAuthFlows: ['ALLOW_REFRESH_TOKEN_AUTH'],
+          ExplicitAuthFlows: [
+            'ALLOW_USER_PASSWORD_AUTH',
+            'ALLOW_REFRESH_TOKEN_AUTH',
+          ],
           PreventUserExistenceErrors: 'ENABLED',
           EnableTokenRevocation: true,
           AuthSessionValidity: 5,
@@ -548,6 +601,7 @@ export function createFoundationTemplate(
       },
       FoundationFunction: {
         Type: 'AWS::Lambda::Function',
+        DependsOn: 'InitialSuperAdminMembership',
         Properties: {
           FunctionName: {
             'Fn::Sub': '${AWS::StackName}-foundation',
@@ -576,7 +630,6 @@ export function createFoundationTemplate(
                   'https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}',
               },
               EXPECTED_CLIENT_ID: { Ref: 'UserPoolClient' },
-              REQUIRED_ADMIN_SCOPE: 'admintonibover-api/admin',
             },
           },
           LoggingConfig: {

@@ -17,7 +17,7 @@ const NOW = '2026-08-12T10:00:00.000Z';
 const SECURITY = {
   issuer: 'https://issuer.example.invalid/pool',
   clientId: 'admin-client',
-  adminScope: 'admintonibover-api/admin',
+  allowedGroups: ['super-admins', 'editors'] as const,
 };
 
 function image(role: 'main' | 'thumb'): PostImage {
@@ -92,7 +92,7 @@ function event(
           client_id: SECURITY.clientId,
           token_use: 'access',
           sub: 'admin-subject',
-          scope: `openid ${SECURITY.adminScope}`,
+          'cognito:groups': ['super-admins'],
         }
       : options.claims;
   return {
@@ -207,7 +207,7 @@ function setup(maximumPageSize = Number.POSITIVE_INFINITY) {
   };
 }
 
-test('authentication failures use stable 401 and admin-claim 403 envelopes before data access', async () => {
+test('authentication failures use stable 401 and group-based 403 envelopes before data access', async () => {
   const { handler, port } = setup();
   const missing = await handler(event('GET /health', { claims: null }));
   assert.equal(missing.statusCode, 401);
@@ -224,7 +224,7 @@ test('authentication failures use stable 401 and admin-claim 403 envelopes befor
         client_id: SECURITY.clientId,
         token_use: 'access',
         sub: 'admin-subject',
-        scope: 'openid',
+        'cognito:groups': ['observers'],
       },
     })
   );
@@ -241,17 +241,47 @@ test('authentication failures use stable 401 and admin-claim 403 envelopes befor
         client_id: 'wrong-client',
         token_use: 'access',
         sub: 'admin-subject',
-        scope: SECURITY.adminScope,
+        'cognito:groups': ['super-admins'],
       },
     })
   );
   assert.equal(wrongAudience.statusCode, 401);
+  const identityToken = await handler(
+    event('GET /health', {
+      claims: {
+        iss: SECURITY.issuer,
+        aud: SECURITY.clientId,
+        token_use: 'id',
+        sub: 'admin-subject',
+        'cognito:groups': ['super-admins'],
+      },
+    })
+  );
+  assert.equal(identityToken.statusCode, 401);
   assert.deepEqual(port.requests, {
     gets: 0,
     queries: 0,
     scans: 0,
     transactions: 0,
   });
+});
+
+test('super-admins and editors can reach content operations', async () => {
+  for (const group of SECURITY.allowedGroups) {
+    const { handler } = setup();
+    const response = await handler(
+      event('GET /health', {
+        claims: {
+          iss: SECURITY.issuer,
+          client_id: SECURITY.clientId,
+          token_use: 'access',
+          sub: `${group}-subject`,
+          'cognito:groups': [group],
+        },
+      })
+    );
+    assert.equal(response.statusCode, 200);
+  }
 });
 
 test('concurrent retries with one mutation key cannot create duplicate posts', async () => {

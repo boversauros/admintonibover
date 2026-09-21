@@ -8,9 +8,11 @@ import {
 
 import type { CognitoConfig } from './config';
 import type { CognitoTokenSet } from './cookies';
+import { parseCognitoGroups, type CognitoGroup } from './groups';
 
 export type CognitoUser = {
   email: string;
+  groups: CognitoGroup[];
   id: string;
 };
 
@@ -49,7 +51,7 @@ export function createPkceArtifacts(config: CognitoConfig): PkceArtifacts {
     response_type: 'code',
     client_id: config.clientId,
     redirect_uri: config.callbackUrl,
-    scope: `openid email profile ${config.requiredScope}`,
+    scope: `openid email profile aws.cognito.signin.user.admin ${config.hostedAdminScope}`,
     code_challenge: challenge,
     code_challenge_method: 'S256',
     state,
@@ -151,63 +153,12 @@ export function exchangeAuthorizationCode(
   );
 }
 
-export function refreshCognitoTokens(
-  config: CognitoConfig,
-  refreshToken: string,
-  fetchImplementation: typeof fetch = fetch
-): Promise<CognitoTokenSet> {
-  return requestTokens(
-    config,
-    new URLSearchParams({
-      grant_type: 'refresh_token',
-      client_id: config.clientId,
-      refresh_token: refreshToken,
-    }),
-    false,
-    fetchImplementation
-  );
-}
-
-export async function revokeRefreshToken(
-  config: CognitoConfig,
-  refreshToken: string,
-  fetchImplementation: typeof fetch = fetch
-): Promise<void> {
-  const response = await fetchImplementation(
-    new URL('/oauth2/revoke', `${config.loginUrl}/`),
-    {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: config.clientId,
-        token: refreshToken,
-      }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(8_000),
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      `Cognito revoke request failed with HTTP ${response.status}`
-    );
-  }
-}
-
 function requireStringClaim(payload: JWTPayload, claim: string): string {
   const value = payload[claim];
   if (typeof value !== 'string' || value.length === 0) {
     throw new Error(`Cognito token is missing ${claim}`);
   }
   return value;
-}
-
-function claimContains(value: unknown, required: string): boolean {
-  return String(value ?? '')
-    .split(' ')
-    .includes(required);
 }
 
 function audienceContains(value: unknown, required: string): boolean {
@@ -244,35 +195,6 @@ export async function verifyCognitoSession(
   );
 }
 
-export async function verifyCognitoTokenActive(
-  config: CognitoConfig,
-  accessToken: string,
-  expectedSubject: string,
-  fetchImplementation: typeof fetch = fetch
-): Promise<void> {
-  const response = await fetchImplementation(
-    new URL('/oauth2/userInfo', `${config.loginUrl}/`),
-    {
-      headers: {
-        accept: 'application/json',
-        authorization: `Bearer ${accessToken}`,
-      },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(8_000),
-    }
-  );
-  if (!response.ok) {
-    throw new Error(
-      `Cognito rejected the session with HTTP ${response.status}`
-    );
-  }
-
-  const userInfo = (await response.json()) as { sub?: unknown };
-  if (userInfo.sub !== expectedSubject) {
-    throw new Error('Cognito userInfo subject does not match the session');
-  }
-}
-
 export function validateCognitoClaims(
   config: CognitoConfig,
   access: JWTPayload,
@@ -282,8 +204,7 @@ export function validateCognitoClaims(
   if (
     access.iss !== config.issuer ||
     access.token_use !== 'access' ||
-    access.client_id !== config.clientId ||
-    !claimContains(access.scope, config.requiredScope)
+    access.client_id !== config.clientId
   ) {
     throw new Error('Cognito access token claims are invalid');
   }
@@ -317,6 +238,7 @@ export function validateCognitoClaims(
     user: {
       id: identitySubject,
       email: requireStringClaim(identity, 'email'),
+      groups: parseCognitoGroups(access['cognito:groups']),
     },
   };
 }

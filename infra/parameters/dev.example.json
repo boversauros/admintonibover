@@ -24,6 +24,10 @@
     "ParameterValue": "replace-me-admintonibover-dev"
   },
   {
+    "ParameterKey": "ExistingSuperAdminUsername",
+    "ParameterValue": "replace-with-private-cognito-username"
+  },
+  {
     "ParameterKey": "EnableTableDeletionProtection",
     "ParameterValue": "false"
   }
