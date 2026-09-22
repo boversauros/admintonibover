@@ -1,7 +1,10 @@
 import {
   CognitoIdentityProviderClient,
+  ConfirmForgotPasswordCommand,
+  ForgotPasswordCommand,
   GetUserCommand,
   InitiateAuthCommand,
+  RespondToAuthChallengeCommand,
   RevokeTokenCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 
@@ -11,8 +14,11 @@ import type { CognitoTokenSet } from './cookies';
 const REQUEST_TIMEOUT_MS = 8_000;
 
 export type CognitoUserPoolCommand =
+  | ConfirmForgotPasswordCommand
+  | ForgotPasswordCommand
   | GetUserCommand
   | InitiateAuthCommand
+  | RespondToAuthChallengeCommand
   | RevokeTokenCommand;
 
 export type CognitoCommandSender = (
@@ -49,12 +55,15 @@ async function sendCommand(
   if (sender) return sender(command, options);
 
   const client = clientFor(config);
-  if (command instanceof InitiateAuthCommand) {
+  if (command instanceof InitiateAuthCommand)
     return client.send(command, options);
-  }
-  if (command instanceof GetUserCommand) {
+  if (command instanceof GetUserCommand) return client.send(command, options);
+  if (command instanceof RespondToAuthChallengeCommand)
     return client.send(command, options);
-  }
+  if (command instanceof ForgotPasswordCommand)
+    return client.send(command, options);
+  if (command instanceof ConfirmForgotPasswordCommand)
+    return client.send(command, options);
   return client.send(command, options);
 }
 
@@ -164,6 +173,60 @@ export async function refreshCognitoTokens(
     sender
   );
   return tokenSet(output, false);
+}
+
+export async function completeNewPasswordChallenge(
+  config: CognitoConfig,
+  username: string,
+  session: string,
+  newPassword: string,
+  sender?: CognitoCommandSender
+): Promise<CognitoTokenSet> {
+  const output = await sendCommand(
+    config,
+    new RespondToAuthChallengeCommand({
+      ClientId: config.clientId,
+      ChallengeName: 'NEW_PASSWORD_REQUIRED',
+      ChallengeResponses: { USERNAME: username, NEW_PASSWORD: newPassword },
+      Session: session,
+    }),
+    sender
+  );
+  return tokenSet(output, true);
+}
+
+export async function requestCognitoPasswordReset(
+  config: CognitoConfig,
+  username: string,
+  sender?: CognitoCommandSender
+): Promise<void> {
+  await sendCommand(
+    config,
+    new ForgotPasswordCommand({
+      ClientId: config.clientId,
+      Username: username,
+    }),
+    sender
+  );
+}
+
+export async function confirmCognitoPasswordReset(
+  config: CognitoConfig,
+  username: string,
+  code: string,
+  newPassword: string,
+  sender?: CognitoCommandSender
+): Promise<void> {
+  await sendCommand(
+    config,
+    new ConfirmForgotPasswordCommand({
+      ClientId: config.clientId,
+      Username: username,
+      ConfirmationCode: code,
+      Password: newPassword,
+    }),
+    sender
+  );
 }
 
 export async function verifyCognitoTokenActive(

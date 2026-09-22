@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  ConfirmForgotPasswordCommand,
+  ForgotPasswordCommand,
   GetUserCommand,
   InitiateAuthCommand,
+  RespondToAuthChallengeCommand,
   RevokeTokenCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 
@@ -16,7 +19,10 @@ import {
   parseCognitoGroups,
 } from '../lib/auth/cognito/groups';
 import {
+  completeNewPasswordChallenge,
+  confirmCognitoPasswordReset,
   refreshCognitoTokens,
+  requestCognitoPasswordReset,
   revokeCognitoRefreshToken,
   signInCognitoUser,
   verifyCognitoTokenActive,
@@ -61,6 +67,71 @@ test('Cognito group claims normalize JWT and API Gateway representations', () =>
   assert.equal(belongsToAnyCognitoGroup([], CONTENT_OPERATION_GROUPS), false);
   assert.equal(canManageCognitoUsers([COGNITO_GROUPS.superAdmin]), true);
   assert.equal(canManageCognitoUsers([COGNITO_GROUPS.editor]), false);
+});
+
+test('invitation challenge and password recovery use public-client APIs', async () => {
+  const tokens = await completeNewPasswordChallenge(
+    config,
+    'internal-user',
+    'challenge-session',
+    'CompliantPassword1!',
+    sender(command => {
+      assert.equal(command instanceof RespondToAuthChallengeCommand, true);
+      if (!(command instanceof RespondToAuthChallengeCommand)) return {};
+      assert.deepEqual(command.input, {
+        ClientId: config.clientId,
+        ChallengeName: 'NEW_PASSWORD_REQUIRED',
+        ChallengeResponses: {
+          USERNAME: 'internal-user',
+          NEW_PASSWORD: 'CompliantPassword1!',
+        },
+        Session: 'challenge-session',
+      });
+      return {
+        AuthenticationResult: {
+          AccessToken: 'access',
+          IdToken: 'identity',
+          RefreshToken: 'refresh',
+          ExpiresIn: 900,
+          TokenType: 'Bearer',
+        },
+      };
+    })
+  );
+  assert.equal(tokens.refreshToken, 'refresh');
+
+  await requestCognitoPasswordReset(
+    config,
+    'editor@example.invalid',
+    sender(command => {
+      assert.equal(command instanceof ForgotPasswordCommand, true);
+      if (command instanceof ForgotPasswordCommand) {
+        assert.deepEqual(command.input, {
+          ClientId: config.clientId,
+          Username: 'editor@example.invalid',
+        });
+      }
+      return {};
+    })
+  );
+  await confirmCognitoPasswordReset(
+    config,
+    'editor@example.invalid',
+    '123456',
+    'CompliantPassword1!',
+    sender(command => {
+      assert.equal(command instanceof ConfirmForgotPasswordCommand, true);
+      if (command instanceof ConfirmForgotPasswordCommand) {
+        assert.deepEqual(command.input, {
+          ClientId: config.clientId,
+          Username: 'editor@example.invalid',
+          ConfirmationCode: '123456',
+          Password: 'CompliantPassword1!',
+        });
+      }
+      return {};
+    })
+  );
 });
 
 test('password sign-in uses the public USER_PASSWORD_AUTH flow', async () => {

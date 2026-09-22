@@ -1,17 +1,13 @@
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 import { getCognitoConfig } from '@/lib/auth/cognito/config';
 import {
   COGNITO_COOKIE_NAMES,
-  clearCognitoSessionCookies,
   readCognitoRefreshToken,
 } from '@/lib/auth/cognito/cookies';
-import {
-  buildManagedLogoutUrl,
-  isSameOriginMutation,
-} from '@/lib/auth/cognito/http';
-import { revokeCognitoRefreshToken } from '@/lib/auth/cognito/user-pool';
+import { handleInAppSignOut } from '@/lib/auth/cognito/in-app-flow';
+import { isSameOriginMutation } from '@/lib/auth/cognito/http';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +15,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   const config = getCognitoConfig();
   if (!isSameOriginMutation(request, config)) {
     return Response.json(
-      { error: 'Cross-origin request rejected' },
+      { error: 'Sol·licitud d’un altre origen rebutjada.' },
       { status: 403, headers: { 'cache-control': 'no-store' } }
     );
   }
@@ -32,18 +28,5 @@ export async function POST(request: NextRequest): Promise<Response> {
     ? await readCognitoRefreshToken(sealedRefreshToken)
     : null;
 
-  if (refreshToken) {
-    try {
-      await revokeCognitoRefreshToken(config, refreshToken);
-    } catch {
-      // Continue local and managed logout without logging token material.
-    }
-  }
-
-  const response = NextResponse.json(
-    { logoutUrl: buildManagedLogoutUrl(config) },
-    { headers: { 'cache-control': 'no-store' } }
-  );
-  clearCognitoSessionCookies(response);
-  return response;
+  return handleInAppSignOut(request, config, refreshToken);
 }

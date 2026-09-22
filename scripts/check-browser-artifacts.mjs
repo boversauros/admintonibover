@@ -7,7 +7,10 @@ const FORBIDDEN_BROWSER_MARKERS = [
   'AWS_SECRET_ACCESS_KEY',
   'AWS_SESSION_TOKEN',
   'AWS_COGNITO_SESSION_SECRET',
+  'admintonibover-cognito-access',
+  'admintonibover-cognito-id',
   'admintonibover-cognito-refresh',
+  'admintonibover-cognito-challenge',
 ];
 
 const SENSITIVE_VALUE_ENV_NAMES = [

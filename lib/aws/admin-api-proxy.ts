@@ -148,7 +148,9 @@ export async function proxyAwsAdminApi(
 
   try {
     const apiUrl = new URL(config.apiUrl);
-    apiUrl.pathname = `${apiUrl.pathname.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+    const [pathname, search] = path.split('?', 2);
+    apiUrl.pathname = `${apiUrl.pathname.replace(/\/$/, '')}/${pathname.replace(/^\//, '')}`;
+    if (search) apiUrl.search = search;
     const idempotencyKey = request.headers.get('idempotency-key');
     const expectedVersion = request.headers.get('if-match');
     const upstream = await fetch(apiUrl, {

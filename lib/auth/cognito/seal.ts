@@ -10,6 +10,7 @@ export type CognitoCookiePurpose =
   | 'access-token'
   | 'identity-token'
   | 'oauth-request'
+  | 'new-password-challenge'
   | 'refresh-token';
 
 type SealedPayload = {

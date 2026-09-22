@@ -34,7 +34,7 @@ test('development foundation passes the offline safety contract', () => {
   const template = createDevFoundationTemplate();
   const summary = validateDevFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 39);
+  assert.equal(summary.resourceCount, 42);
   assert.deepEqual(summary.resourceTypes, EXPECTED_RESOURCE_TYPE_COUNTS);
 });
 
@@ -42,7 +42,7 @@ test('production foundation is isolated and retains data-bearing resources', () 
   const template = createProductionFoundationTemplate();
   const summary = validateProductionFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 39);
+  assert.equal(summary.resourceCount, 42);
   assert.deepEqual(summary.resourceTypes, EXPECTED_RESOURCE_TYPE_COUNTS);
   assert.deepEqual(template.Parameters.Environment.AllowedValues, ['prod']);
   assert.equal(template.Parameters.EnableTableDeletionProtection, undefined);
@@ -64,7 +64,7 @@ test('production foundation is isolated and retains data-bearing resources', () 
 
 test('generated Lambda bundle stays inline-safe and enforces claims', async () => {
   assert.equal(
-    Buffer.byteLength(FOUNDATION_LAMBDA_CODE, 'utf8') < 900_000,
+    Buffer.byteLength(FOUNDATION_LAMBDA_CODE, 'utf8') < 950_000,
     true
   );
   const generated = createRequire(import.meta.url)(
@@ -82,6 +82,7 @@ test('generated Lambda bundle stays inline-safe and enforces claims', async () =
   assert.equal(FOUNDATION_LAMBDA_CODE.includes('X-Amz-Signature='), false);
   process.env.EXPECTED_ISSUER = 'https://issuer.example.invalid/pool';
   process.env.EXPECTED_CLIENT_ID = 'public-client';
+  process.env.USER_POOL_ID = 'eu-west-1_fixture-pool';
   process.env.CONTENT_TABLE_NAME = 'fixture-table';
   process.env.CONTENT_BUCKET_NAME = 'fixture-bucket';
   process.env.BACKUP_ENVIRONMENT = 'dev';

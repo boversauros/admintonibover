@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import type { CognitoGroup } from './cognito/groups';
 
@@ -12,7 +13,6 @@ export type AuthUser = {
 
 interface AuthContextType {
   user: AuthUser | null;
-  signIn: () => void;
   signOut: () => Promise<void>;
 }
 
@@ -27,14 +27,8 @@ export function AuthProvider({
   children,
   initialUser = null,
 }: AuthProviderProps) {
+  const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(initialUser);
-
-  const signIn = () => {
-    const loginUrl = new URL('/auth/login', window.location.origin);
-    const returnTo = `${window.location.pathname}${window.location.search}`;
-    if (returnTo !== '/') loginUrl.searchParams.set('returnTo', returnTo);
-    window.location.assign(loginUrl);
-  };
 
   const signOut = async () => {
     const response = await fetch('/auth/logout', {
@@ -43,17 +37,14 @@ export function AuthProvider({
       headers: { accept: 'application/json' },
       cache: 'no-store',
     });
-    if (!response.ok) throw new Error('Failed to sign out');
-    const payload = (await response.json()) as { logoutUrl?: unknown };
-    if (typeof payload.logoutUrl !== 'string') {
-      throw new Error('Failed to sign out');
-    }
+    if (!response.ok) throw new Error('No s’ha pogut tancar la sessió.');
     setUser(null);
-    window.location.assign(payload.logoutUrl);
+    router.replace('/');
+    router.refresh();
   };
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, signOut }}>
       {children}
     </AuthContext.Provider>
   );

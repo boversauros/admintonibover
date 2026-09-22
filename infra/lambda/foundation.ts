@@ -1,6 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { S3Client } from '@aws-sdk/client-s3';
+import { CognitoIdentityProviderClient } from '@aws-sdk/client-cognito-identity-provider';
 
 import {
   createAdminApiHandler,
@@ -9,6 +10,7 @@ import {
 } from '@/lib/aws/admin-api/handler';
 import { CONTENT_OPERATION_GROUPS } from '@/lib/auth/cognito/groups';
 import { DynamoDbAdminStore } from '@/lib/aws/admin-api/store';
+import { CognitoUserManagement } from '@/lib/aws/admin-api/users';
 import { AwsDynamoDbPort } from '@/lib/aws/dynamodb/aws-port';
 import { DynamoDbMediaIntentRepository } from '@/lib/aws/dynamodb/media-intent-repository';
 import { DynamoDbPostRepository } from '@/lib/aws/dynamodb/post-repository';
@@ -24,6 +26,7 @@ const documentClient = DynamoDBDocumentClient.from(dynamodb, {
   marshallOptions: { removeUndefinedValues: true },
 });
 const s3 = new S3Client({});
+const cognito = new CognitoIdentityProviderClient({});
 
 function environment(name: string): string {
   const value = process.env[name];
@@ -66,6 +69,7 @@ function runtimeHandler() {
     media,
     objects,
     environment: backupEnvironment(),
+    users: new CognitoUserManagement(environment('USER_POOL_ID'), cognito),
     security: {
       issuer: environment('EXPECTED_ISSUER'),
       clientId: environment('EXPECTED_CLIENT_ID'),

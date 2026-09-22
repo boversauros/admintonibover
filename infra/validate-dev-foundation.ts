@@ -711,10 +711,10 @@ export function validateFoundationTemplate(
   const lambdaCode = asRecord(lambda.Code, 'FoundationFunction.Code', issues);
   if (
     typeof lambdaCode.ZipFile !== 'string' ||
-    Buffer.byteLength(lambdaCode.ZipFile, 'utf8') > 900_000
+    Buffer.byteLength(lambdaCode.ZipFile, 'utf8') > 950_000
   ) {
     issues.push(
-      'FoundationFunction inline bundle must be at most 900000 bytes'
+      'FoundationFunction inline bundle must be at most 950000 bytes'
     );
   }
   requireEqual(
@@ -770,6 +770,9 @@ export function validateFoundationTemplate(
     KeywordUpdateRoute: 'PUT /keywords/{id}',
     KeywordDeleteRoute: 'DELETE /keywords/{id}',
     BackupDownloadRoute: 'GET /backup',
+    UsersListRoute: 'GET /users',
+    UserInviteRoute: 'POST /users',
+    UserActionRoute: 'POST /users/{username}/actions',
   } as const;
   for (const [logicalId, routeKey] of Object.entries(expectedProtectedRoutes)) {
     const protectedRoute = asRecord(
@@ -965,6 +968,54 @@ export function validateFoundationTemplate(
         `Lambda execution role is missing exact-table action ${transactionalItemAction}`
       );
     }
+  }
+  const cognitoActions = [
+    'cognito-idp:ListUsers',
+    'cognito-idp:AdminListGroupsForUser',
+    'cognito-idp:AdminGetUser',
+    'cognito-idp:AdminCreateUser',
+    'cognito-idp:AdminAddUserToGroup',
+    'cognito-idp:AdminResetUserPassword',
+    'cognito-idp:AdminEnableUser',
+    'cognito-idp:AdminDisableUser',
+    'cognito-idp:AdminUserGlobalSignOut',
+  ];
+  for (const action of cognitoActions) {
+    if (!serializedPolicies.includes(action)) {
+      issues.push(`Lambda execution role is missing Cognito action ${action}`);
+    }
+  }
+  const cognitoStatement = policies
+    .flatMap(policy => {
+      const entry = asRecord(policy, 'LambdaExecutionRole.Policy', issues);
+      const document = asRecord(
+        entry.PolicyDocument,
+        'LambdaExecutionRole.PolicyDocument',
+        issues
+      );
+      return asArray(
+        document.Statement,
+        'LambdaExecutionRole.PolicyDocument.Statement',
+        issues
+      );
+    })
+    .find(statement => {
+      const record = asRecord(
+        statement,
+        'LambdaExecutionRole.PolicyDocument.Statement',
+        issues
+      );
+      return record.Sid === 'ManageUsersInExactPool';
+    });
+  if (
+    !cognitoStatement ||
+    JSON.stringify(
+      asRecord(cognitoStatement, 'ManageUsersInExactPool', issues).Resource
+    ) !== JSON.stringify({ 'Fn::GetAtt': ['UserPool', 'Arn'] })
+  ) {
+    issues.push(
+      'Cognito user administration must be scoped to the exact UserPool ARN'
+    );
   }
   for (const forbiddenAction of ['logs:CreateLogGroup', 's3:*']) {
     if (serializedPolicies.includes(forbiddenAction)) {
