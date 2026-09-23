@@ -4,8 +4,13 @@ import { getCognitoConfig } from '@/lib/auth/cognito/config';
 import { setCognitoTransientCookies } from '@/lib/auth/cognito/cookies';
 import { createPkceArtifacts } from '@/lib/auth/cognito/oauth';
 import { safeReturnTo } from '@/lib/auth/cognito/http';
+import { handleInAppSignIn } from '@/lib/auth/cognito/in-app-flow';
 
 export const dynamic = 'force-dynamic';
+
+export async function POST(request: NextRequest): Promise<Response> {
+  return handleInAppSignIn(request, getCognitoConfig());
+}
 
 export async function GET(request: NextRequest): Promise<Response> {
   const config = getCognitoConfig();

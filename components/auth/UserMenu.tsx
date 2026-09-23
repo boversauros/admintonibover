@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Icon, Text } from '@/components/ui';
 import type { IconName } from '@/components/ui/Icon';
 import type { AuthUser } from '@/lib/auth/AuthContext';
+import { canManageCognitoUsers } from '@/lib/auth/cognito/groups';
 
 interface UserMenuProps {
   user: AuthUser;
@@ -90,6 +92,7 @@ export function UserMenu({
   onLogout,
   isBackingUp = false,
 }: UserMenuProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -183,6 +186,18 @@ export function UserMenu({
           </div>
 
           {/* Actions */}
+          {canManageCognitoUsers(user.groups) ? (
+            <div className="py-1.5">
+              <MenuItem
+                icon="users"
+                label="Usuaris"
+                onClick={() => {
+                  setIsOpen(false);
+                  router.push('/usuaris');
+                }}
+              />
+            </div>
+          ) : null}
           {onBackup ? (
             <div className="py-1.5">
               <MenuItem

@@ -21,7 +21,7 @@ export default async function RootLayout({
   const cognitoSession = await readCognitoSession(getCognitoConfig());
 
   return (
-    <html lang="en">
+    <html lang="ca">
       <body className="min-h-screen bg-background text-primary font-sans antialiased flex flex-col">
         <AuthProvider initialUser={cognitoSession?.user ?? null}>
           {children}

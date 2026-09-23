@@ -8,7 +8,7 @@ const ENTRY_PATH = resolve('infra/lambda/foundation.ts');
 export const FOUNDATION_LAMBDA_OUTPUT = resolve(
   'infra/generated/foundation-lambda.cjs'
 );
-const MAX_INLINE_BUNDLE_BYTES = 900_000;
+const MAX_INLINE_BUNDLE_BYTES = 950_000;
 
 export async function buildFoundationLambda({
   check,

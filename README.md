@@ -34,6 +34,21 @@ AWS_COGNITO_SESSION_SECRET=<base64url-encoded-32-byte-secret>
 AWS_CONTENT_BUCKET_ORIGIN=https://<BucketName>.s3.eu-west-1.amazonaws.com
 ```
 
+Sign in on the application page with an invited account's email and password.
+On first sign-in, enter the temporary password and set a permanent password
+(14+ characters with uppercase, lowercase, number, and symbol). **Forgot
+password?** sends a recovery code to a verified email; confirmation also stays
+inside the application. There is no self-registration. The Cognito login URL
+and callback settings remain configured only for the existing rollout fallback
+until the new flow has been verified against the deployed user pool.
+
+A super-administrator can open **Usuaris** from the avatar menu to see current
+accounts, invite an editor, resend a pending invitation, request password
+recovery, enable or disable an account, and revoke sessions. Editors do not see
+the menu item and receive `403` from the user-management API. Invitation and
+reset messages are sent by Cognito; no password or recovery code is displayed
+in this application.
+
 Generate the session secret without committing or logging it:
 
 ```bash

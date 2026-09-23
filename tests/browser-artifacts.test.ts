@@ -54,3 +54,13 @@ test('browser artifact audit rejects source maps, secret boundaries, and canarie
     true
   );
 });
+
+test('browser artifact audit rejects session and challenge cookie names in client code', async () => {
+  const root = await fixture();
+  await writeFile(
+    join(root, 'static', 'chunks', 'app.js'),
+    'admintonibover-cognito-access admintonibover-cognito-id admintonibover-cognito-challenge'
+  );
+  const result = await inspectBrowserArtifacts(root);
+  assert.equal(result.issues.length, 3);
+});

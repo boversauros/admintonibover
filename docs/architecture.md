@@ -10,7 +10,7 @@ migration decisions are intentionally kept in
 ```mermaid
 flowchart LR
   A[Private super-admin and editors] -->|HTTPS| N[Next.js admin on Vercel]
-  N -->|Hosted PKCE and user-pool API| C[Amazon Cognito]
+  N -->|User-pool API; transitional hosted fallback| C[Amazon Cognito]
   N -->|server-held access token| G[API Gateway HTTP API]
   G -->|JWT authorizer| L[Lambda group authorization]
   L --> D[(DynamoDB content table)]
@@ -29,13 +29,14 @@ fresh, temporary AWS session.
 
 ## Next.js routes and component boundaries
 
-The App Router exposes three pages:
+The App Router exposes four pages:
 
 | Route                   | Entry point                         | Purpose                                                                     |
 | ----------------------- | ----------------------------------- | --------------------------------------------------------------------------- |
 | `/`                     | `app/page.tsx`                      | Authenticated post list, filters, backup, publication, and delete workflows |
 | `/reflexions/new`       | `app/reflexions/new/page.tsx`       | Create a post                                                               |
 | `/reflexions/[id]/edit` | `app/reflexions/[id]/edit/page.tsx` | Load and edit one post                                                      |
+| `/usuaris`              | `app/usuaris/page.tsx`              | Super-admin user list and invitation controls                               |
 
 The page entries and root layout are Server Components. `app/layout.tsx` reads
 the encrypted Cognito session and passes only the safe user projection into the
@@ -45,29 +46,37 @@ SDK adapter.
 
 Authentication route handlers are dynamic and uncached:
 
-- `GET /auth/login` creates PKCE/state/nonce data and redirects to Cognito.
-- `GET /auth/callback` validates state, exchanges the code, verifies claims,
-  and creates encrypted host-only cookies.
+- `POST /auth/login` checks an email/password through the user-pool API and
+  issues encrypted host-only cookies, or stores a short-lived encrypted
+  `NEW_PASSWORD_REQUIRED` challenge cookie.
+- `POST /auth/new-password` completes the invitation challenge and issues the
+  same session cookies. `POST /auth/forgot-password` and
+  `POST /auth/confirm-password` provide in-app recovery with generic outcomes.
+- `GET /auth/login` and `GET /auth/callback` remain as a transitional operator
+  fallback until the replacement is verified in a deployed environment; the
+  application UI does not link to them.
 - `GET /auth/session` returns only the subject, verified email, normalized group
   memberships, and access expiry; it also rotates refreshed cookies.
 - `POST /auth/logout` requires the same origin, revokes the refresh token,
-  clears local cookies, and returns the allow-listed Cognito logout URL.
+  and clears local cookies without redirecting to a Cognito domain.
 
 The same-origin `/api/aws/*` handlers expose the admin application contract:
 
-| Method and path                            | AWS operation                         |
-| ------------------------------------------ | ------------------------------------- |
-| `GET`, `POST /api/aws/posts`               | List or create posts                  |
-| `GET`, `PUT`, `DELETE /api/aws/posts/[id]` | Read, update, or delete one post      |
-| `PUT /api/aws/posts/[id]/publication`      | Publish or unpublish one post         |
-| `POST /api/aws/posts/publication/bulk`     | Publish the confirmed draft set       |
-| `GET /api/aws/categories`                  | List categories                       |
-| `GET /api/aws/keywords`                    | List keywords, optionally by language |
-| `GET /api/aws/posts/[id]/images`           | Inspect attached private images       |
-| `POST /api/aws/posts/[id]/images/presign`  | Create a checksum-bound upload intent |
-| `POST /api/aws/posts/[id]/images/confirm`  | Verify and attach an upload           |
-| `DELETE /api/aws/posts/[id]/images/[role]` | Detach main or thumbnail image        |
-| `GET /api/aws/backup`                      | Download a validated DynamoDB backup  |
+| Method and path                            | AWS operation                                                         |
+| ------------------------------------------ | --------------------------------------------------------------------- |
+| `GET`, `POST /api/aws/posts`               | List or create posts                                                  |
+| `GET`, `PUT`, `DELETE /api/aws/posts/[id]` | Read, update, or delete one post                                      |
+| `PUT /api/aws/posts/[id]/publication`      | Publish or unpublish one post                                         |
+| `POST /api/aws/posts/publication/bulk`     | Publish the confirmed draft set                                       |
+| `GET /api/aws/categories`                  | List categories                                                       |
+| `GET /api/aws/keywords`                    | List keywords, optionally by language                                 |
+| `GET /api/aws/posts/[id]/images`           | Inspect attached private images                                       |
+| `POST /api/aws/posts/[id]/images/presign`  | Create a checksum-bound upload intent                                 |
+| `POST /api/aws/posts/[id]/images/confirm`  | Verify and attach an upload                                           |
+| `DELETE /api/aws/posts/[id]/images/[role]` | Detach main or thumbnail image                                        |
+| `GET /api/aws/backup`                      | Download a validated DynamoDB backup                                  |
+| `GET`, `POST /api/aws/users`               | List users or invite an editor                                        |
+| `POST /api/aws/users/[username]/actions`   | Resend invitation, reset password, enable/disable, or revoke sessions |
 
 Reads and mutations validate the local Cognito session, attach the access token
 server-side, forward a correlation ID, and return `Cache-Control: no-store`.
@@ -78,19 +87,28 @@ idempotency keys prevent lost updates and duplicate retries.
 ## Authentication and authorization
 
 Cognito self-sign-up is disabled. The public client has no secret, supports
-Authorization Code with PKCE for the transitional hosted login, and permits
+Authorization Code with PKCE for the transitional fallback, and permits
 `USER_PASSWORD_AUTH` plus refresh-token authentication for the in-app flow.
 The `super-admins` and `editors` groups can perform content operations; only
 `super-admins` are eligible for user-management operations. The legacy
 `admintonibover-api/admin` scope remains available to the hosted login during
 the transition but is not an authorization requirement.
 
+User administration is enforced in the Lambda after JWT validation. The
+browser-facing Next.js routes hold no AWS credentials. The Lambda role grants
+only the required Cognito admin actions on this stack's exact user-pool ARN.
+An invitation is first created with delivery suppressed, then assigned to
+`editors`, then sent by Cognito; no temporary password enters the response or
+logs. The account list is paginated and may briefly lag a write because Cognito
+`ListUsers` is eventually consistent. Self-disable is rejected using the
+authenticated subject, and disabling a user also attempts global sign-out.
+
 CloudFormation takes the existing administrator's private Cognito username as
 a no-echo deployment parameter. The Lambda and protected API routes depend on
 that user's `super-admins` attachment, so group enforcement cannot update
 before the initial membership exists.
 
-State, nonce, verifier, access token, ID token, and refresh token are encrypted
+State, nonce, verifier, invitation challenge, access token, ID token, and refresh token are encrypted
 and authenticated in host-only, HttpOnly, SameSite=Lax cookies; production
 cookies are Secure.
 

@@ -21,7 +21,8 @@ export type IconName =
   | 'grip-vertical'
   | 'upload'
   | 'download'
-  | 'log-out';
+  | 'log-out'
+  | 'users';
 
 export type IconSize = '3' | '4' | '5' | '6' | '8' | '10' | '12';
 
@@ -266,6 +267,19 @@ const icons: Record<IconName, IconDefinition> = {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    ),
+  },
+  users: {
+    viewBox: '0 0 24 24',
+    strokeWidth: '1.5',
+    render: () => (
+      <>
+        <path
+          d="M16 20v-1.5a4.5 4.5 0 00-4.5-4.5h-4A4.5 4.5 0 003 18.5V20m15-6a4.5 4.5 0 013 4.5V20M9.5 10a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm8 0a3.5 3.5 0 00-1.1-6.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </>
     ),
   },
 };

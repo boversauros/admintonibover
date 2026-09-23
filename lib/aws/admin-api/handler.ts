@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import {
   belongsToAnyCognitoGroup,
+  canManageCognitoUsers,
   parseCognitoGroups,
   type CognitoGroup,
 } from '@/lib/auth/cognito/groups';
@@ -61,6 +62,11 @@ import {
   type MutationReservation,
   type StoredMutationResult,
 } from './store';
+import {
+  UserManagementError,
+  type UserAction,
+  type UserManagement,
+} from './users';
 
 export type AdminApiEvent = {
   body?: string | null;
@@ -109,6 +115,7 @@ export type AdminApiDependencies = {
   media: MediaOperations;
   objects: Pick<MediaObjectStore, 'delete'>;
   environment: BackupEnvironment;
+  users?: UserManagement;
   security: {
     issuer: string;
     clientId: string;
@@ -159,6 +166,15 @@ const MAX_BULK_POSTS = 100;
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const UPLOAD_ID_PATTERN = /^[a-f0-9]{64}$/;
 const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
+const USERNAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._@+-]{0,127}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USER_ACTIONS: readonly UserAction[] = [
+  'resend-invitation',
+  'reset-password',
+  'enable',
+  'disable',
+  'revoke-sessions',
+];
 const NOOP_LOGGER: AdminLogger = {
   info: () => undefined,
   warn: () => undefined,
@@ -765,6 +781,15 @@ function mappedError(
   logger: AdminLogger,
   routeKey: string
 ): AdminApiResponse {
+  if (error instanceof UserManagementError) {
+    logger.warn({
+      message: 'cognito_user_action_failed',
+      requestId,
+      routeKey,
+      code: error.code,
+    });
+    return errorResponse(error.status, error.code, error.message, requestId);
+  }
   if (error instanceof ApiValidationError) {
     const first = error.issues[0];
     const tooLarge = first?.code === 'BODY_TOO_LARGE';
@@ -915,6 +940,85 @@ export function createAdminApiHandler(dependencies: AdminApiDependencies) {
     const routeKey = event.routeKey ?? '';
     try {
       const admin = authenticate(event, dependencies.security);
+
+      if (
+        routeKey === 'GET /users' ||
+        routeKey === 'POST /users' ||
+        routeKey === 'POST /users/{username}/actions'
+      ) {
+        if (!canManageCognitoUsers(admin.groups)) {
+          throw new ApiForbiddenError(
+            'User management requires super-admin access'
+          );
+        }
+        if (!dependencies.users)
+          throw new Error('User management is unavailable');
+        if (routeKey === 'GET /users') {
+          const cursor = event.queryStringParameters?.cursor;
+          if (
+            cursor &&
+            (cursor.length > 4096 || !/^[A-Za-z0-9_+=/.-]+$/.test(cursor))
+          ) {
+            throw validation('cursor', 'INVALID_CURSOR', 'Invalid page cursor');
+          }
+          return response(
+            200,
+            { data: await dependencies.users.list(cursor) },
+            requestId
+          );
+        }
+        if (routeKey === 'POST /users') {
+          const body = recordBody(parseBody(event));
+          const email =
+            typeof body.email === 'string'
+              ? body.email.trim().toLowerCase()
+              : '';
+          if (email.length > 254 || !EMAIL_PATTERN.test(email)) {
+            throw validation(
+              'email',
+              'INVALID_EMAIL',
+              'A valid email address is required'
+            );
+          }
+          const user = await dependencies.users.invite(email);
+          logger.info({
+            message: 'cognito_user_action',
+            action: 'invite',
+            outcome: 'success',
+            requestId,
+          });
+          return response(201, { data: { user } }, requestId);
+        }
+        const username = event.pathParameters?.username ?? '';
+        if (!USERNAME_PATTERN.test(username)) {
+          throw validation(
+            'username',
+            'INVALID_USERNAME',
+            'Invalid user identifier'
+          );
+        }
+        const body = recordBody(parseBody(event));
+        const action = body.action;
+        if (!USER_ACTIONS.includes(action as UserAction)) {
+          throw validation(
+            'action',
+            'INVALID_ACTION',
+            'Unsupported user action'
+          );
+        }
+        await dependencies.users.act(
+          username,
+          action as UserAction,
+          admin.subject
+        );
+        logger.info({
+          message: 'cognito_user_action',
+          action,
+          outcome: 'success',
+          requestId,
+        });
+        return response(200, { data: { completed: true } }, requestId);
+      }
 
       if (routeKey === 'GET /health') {
         return response(200, { data: { status: 'ok' } }, requestId);

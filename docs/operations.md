@@ -24,11 +24,15 @@ Do not repair a stop condition with a direct service-console edit.
 Trigger: normal sign-in, forgotten password, suspected session compromise, or
 a disabled account.
 
-1. Open the application and continue to Cognito managed login. The callback
-   must be exactly `/auth/callback`; no MFA enrollment should appear for the
-   application user.
-2. Use **Forgot password?** and the verified-email code to reset the same user.
-   Never create a second administrator as recovery.
+1. Open the application and sign in with the invited email and password. A
+   temporary invitation password prompts for a permanent password inside the
+   app; no MFA enrollment should appear for the application user.
+2. Use **Forgot password?** and the verified-email code inside the app to reset
+   the same user. Never create a second administrator as recovery.
+   For any newly invited editor, provide the required email attribute and
+   ensure `email_verified=true` when provisioning them; session validation and
+   verified-email recovery require it. Cognito's invitation password expires
+   after three days in this pool.
 3. For a suspected session leak, rotate `AWS_COGNITO_SESSION_SECRET` in the
    deployment platform and redeploy. This invalidates every Next.js session.
 4. Revoke all Cognito refresh sessions with a private email variable:
@@ -60,9 +64,39 @@ a disabled account.
    no secret, and callback/logout URLs are exact. Clear private shell variables
    afterward.
 
-Successful logout must revoke the refresh token, clear the local encrypted
-cookies, clear Cognito managed login, and make a restored pre-logout cookie set
-return `401`.
+Successful logout must revoke the refresh token and clear the local encrypted
+cookies without visiting a Cognito domain. A restored pre-logout cookie set
+must return `401`.
+
+## Invite and manage editors
+
+Trigger: the super-administrator needs to give an editor access or manage an
+existing account after the user-management API and exact-pool IAM policy are
+deployed.
+
+1. Open **Usuaris** from the avatar menu. Check that the list shows the
+   expected users, roles, enabled state, and invitation status. Never copy the
+   list into public logs or issue comments.
+2. Invite the intended editor's exact email address. The application creates
+   the account with delivery suppressed, assigns `editors`, then asks Cognito
+   to email the temporary password. If group assignment fails, the account
+   remains without an invitation; stop and inspect it privately before retrying.
+3. Ask the editor to complete first sign-in and choose a permanent password
+   within three days. If the invitation expires, use **Reenviar invitació** on
+   the pending account. Confirm the role before any resend.
+4. For an existing verified account, **Restablir contrasenya** sends a recovery
+   code and puts the account in `RESET_REQUIRED`; the recipient completes the
+   app's forgotten-password flow. Disabling an account also calls global
+   sign-out. Never disable your own super-admin account.
+5. Verify with an editor session that content access still works, **Usuaris**
+   is absent, and direct `GET /api/aws/users` plus both mutation routes return
+   `403`. Verify signed-out access returns `401`. Do not test by inviting an
+   unapproved real person.
+
+Cognito's built-in email sender is currently `COGNITO_DEFAULT`. Its invitation
+and recovery email text is managed by Cognito and cannot be customized to
+Catalan with this sender; doing so would require a separately approved SES
+sender change. The application screen and controls are in Catalan.
 
 ## Bootstrap Cognito groups
 
@@ -102,7 +136,11 @@ API authorization in an environment.
    receive `403`; missing, modified, ID, or wrong-client tokens must receive
    `401`.
 6. Keep the hosted login and legacy custom scope configured until the in-app
-   login replacement has been independently verified. Clear private variables.
+   login replacement has been independently verified. After deployment, test an
+   invited editor's first password change, a confirmed user's sign-in and
+   refresh, recovery by email code, logout, and restored-cookie rejection in a
+   clean private browser before removing the hosted domain/callback settings.
+   Clear private variables.
 
 ## Deploy and verify application or infrastructure
 
@@ -152,7 +190,7 @@ variables are non-empty and use the deployment prefix.
 ### Post-deployment verification
 
 1. Verify stack status, drift, outputs, tags, protected-resource retention, and
-   the 39-resource/18-type contract.
+   the 42-resource/18-type contract.
 2. Verify DynamoDB is active, on-demand, deletion-protected in production,
    string `PK`/`SK`, with no unexpected indexes, streams, or paid features.
 3. Verify S3 Block Public Access, owner enforcement, exact CORS, TLS policy,

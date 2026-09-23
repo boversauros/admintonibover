@@ -6,6 +6,7 @@ export const COGNITO_COOKIE_NAMES = {
   accessToken: 'admintonibover-cognito-access',
   idToken: 'admintonibover-cognito-id',
   oauthRequest: 'admintonibover-cognito-oauth',
+  newPasswordChallenge: 'admintonibover-cognito-challenge',
   refreshToken: 'admintonibover-cognito-refresh',
 } as const;
 
@@ -24,6 +25,7 @@ export type CognitoTransientValues = {
 };
 
 const TRANSIENT_MAX_AGE_SECONDS = 10 * 60;
+const CHALLENGE_MAX_AGE_SECONDS = 5 * 60;
 const SESSION_ENVELOPE_MAX_AGE_SECONDS = 24 * 60 * 60;
 
 export function cognitoCookieOptions(
@@ -75,6 +77,46 @@ export async function readCognitoTransientCookie(
 export function clearCognitoTransientCookies(response: NextResponse): void {
   const options = { ...cognitoCookieOptions(), maxAge: 0 };
   response.cookies.set(COGNITO_COOKIE_NAMES.oauthRequest, '', options);
+  response.cookies.set(COGNITO_COOKIE_NAMES.newPasswordChallenge, '', options);
+}
+
+export type NewPasswordChallenge = {
+  username: string;
+  session: string;
+  returnTo: string;
+};
+
+export async function setNewPasswordChallengeCookie(
+  response: NextResponse,
+  challenge: NewPasswordChallenge
+): Promise<void> {
+  const sealed = await sealCognitoCookie(
+    'new-password-challenge',
+    challenge,
+    undefined,
+    CHALLENGE_MAX_AGE_SECONDS
+  );
+  response.cookies.set(COGNITO_COOKIE_NAMES.newPasswordChallenge, sealed, {
+    ...cognitoCookieOptions(),
+    maxAge: CHALLENGE_MAX_AGE_SECONDS,
+  });
+}
+
+export async function readNewPasswordChallengeCookie(
+  sealed: string | undefined
+): Promise<NewPasswordChallenge | null> {
+  if (!sealed) return null;
+  const value = await unsealCognitoCookie<unknown>(
+    sealed,
+    'new-password-challenge'
+  );
+  if (!value || typeof value !== 'object') return null;
+  const challenge = value as Partial<NewPasswordChallenge>;
+  return typeof challenge.username === 'string' &&
+    typeof challenge.session === 'string' &&
+    typeof challenge.returnTo === 'string'
+    ? (challenge as NewPasswordChallenge)
+    : null;
 }
 
 export async function setCognitoSessionCookies(

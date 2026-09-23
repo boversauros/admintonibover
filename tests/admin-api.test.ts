@@ -80,6 +80,7 @@ function event(
     body?: unknown;
     headers?: Record<string, string>;
     id?: string;
+    username?: string;
     role?: 'main' | 'thumb';
     query?: Record<string, string>;
     claims?: Record<string, unknown> | null;
@@ -101,11 +102,12 @@ function event(
       ? {}
       : { body: JSON.stringify(options.body) }),
     ...(options.headers ? { headers: options.headers } : {}),
-    ...(options.id || options.role
+    ...(options.id || options.role || options.username
       ? {
           pathParameters: {
             ...(options.id ? { id: options.id } : {}),
             ...(options.role ? { role: options.role } : {}),
+            ...(options.username ? { username: options.username } : {}),
           },
         }
       : {}),
@@ -264,6 +266,81 @@ test('authentication failures use stable 401 and group-based 403 envelopes befor
     scans: 0,
     transactions: 0,
   });
+});
+
+test('user management is super-admin-only for reads and mutations', async () => {
+  const fixture = setup();
+  const operations: string[] = [];
+  fixture.dependencies.users = {
+    async list() {
+      operations.push('list');
+      return { items: [], nextCursor: null };
+    },
+    async invite() {
+      operations.push('invite');
+      return {
+        username: 'private-user',
+        subject: 'new-sub',
+        email: 'new@example.test',
+        status: 'FORCE_CHANGE_PASSWORD',
+        enabled: true,
+        emailVerified: true,
+        groups: ['editors'],
+        createdAt: null,
+      };
+    },
+    async act() {
+      operations.push('act');
+    },
+  };
+  const handler = createAdminApiHandler(fixture.dependencies);
+  const editorClaims = {
+    iss: SECURITY.issuer,
+    client_id: SECURITY.clientId,
+    token_use: 'access',
+    sub: 'editor-subject',
+    'cognito:groups': ['editors'],
+  };
+  for (const route of [
+    'GET /users',
+    'POST /users',
+    'POST /users/{username}/actions',
+  ]) {
+    const denied = await handler(
+      event(route, {
+        claims: editorClaims,
+        body: { email: 'new@example.test', action: 'disable' },
+        username: 'private-user',
+      })
+    );
+    assert.equal(denied.statusCode, 403);
+  }
+  assert.deepEqual(operations, []);
+  assert.equal((await handler(event('GET /users'))).statusCode, 200);
+  assert.equal(
+    (
+      await handler(
+        event('POST /users', { body: { email: 'New@Example.Test' } })
+      )
+    ).statusCode,
+    201
+  );
+  assert.equal(
+    (
+      await handler(
+        event('POST /users/{username}/actions', {
+          body: { action: 'disable' },
+          username: 'private-user',
+        })
+      )
+    ).statusCode,
+    200
+  );
+  assert.deepEqual(operations, ['list', 'invite', 'act']);
+  assert.equal(
+    fixture.logs.some(log => log.includes('new@example.test')),
+    false
+  );
 });
 
 test('super-admins and editors can reach content operations', async () => {
