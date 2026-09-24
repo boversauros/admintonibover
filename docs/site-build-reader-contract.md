@@ -24,14 +24,31 @@ their API Gateway JWT authorizer cannot protect direct Lambda invocation.
   only that environment's content table, `s3:GetObject` on only its
   `images/posts/*` objects, and minimal CloudWatch Logs permissions. It has no
   write, scan, list-bucket, Cognito, or admin-Lambda permission.
-- Vercel obtains temporary AWS credentials from its OIDC token. IAM trust must
-  match the observed issuer, audience, subject, project, team, and staging
-  environment. A default preview subject that covers other branches is too
-  broad; use a branch-tracked custom environment or a separate staging project.
-  Production gets a distinct role and reader function only after approval.
+- Vercel obtains temporary AWS credentials from its OIDC token. Development
+  IAM trust matches the exact site project and `preview` environment, after
+  verifying its issuer, audience, and subject. This also permits other Preview
+  builds of that same project to invoke the **published-only development**
+  reader. The owner accepted the existing Preview staging path on 2026-09-24;
+  no admin or direct data permission is granted to those builds. Production
+  gets a distinct role and reader function only after approval.
 - Local development uses a temporary, invoke-only AWS session for `dev`.
   No admin Cognito session, long-lived AWS key, or private image URL is stored
   in Vercel environment variables, source, logs, or generated pages.
+
+The owner confirmed **Team** OIDC issuer mode for the existing Astro Vercel
+project. For the observed `preview` deployment, the development trust uses
+only these exact values, substituting the team and project slugs from the
+existing Vercel deployment URL (no wildcard):
+
+```text
+provider URL: https://oidc.vercel.com/<TEAM_SLUG>
+aud:          https://vercel.com/<TEAM_SLUG>
+sub:          owner:<TEAM_SLUG>:project:<SITE_PROJECT_NAME>:environment:preview
+```
+
+The IAM role trust uses `StringEquals` on the provider's `:aud` and `:sub`
+condition keys. A successful real Preview build must prove role assumption
+against the development reader in issue #56. This is not a production role.
 
 All invocation fields are untrusted. The reader validates schema and deployed
 environment, forces publication filtering, bounds work, and maps failures to
@@ -258,11 +275,14 @@ before any later change set.
 
 GitHub deployment metadata shows the Astro `dev` commit currently deploys as
 Vercel **Preview**. Its OIDC subject identifies the project and `preview`
-environment, not the Git branch. Trusting that subject would allow other
-preview branches of the same project to assume the build role. Choose a
-branch-tracked custom environment or separate staging project, then observe
-the actual staging OIDC `aud` and `sub` before approving IAM trust. That
-environment choice and token observation are pending owner input.
+environment, not the Git branch. The owner chose to keep this Preview staging
+path without a paid custom environment. The build role therefore permits any
+Preview build of the exact site project to invoke only the published-content
+development reader. The owner confirmed Team issuer mode; the project and
+Preview environment are visible in the existing GitHub deployment metadata.
+The expected `aud`/`sub` above follow Vercel's documented claim format.
+Validate a real build's role assumption in issue #56. No token is recorded in
+the repo.
 
 [Admin issue #56](https://github.com/boversauros/admintonibover/issues/56)
 will supply the reviewable development CloudFormation change: separate reader
