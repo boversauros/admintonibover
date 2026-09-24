@@ -866,7 +866,6 @@ export function createFoundationTemplate(
             },
             ReaderFunction: {
               Type: 'AWS::Lambda::Function',
-              DependsOn: 'ReaderLogGroup',
               Properties: {
                 FunctionName: { 'Fn::Sub': '${AWS::StackName}-build-reader' },
                 Description:
