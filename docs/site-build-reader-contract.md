@@ -239,23 +239,35 @@ tests are tracked in [site issue #12](https://github.com/boversauros/tonibover/i
 [image issue #13](https://github.com/boversauros/tonibover/issues/13), and
 [test issue #14](https://github.com/boversauros/tonibover/issues/14).
 One important adaptation detail: historical numeric keyword IDs determine the
-current label for a slug collision. Preserve numeric ordering for those IDs;
-new nonnumeric IDs need a deterministic tie rule agreed with the Astro owner.
+current label for a slug collision. Compare decimal-only IDs numerically and
+choose the smallest as today. For a collision containing no numeric ID, use
+the smallest ID in ASCII code point order; numeric IDs take precedence over
+nonnumeric IDs. This leaves historical pages unchanged and gives future IDs a
+deterministic label. The Astro owner should review this proposed extension.
 
 ## Staging checks and later deployment impact
 
-Issue #55 makes no AWS resource or content change. Before it can close,
-privately verify the current temporary AWS identity, Region, development
-stack status and exact resources; record only redacted evidence in the issue.
-The local AWS CLI session was expired when this proposal was written, so that
-check is pending. Also observe the actual Vercel staging OIDC `aud` and `sub`
-before approving an IAM trust policy; the project/environment choice is
-pending owner input.
+Issue #55 makes no AWS resource or content change. A read-only check on
+2026-09-24 verified a non-root authenticated identity, the exact development
+stack/account/Region, `UPDATE_COMPLETE` status, 42 resources of 18 types,
+matching table/bucket/Lambda outputs and physical resources, active table and
+Lambda, private bucket, and required tags on those three resources. The
+account currently has no Vercel OIDC provider. Identifiers and content were
+not recorded in public evidence. Recheck identity and inventory immediately
+before any later change set.
+
+GitHub deployment metadata shows the Astro `dev` commit currently deploys as
+Vercel **Preview**. Its OIDC subject identifies the project and `preview`
+environment, not the Git branch. Trusting that subject would allow other
+preview branches of the same project to assume the build role. Choose a
+branch-tracked custom environment or separate staging project, then observe
+the actual staging OIDC `aud` and `sub` before approving IAM trust. That
+environment choice and token observation are pending owner input.
 
 [Admin issue #56](https://github.com/boversauros/admintonibover/issues/56)
 will supply the reviewable development CloudFormation change: separate reader
 Lambda, read-only execution role, log group, exact invoke role, and OIDC trust
-provider only if the account does not already have an appropriate one. It
+provider after rechecking that the account still lacks an appropriate one. It
 must document the exact resource count/type, IAM diff, request-based Lambda,
 DynamoDB/S3/log costs, and rollback. No VPC, NAT, public S3 setting, public
 endpoint, provisioned concurrency, or production resource belongs in that
