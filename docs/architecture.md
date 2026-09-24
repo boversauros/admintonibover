@@ -193,6 +193,10 @@ active table or restores S3 objects.
 
 ## Deployment inputs and validation
 
+The proposed read-only Astro build interface and its separate IAM boundary
+are specified in [site-build-reader-contract.md](site-build-reader-contract.md).
+It is a development staging contract; no reader resource is deployed yet.
+
 Source inputs are `infra/dev-foundation.ts`, `infra/lambda/foundation.ts`, the
 parameter examples, and the pinned dependency graph. `pnpm infra:synth`
 produces the inline Lambda bundle and environment template in
