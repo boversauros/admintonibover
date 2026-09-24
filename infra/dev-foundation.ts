@@ -44,6 +44,14 @@ export const EXPECTED_RESOURCE_TYPE_COUNTS = {
   'AWS::S3::BucketPolicy': 1,
 } as const;
 
+export const EXPECTED_DEV_RESOURCE_TYPE_COUNTS = {
+  ...EXPECTED_RESOURCE_TYPE_COUNTS,
+  'AWS::IAM::OIDCProvider': 1,
+  'AWS::IAM::Role': 3,
+  'AWS::Lambda::Function': 2,
+  'AWS::Logs::LogGroup': 2,
+} as const;
+
 export const REQUIRED_TAGS = {
   Project: 'admintonibover',
   Environment: { Ref: 'Environment' },
@@ -147,6 +155,13 @@ export function createFoundationTemplate(
                 EnableTableDeletionProtection: {
                   default: 'DynamoDB deletion protection',
                 },
+                VercelTeamSlug: { default: 'Exact Vercel team slug' },
+                VercelSiteProjectName: {
+                  default: 'Exact Vercel site project name',
+                },
+                ReaderCodeObjectKey: {
+                  default: 'Content-addressed reader Lambda zip key',
+                },
               }),
         },
       },
@@ -217,6 +232,28 @@ export function createFoundationTemplate(
               AllowedValues: ['true', 'false'],
               Description:
                 'Keep false for the first deployment; update to true immediately after verification. Disable only for the documented dev deletion rehearsal.',
+            },
+            VercelTeamSlug: {
+              Type: 'String',
+              MinLength: 1,
+              MaxLength: 100,
+              AllowedPattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+              Description:
+                'Exact verified Vercel Team OIDC issuer slug; no wildcard.',
+            },
+            VercelSiteProjectName: {
+              Type: 'String',
+              MinLength: 1,
+              MaxLength: 100,
+              AllowedPattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+              Description:
+                'Exact verified Vercel Preview site project name; no wildcard.',
+            },
+            ReaderCodeObjectKey: {
+              Type: 'String',
+              AllowedPattern: '^deployment/build-reader/[0-9a-f]{64}\\.zip$',
+              Description:
+                'Content-addressed reader zip uploaded to the private development content bucket.',
             },
           }),
     },
@@ -762,6 +799,146 @@ export function createFoundationTemplate(
           },
         },
       },
+      ...(isProduction
+        ? {}
+        : {
+            ReaderLogGroup: {
+              Type: 'AWS::Logs::LogGroup',
+              DeletionPolicy: 'Delete',
+              UpdateReplacePolicy: 'Delete',
+              Properties: {
+                LogGroupName: {
+                  'Fn::Sub': '/aws/lambda/${AWS::StackName}-build-reader',
+                },
+                LogGroupClass: 'STANDARD',
+                RetentionInDays: 14,
+                Tags: tagList(),
+              },
+            },
+            ReaderExecutionRole: {
+              Type: 'AWS::IAM::Role',
+              Properties: {
+                Description:
+                  'Read-only execution role for the development published-content build reader.',
+                Path: '/admintonibover/',
+                AssumeRolePolicyDocument: {
+                  Version: '2012-10-17',
+                  Statement: [
+                    {
+                      Effect: 'Allow',
+                      Principal: { Service: 'lambda.amazonaws.com' },
+                      Action: 'sts:AssumeRole',
+                    },
+                  ],
+                },
+                Policies: [
+                  {
+                    PolicyName: 'published-reader-only',
+                    PolicyDocument: {
+                      Version: '2012-10-17',
+                      Statement: [
+                        {
+                          Sid: 'WriteReaderLogs',
+                          Effect: 'Allow',
+                          Action: ['logs:CreateLogStream', 'logs:PutLogEvents'],
+                          Resource: { 'Fn::GetAtt': ['ReaderLogGroup', 'Arn'] },
+                        },
+                        {
+                          Sid: 'ReadExactTable',
+                          Effect: 'Allow',
+                          Action: ['dynamodb:GetItem', 'dynamodb:Query'],
+                          Resource: { 'Fn::GetAtt': ['ContentTable', 'Arn'] },
+                        },
+                        {
+                          Sid: 'ReadPostImagesOnly',
+                          Effect: 'Allow',
+                          Action: ['s3:GetObject'],
+                          Resource: {
+                            'Fn::Sub': '${ContentBucket.Arn}/images/posts/*',
+                          },
+                        },
+                      ],
+                    },
+                  },
+                ],
+                Tags: tagList(),
+              },
+            },
+            ReaderFunction: {
+              Type: 'AWS::Lambda::Function',
+              DependsOn: 'ReaderLogGroup',
+              Properties: {
+                FunctionName: { 'Fn::Sub': '${AWS::StackName}-build-reader' },
+                Description:
+                  'IAM-invoked published-only development content reader.',
+                PackageType: 'Zip',
+                Runtime: 'nodejs24.x',
+                Handler: 'index.handler',
+                Architectures: ['arm64'],
+                MemorySize: 256,
+                Timeout: 30,
+                RecursiveLoop: 'Terminate',
+                Role: { 'Fn::GetAtt': ['ReaderExecutionRole', 'Arn'] },
+                Code: {
+                  S3Bucket: { Ref: 'ContentBucket' },
+                  S3Key: { Ref: 'ReaderCodeObjectKey' },
+                },
+                Environment: {
+                  Variables: {
+                    CONTENT_TABLE_NAME: { Ref: 'ContentTable' },
+                    CONTENT_BUCKET_NAME: { Ref: 'ContentBucket' },
+                    READER_ENVIRONMENT: 'dev',
+                  },
+                },
+                LoggingConfig: {
+                  ApplicationLogLevel: 'WARN',
+                  LogFormat: 'JSON',
+                  LogGroup: { Ref: 'ReaderLogGroup' },
+                  SystemLogLevel: 'WARN',
+                },
+                TracingConfig: { Mode: 'PassThrough' },
+                Tags: tagList(),
+              },
+            },
+            VercelOidcProvider: {
+              Type: 'AWS::IAM::OIDCProvider',
+              Properties: {
+                Url: { 'Fn::Sub': 'https://oidc.vercel.com/${VercelTeamSlug}' },
+                ClientIdList: [
+                  { 'Fn::Sub': 'https://vercel.com/${VercelTeamSlug}' },
+                ],
+                Tags: tagList(),
+              },
+            },
+            ReaderInvokeRole: {
+              Type: 'AWS::IAM::Role',
+              Properties: {
+                Description:
+                  'Invoke-only role for the exact Vercel site project Preview identity.',
+                Path: '/admintonibover/',
+                AssumeRolePolicyDocument: {
+                  'Fn::Sub':
+                    '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Federated":"${VercelOidcProvider}"},"Action":"sts:AssumeRoleWithWebIdentity","Condition":{"StringEquals":{"oidc.vercel.com/${VercelTeamSlug}:aud":"https://vercel.com/${VercelTeamSlug}","oidc.vercel.com/${VercelTeamSlug}:sub":"owner:${VercelTeamSlug}:project:${VercelSiteProjectName}:environment:preview"}}}]}',
+                },
+                Policies: [
+                  {
+                    PolicyName: 'invoke-exact-reader',
+                    PolicyDocument: {
+                      Version: '2012-10-17',
+                      Statement: [
+                        {
+                          Effect: 'Allow',
+                          Action: ['lambda:InvokeFunction'],
+                          Resource: { 'Fn::GetAtt': ['ReaderFunction', 'Arn'] },
+                        },
+                      ],
+                    },
+                  },
+                ],
+                Tags: tagList(),
+              },
+            },
+          }),
     },
     Outputs: {
       Region: {
@@ -811,6 +988,18 @@ export function createFoundationTemplate(
         Description: 'Foundation Lambda function name.',
         Value: { Ref: 'FoundationFunction' },
       },
+      ...(isProduction
+        ? {}
+        : {
+            ReaderFunctionName: {
+              Description: 'Development published-only reader function name.',
+              Value: { Ref: 'ReaderFunction' },
+            },
+            ReaderInvokeRoleArn: {
+              Description: 'Development Vercel Preview invoke-only role ARN.',
+              Value: { 'Fn::GetAtt': ['ReaderInvokeRole', 'Arn'] },
+            },
+          }),
     },
   };
 }
