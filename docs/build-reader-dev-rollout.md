@@ -52,7 +52,7 @@ set -euo pipefail
 pnpm reader:build
 pnpm reader:validate
 READER_ZIP=infra/generated/build-reader-lambda.zip
-READER_HASH=$(shasum -a 256 "$READER_ZIP" | cut -d ' ' -f 1)
+READER_HASH=$(openssl dgst -sha256 "$READER_ZIP" | awk '{print $NF}')
 READER_KEY="deployment/build-reader/${READER_HASH}.zip"
 READER_CHECKSUM=$(openssl dgst -sha256 -binary "$READER_ZIP" | openssl base64 -A)
 READER_BUCKET=$(aws cloudformation describe-stacks \
