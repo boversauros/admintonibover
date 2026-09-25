@@ -1,0 +1,53 @@
+/* ============================================
+   BASE
+   Element defaults. Components should not need to repeat these.
+   ============================================ */
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-primary);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background-color: var(--color-overlay-20);
+    color: var(--color-primary);
+  }
+
+  /* One focus treatment for every interactive element. Form fields
+     override it with a border change (see Input, Textarea, Select). */
+  :focus-visible {
+    outline: 1px solid var(--border-color-focus);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .prose {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+
+    & p {
+      margin-bottom: 1em;
+    }
+
+    & p:last-child {
+      margin-bottom: 0;
+    }
+  }
+}

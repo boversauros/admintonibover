@@ -15,6 +15,7 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:browser-artifacts": "node scripts/check-browser-artifacts.mjs",
+    "check:design-tokens": "node scripts/check-design-tokens.mjs",
     "audit:dependencies": "pnpm audit --prod --audit-level high",
     "lambda:build": "node --import tsx scripts/build-foundation-lambda.ts",
     "lambda:validate": "node --import tsx scripts/build-foundation-lambda.ts --check",
@@ -23,7 +24,7 @@
     "backup:restore": "node --import tsx scripts/restore-dynamodb-backup.ts",
     "infra:synth": "node --import tsx scripts/synthesize-infrastructure.ts",
     "infra:validate": "node --import tsx scripts/synthesize-infrastructure.ts --check",
-    "ci": "pnpm check:secrets && pnpm infra:validate && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:browser-artifacts",
+    "ci": "pnpm check:secrets && pnpm infra:validate && pnpm check:design-tokens && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:browser-artifacts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

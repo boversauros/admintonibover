@@ -12,7 +12,7 @@ export function TranslationStatusPanel({
   hasENTitle,
 }: TranslationStatusPanelProps) {
   return (
-    <div className="p-4 bg-overlay-2 border border-default">
+    <div className="p-4 border border-default">
       <h4 className="text-xs text-muted uppercase tracking-wider mb-3">
         Estat de traducció
       </h4>
@@ -20,21 +20,21 @@ export function TranslationStatusPanel({
         <div className="flex items-center justify-between">
           <span className="text-sm text-secondary">Català</span>
           {hasCATitle ? (
-            <span className="text-emerald-400 text-xs flex items-center gap-1">
+            <span className="text-success text-xs flex items-center gap-1">
               <Icon name="check" size="4" /> Complet
             </span>
           ) : (
-            <span className="text-amber-400 text-xs">Pendent</span>
+            <span className="text-warning text-xs">Pendent</span>
           )}
         </div>
         <div className="flex items-center justify-between">
           <span className="text-sm text-secondary">English</span>
           {hasENTitle ? (
-            <span className="text-emerald-400 text-xs flex items-center gap-1">
+            <span className="text-success text-xs flex items-center gap-1">
               <Icon name="check" size="4" /> Complet
             </span>
           ) : (
-            <span className="text-amber-400 text-xs">Pendent</span>
+            <span className="text-warning text-xs">Pendent</span>
           )}
         </div>
       </div>

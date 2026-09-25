@@ -8,6 +8,7 @@ import type { ManagedUser, UserAction } from '@/lib/aws/admin-api/users';
 import { inviteEditor, listUsers, manageUser } from '@/lib/api/users';
 import { Button, Heading, Icon, Input, Text } from '@/components/ui';
 import { UserMenu } from '@/components/auth/UserMenu';
+import { AppHeader } from '@/components/layout/AppHeader';
 
 const actionLabels: Record<UserAction, string> = {
   'resend-invitation': 'Reenviar invitació',
@@ -202,17 +203,7 @@ export function UsersAdmin() {
 
   return (
     <main className="min-h-screen bg-background text-primary">
-      <header className="border-b border-default bg-nav">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <Link
-            href="/"
-            className="font-serif text-xl text-primary hover:opacity-80"
-          >
-            Toni Bover
-          </Link>
-          <UserMenu user={user} onLogout={signOut} />
-        </div>
-      </header>
+      <AppHeader actions={<UserMenu user={user} onLogout={signOut} />} />
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <Link
           href="/"
@@ -227,7 +218,7 @@ export function UsersAdmin() {
           >
             Administració
           </Text>
-          <Heading as="h1" size="xl" className="font-serif">
+          <Heading as="h1" size="xl">
             Usuaris
           </Heading>
           <p className="mt-3 max-w-2xl text-body">
@@ -237,9 +228,9 @@ export function UsersAdmin() {
 
         <section
           aria-labelledby="invite-title"
-          className="mb-10 border border-default bg-surface p-6 sm:p-8"
+          className="mb-10 border border-default bg-background p-6 sm:p-8"
         >
-          <Heading as="h2" size="2xl" className="font-serif" id="invite-title">
+          <Heading as="h2" size="2xl" id="invite-title">
             Convidar un editor
           </Heading>
           <p className="mt-2 text-sm text-muted">
@@ -275,7 +266,7 @@ export function UsersAdmin() {
         {message && (
           <div
             role={message.kind === 'error' ? 'alert' : 'status'}
-            className={`mb-6 border px-4 py-3 text-sm ${message.kind === 'error' ? 'border-red-500/40 text-red-300' : 'border-emerald-500/40 text-emerald-300'}`}
+            className={`mb-6 border px-4 py-3 text-sm ${message.kind === 'error' ? 'border-danger/30 text-danger' : 'border-success/30 text-success'}`}
           >
             {message.text}
           </div>
@@ -284,12 +275,7 @@ export function UsersAdmin() {
         <section aria-labelledby="current-users-title">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <Heading
-                as="h2"
-                size="2xl"
-                className="font-serif"
-                id="current-users-title"
-              >
+              <Heading as="h2" size="2xl" id="current-users-title">
                 Usuaris actuals
               </Heading>
               <p className="mt-1 text-sm text-muted">
@@ -326,7 +312,7 @@ export function UsersAdmin() {
                   className="grid gap-5 py-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
                 >
                   <div className="min-w-0">
-                    <p className="break-all font-medium text-primary">
+                    <p className="break-all font-semibold text-primary">
                       {target.email || target.username}
                       {target.subject === user.id ? ' (tu)' : ''}
                     </p>

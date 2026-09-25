@@ -1,4 +1,5 @@
 export { Badge } from './Badge';
+export type { BadgeTone } from './Badge';
 export { Button } from './Button';
 export { Container } from './Container';
 export { Dropdown } from './Dropdown';

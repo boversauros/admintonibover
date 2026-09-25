@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { UserMenu } from '@/components/auth/UserMenu';
+import { AppHeader } from '@/components/layout/AppHeader';
 import {
   Badge,
   Button,
@@ -487,37 +488,13 @@ function PostsContent() {
 
   return (
     <div className="min-h-screen bg-background text-primary">
-      <header className="sticky top-0 z-50 border-b border-default bg-nav backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Heading
-                as="h1"
-                size="xl"
-                className="mb-0 font-serif text-xl text-primary"
-              >
-                Toni Bover
-              </Heading>
-              <Badge
-                variant="accent"
-                className="text-2xs uppercase tracking-wider"
-              >
-                AWS
-              </Badge>
-            </div>
-            <Text
-              variant="small"
-              className="mt-0.5 text-xs uppercase tracking-wider text-muted"
-            >
-              Administració del blog
-            </Text>
-          </div>
-          {user ? (
-            <div className="flex items-center gap-3">
+      <AppHeader
+        brandAsHeading
+        actions={
+          user ? (
+            <>
               <Button onClick={handleCreate} variant="primary">
-                <Text as="span" className="flex items-center gap-2">
-                  <Icon name="plus" size="3" /> Nou article
-                </Text>
+                <Icon name="plus" size="3" /> Nou article
               </Button>
               <UserMenu
                 user={user}
@@ -525,15 +502,15 @@ function PostsContent() {
                 onLogout={handleLogout}
                 isBackingUp={isBackingUp}
               />
-            </div>
-          ) : null}
-        </div>
-      </header>
+            </>
+          ) : null
+        }
+      />
 
-      <div className="border-b border-slate-500/20 bg-slate-500/5">
+      <div className="border-b border-subtle">
         <div className="mx-auto flex max-w-6xl items-start gap-3 px-4 py-3 sm:px-6">
-          <Icon name="check" size="4" className="mt-0.5 text-slate-400" />
-          <Text variant="small" className="text-primary-60">
+          <Icon name="check" size="4" className="mt-0.5 text-muted" />
+          <Text variant="small" className="text-primary/60">
             Les lectures i les operacions d’articles passen exclusivament per
             l’API autenticada d’AWS.
           </Text>
@@ -585,10 +562,10 @@ function PostsContent() {
             role={mutationMessage.type === 'error' ? 'alert' : 'status'}
             className={`mt-4 border px-4 py-3 ${
               mutationMessage.type === 'error'
-                ? 'border-red-500/30 bg-red-500/10'
+                ? 'border-danger/30 bg-danger/5'
                 : mutationMessage.type === 'warning'
-                  ? 'border-amber-500/30 bg-amber-500/10'
-                  : 'border-emerald-500/30 bg-emerald-500/10'
+                  ? 'border-warning/30 bg-warning/5'
+                  : 'border-success/30 bg-success/5'
             }`}
           >
             <Text variant="small">{mutationMessage.text}</Text>
@@ -597,9 +574,9 @@ function PostsContent() {
         {categoriesError ? (
           <div
             role="alert"
-            className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-amber-500/20 bg-amber-500/5 px-4 py-3"
+            className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-warning/30 bg-warning/5 px-4 py-3"
           >
-            <Text variant="small" className="text-amber-200/80">
+            <Text variant="small" className="text-body">
               {categoriesError.message}
               {categoriesError.requestId
                 ? ` Correlació: ${categoriesError.requestId}`
@@ -629,16 +606,16 @@ function PostsContent() {
             {Array.from({ length: 3 }, (_, index) => (
               <div
                 key={index}
-                className="h-36 animate-pulse border-b border-overlay-10 bg-overlay-2 motion-reduce:animate-none"
+                className="h-36 animate-pulse border-b border-default bg-overlay-2 motion-reduce:animate-none"
               />
             ))}
           </div>
         ) : readError ? (
           <section
             role="alert"
-            className="border border-red-500/20 bg-red-500/5 px-6 py-10 sm:px-10"
+            className="border border-danger/30 bg-danger/5 px-6 py-10 sm:px-10"
           >
-            <Badge variant="error" className="mb-5">
+            <Badge tone="danger" className="mb-5">
               Lectura interrompuda
             </Badge>
             <Heading as="h2" size="2xl" className="mb-3">
@@ -786,7 +763,7 @@ function PostsContent() {
               Els articles importats no canvien d’estat fins que confirmis
               explícitament aquesta operació.
             </Text>
-            <div className="border-l-2 border-amber-400/60 bg-amber-400/5 px-4 py-3">
+            <div className="border-l-2 border-warning/30 bg-warning/5 px-4 py-3">
               <Input
                 id="bulk-publication-count"
                 label={`Escriu ${confirmation.count} per confirmar`}
@@ -806,7 +783,7 @@ function PostsContent() {
                 className="font-mono tabular-nums"
               />
               <div id="bulk-publication-help">
-                <Text variant="small" className="mt-2 text-amber-100/70">
+                <Text variant="small" className="mt-2 text-body">
                   El recompte queda vinculat a aquesta operació. Si canvia abans
                   d’executar-la, no es publicarà cap esborrany.
                 </Text>

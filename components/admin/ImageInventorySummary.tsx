@@ -39,7 +39,7 @@ export function ImageInventorySummary({
     return (
       <section
         aria-labelledby="image-inventory-title"
-        className="border border-amber-500/30 bg-amber-500/5 p-4"
+        className="border border-warning/30 bg-warning/5 p-4"
       >
         <h2
           id="image-inventory-title"
@@ -48,7 +48,7 @@ export function ImageInventorySummary({
           Estat de les imatges
         </h2>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-amber-100" role="alert">
+          <p className="text-sm text-body" role="alert">
             {error}
           </p>
           <Button variant="secondary" size="sm" onClick={onRetry}>
@@ -69,11 +69,11 @@ export function ImageInventorySummary({
     <section
       aria-labelledby="image-inventory-title"
       aria-busy={!counts}
-      className="border border-default bg-surface/30 p-4 sm:p-5"
+      className="border border-default p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.2em] text-sky-300">
+          <p className="text-2xs uppercase tracking-widest text-info">
             Inventari global
           </p>
           <h2
@@ -96,7 +96,7 @@ export function ImageInventorySummary({
       </div>
 
       <progress
-        className="mt-4 h-1.5 w-full accent-emerald-400"
+        className="mt-4 h-1.5 w-full accent-success"
         max={Math.max(total, 1)}
         value={repaired}
         aria-label="Articles amb les dues imatges disponibles"
@@ -116,20 +116,18 @@ export function ImageInventorySummary({
               aria-pressed={isSelected}
               disabled={!counts}
               onClick={() => onSelect(isSelected ? 'all' : status)}
-              className={`min-h-28 p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-400 disabled:cursor-wait disabled:opacity-60 ${
-                isSelected
-                  ? 'bg-sky-400/10'
-                  : 'bg-background hover:bg-overlay-5'
+              className={`min-h-28 p-3 text-left transition-colors disabled:cursor-wait disabled:opacity-60 ${
+                isSelected ? 'bg-info/10' : 'bg-background hover:bg-overlay-5'
               }`}
             >
               <span
                 className={`block font-mono text-2xl tabular-nums ${
-                  status === 'complete' ? 'text-emerald-300' : 'text-amber-300'
+                  status === 'complete' ? 'text-success' : 'text-warning'
                 }`}
               >
                 {counts ? counts[status] : '—'}
               </span>
-              <span className="mt-2 block text-xs font-medium uppercase tracking-wider text-primary">
+              <span className="mt-2 block text-xs uppercase tracking-wider text-primary">
                 {INVENTORY_LABELS[status]}
               </span>
               <span className="mt-1 block text-xs text-subtle">

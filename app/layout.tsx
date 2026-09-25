@@ -3,6 +3,7 @@ import { connection } from 'next/server';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { getCognitoConfig } from '@/lib/auth/cognito/config';
 import { readCognitoSession } from '@/lib/auth/cognito/session';
+import { bodoni, nunito } from './fonts';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -21,8 +22,8 @@ export default async function RootLayout({
   const cognitoSession = await readCognitoSession(getCognitoConfig());
 
   return (
-    <html lang="ca">
-      <body className="min-h-screen bg-background text-primary font-sans antialiased flex flex-col">
+    <html lang="ca" className={`${bodoni.variable} ${nunito.variable}`}>
+      <body className="min-h-screen antialiased flex flex-col">
         <AuthProvider initialUser={cognitoSession?.user ?? null}>
           {children}
         </AuthProvider>

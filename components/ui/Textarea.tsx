@@ -1,4 +1,10 @@
 import { TextareaHTMLAttributes, forwardRef } from 'react';
+import {
+  fieldControlClasses,
+  fieldLabelClasses,
+  fieldMessageClasses,
+  type FieldSize,
+} from './field';
 
 interface TextareaProps extends Omit<
   TextareaHTMLAttributes<HTMLTextAreaElement>,
@@ -7,7 +13,7 @@ interface TextareaProps extends Omit<
   label?: string;
   error?: string;
   helperText?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: FieldSize;
   isInvalid?: boolean;
   showCharCount?: boolean;
   maxChars?: number;
@@ -26,7 +32,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       showCharCount = false,
       maxChars,
       wrapperClassName = 'w-full',
-      labelClassName = 'font-serif block text-xs text-muted uppercase tracking-wider mb-2',
+      labelClassName = fieldLabelClasses,
       className = '',
       id,
       value,
@@ -43,27 +49,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     const textareaId = id || label?.toLowerCase().replace(/\s+/g, '-');
     const currentLength = typeof value === 'string' ? value.length : 0;
 
-    const textareaClasses = `
-      w-full
-      bg-transparent
-      border
-      ${isInvalid || error ? 'border-red-400' : 'border-default'}
-      text-primary
-      placeholder:text-muted
-      resize-none
-      focus:outline-none
-      focus:border-focus
-      focus:glow
-      hover:border-subtle
-      disabled:opacity-50
-      disabled:cursor-not-allowed
-      transition-all-smooth
-      leading-relaxed
-      ${sizeClasses[size]}
-      ${className}
-    `
-      .trim()
-      .replace(/\s+/g, ' ');
+    const textareaClasses =
+      `${fieldControlClasses(isInvalid || Boolean(error))} resize-none leading-relaxed ${sizeClasses[size]} ${className}`.trim();
 
     return (
       <div className={wrapperClassName}>
@@ -82,7 +69,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         />
         {(error || helperText || showCharCount) && (
           <div className="flex justify-between items-center mt-1">
-            <p className={`text-sm ${error ? 'text-red-400' : 'text-muted'}`}>
+            <p className={fieldMessageClasses(Boolean(error))}>
               {error || helperText || ''}
             </p>
             {showCharCount && maxChars && (

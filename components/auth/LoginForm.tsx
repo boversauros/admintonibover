@@ -142,7 +142,7 @@ export function LoginForm() {
       <div className="mb-9 text-center">
         <Text
           variant="label"
-          className="mb-4 block text-2xs uppercase tracking-[0.28em] text-subtle"
+          className="mb-4 block text-2xs uppercase tracking-widest text-subtle"
         >
           Toni Bover · espai privat
         </Text>
@@ -233,7 +233,7 @@ export function LoginForm() {
             ref={errorRef}
             tabIndex={-1}
             role="alert"
-            className="text-sm text-red-400"
+            className="text-sm text-danger"
           >
             {error}
           </p>

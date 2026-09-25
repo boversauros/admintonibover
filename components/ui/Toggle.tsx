@@ -21,7 +21,7 @@ export function Toggle({
   size = 'default',
   className = '',
   wrapperClassName = '',
-  labelClassName = 'block text-xs text-muted uppercase tracking-wider mb-2 font-serif',
+  labelClassName = 'block text-xs text-muted uppercase tracking-wider mb-2',
   ...rest
 }: ToggleProps) {
   const isSmall = size === 'small';
@@ -37,21 +37,18 @@ export function Toggle({
       : 'translate-x-6'
     : 'translate-x-1';
 
-  // Ball color: use pale white when disabled, otherwise white in all states
-  const ballColorClasses = disabled
-    ? 'bg-white/70 shadow-white/30'
-    : 'bg-white shadow-black/20';
+  const ballColorClasses = checked ? 'bg-primary' : 'bg-muted';
 
   const toggleSwitch = (
     <label
       className={`
-        relative inline-flex ${containerSizeClasses} items-center rounded-full transition-all-smooth
+        relative inline-flex ${containerSizeClasses} items-center rounded-full transition has-focus-visible:outline has-focus-visible:outline-offset-2 has-focus-visible:outline-overlay-60
         ${
           checked
-            ? 'bg-emerald-500/50 border border-default'
-            : 'bg-overlay-10 border border-default'
+            ? 'bg-overlay-20 border border-strong'
+            : 'bg-overlay-5 border border-default'
         }
-        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
         ${className}
       `
         .trim()
@@ -62,13 +59,12 @@ export function Toggle({
         checked={checked}
         onChange={e => onChange(e.target.checked)}
         disabled={disabled}
-        className="sr-only focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:ring-overlay-50"
+        className="sr-only"
         {...rest}
       />
       <span
         className={`
-          inline-block ${ballSizeClasses} transform rounded-full transition-all-smooth
-          shadow-sm ${ballTranslateClasses} ${ballColorClasses}
+          inline-block ${ballSizeClasses} transform rounded-full transition ${ballTranslateClasses} ${ballColorClasses}
         `
           .trim()
           .replace(/\s+/g, ' ')}

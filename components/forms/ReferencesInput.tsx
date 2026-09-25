@@ -42,10 +42,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
   return (
     <div className="w-full space-y-3">
       {value.map(ref => (
-        <div
-          key={ref.id}
-          className="group border border-default p-4 bg-overlay-2"
-        >
+        <div key={ref.id} className="group border border-default p-4">
           <div className="flex items-start gap-3">
             {/* Drag Handle */}
             <div className="pt-1 text-muted cursor-grab opacity-0 group-hover:opacity-100 transition-opacity">
@@ -100,7 +97,7 @@ export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
             <Button
               variant="icon"
               onClick={() => handleRemove(ref.id)}
-              className="opacity-0 group-hover:opacity-100 hover:text-red-400"
+              className="opacity-0 group-hover:opacity-100 hover:text-danger"
             >
               <Icon name="trash" />
             </Button>
