@@ -92,7 +92,7 @@ export function ImageSelector({
           {label}
         </Text>
         {hint && (
-          <Text as="span" variant="small" className="text-subtle text-[10px]">
+          <Text as="span" variant="small" className="text-subtle text-2xs">
             {hint}
           </Text>
         )}
@@ -108,16 +108,16 @@ export function ImageSelector({
 
       <div
         onClick={handleClick}
-        className={`${aspectClasses[aspectRatio]} border border-dashed border-default flex items-center justify-center text-muted hover:border-subtle hover:text-body transition-all-smooth cursor-pointer group relative overflow-hidden hover:scale-102`}
+        className={`${aspectClasses[aspectRatio]} border border-dashed border-default flex items-center justify-center text-muted hover:border-subtle hover:text-body transition cursor-pointer group relative overflow-hidden`}
       >
         {displayUrl ? (
           <>
             <Image
               src={displayUrl}
               alt=""
-              className="absolute inset-0 w-full h-full object-cover transition-transform-smooth group-hover:scale-105"
+              className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity-smooth flex items-center justify-center gap-2">
+            <div className="absolute inset-0 bg-scrim opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
               <Button
                 variant="icon"
                 className="bg-overlay-10 hover:bg-overlay-20"
@@ -131,14 +131,14 @@ export function ImageSelector({
               <Button
                 variant="icon"
                 onClick={handleClear}
-                className="bg-overlay-10 hover:bg-red-500/50"
+                className="bg-overlay-10 hover:bg-danger/10"
               >
                 <Icon name="trash" />
               </Button>
             </div>
           </>
         ) : (
-          <div className="text-center transition-transform-smooth group-hover:scale-105">
+          <div className="text-center transition-transform group-hover:scale-105">
             <Icon name="image" size="6" />
             <Text as="span" variant="small" className="block mt-2">
               Clica per seleccionar
@@ -148,7 +148,7 @@ export function ImageSelector({
       </div>
 
       {(localError || error) && (
-        <Text variant="small" className="text-red-400">
+        <Text variant="small" className="text-danger">
           {localError || error}
         </Text>
       )}

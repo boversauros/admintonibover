@@ -56,7 +56,7 @@ function EditReflexionContent() {
           <Text variant="muted" className="mb-4">
             L’article que busques no existeix.
           </Text>
-          <Link href="/" variant="accent-border">
+          <Link href="/" variant="underline">
             ← Tornar
           </Link>
         </Container>
@@ -70,9 +70,9 @@ function EditReflexionContent() {
         <Container size="default" spacing="none">
           <section
             role="alert"
-            className="border border-red-500/20 bg-red-500/5 px-6 py-10 sm:px-10"
+            className="border border-danger/30 bg-danger/5 px-6 py-10 sm:px-10"
           >
-            <Badge variant="error" className="mb-5">
+            <Badge tone="danger" className="mb-5">
               Lectura interrompuda
             </Badge>
             <Heading as="h1" size="3xl" className="mb-3">

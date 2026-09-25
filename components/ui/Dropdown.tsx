@@ -1,6 +1,12 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import {
+  fieldControlClasses,
+  fieldLabelClasses,
+  fieldSizeClasses,
+  type FieldSize,
+} from './field';
 import { Icon } from './Icon';
 
 export interface DropdownOption<T extends string = string> {
@@ -14,19 +20,13 @@ interface DropdownProps<T extends string = string> {
   onChange: (value: T) => void;
   label?: string;
   placeholder?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: FieldSize;
   disabled?: boolean;
   wrapperClassName?: string;
   triggerClassName?: string;
   menuClassName?: string;
   ariaLabel?: string;
 }
-
-const sizeClasses = {
-  sm: 'text-sm px-3 py-1.5',
-  md: 'text-base px-4 py-2',
-  lg: 'text-lg px-4 py-3',
-};
 
 export function Dropdown<T extends string = string>({
   options,
@@ -137,30 +137,15 @@ export function Dropdown<T extends string = string>({
     }
   };
 
-  const triggerClasses = `
-    inline-flex items-center justify-between gap-2 w-full
-    bg-transparent
-    border border-default
-    text-primary
-    cursor-pointer
-    focus:outline-none focus:border-focus focus:glow
-    hover:border-subtle
-    disabled:opacity-50 disabled:cursor-not-allowed
-    transition-all-smooth
-    ${sizeClasses[size]}
-    ${isOpen ? 'border-focus' : ''}
-    ${triggerClassName}
-  `
-    .trim()
-    .replace(/\s+/g, ' ');
+  const triggerClasses =
+    `${fieldControlClasses(false)} inline-flex items-center justify-between gap-2 cursor-pointer ${
+      fieldSizeClasses[size]
+    } ${isOpen ? 'border-focus' : ''} ${triggerClassName}`.trim();
 
   return (
     <div className={`relative ${wrapperClassName}`} ref={wrapperRef}>
       {label && (
-        <label
-          htmlFor={triggerId}
-          className="font-serif block text-xs text-muted uppercase tracking-wider mb-2"
-        >
+        <label htmlFor={triggerId} className={fieldLabelClasses}>
           {label}
         </label>
       )}
@@ -190,7 +175,7 @@ export function Dropdown<T extends string = string>({
         </span>
         <span
           aria-hidden="true"
-          className={`shrink-0 text-muted transition-transform-smooth ${
+          className={`shrink-0 text-muted transition-transform ${
             isOpen ? 'rotate-180' : ''
           }`}
         >
@@ -207,7 +192,7 @@ export function Dropdown<T extends string = string>({
           tabIndex={-1}
           onKeyDown={handleMenuKey}
           autoFocus
-          className={`absolute left-0 right-0 z-50 mt-2 max-h-72 overflow-auto border border-overlay-10 bg-surface shadow-2xl shadow-black/60 animate-scale-in origin-top focus:outline-none ${menuClassName}`}
+          className={`absolute left-0 right-0 z-50 mt-2 max-h-72 overflow-auto border border-default bg-background animate-fade-in focus:outline-none ${menuClassName}`}
         >
           {options.map((option, index) => {
             const isSelected = option.value === value;
@@ -219,7 +204,7 @@ export function Dropdown<T extends string = string>({
                 aria-selected={isSelected}
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => select(option.value)}
-                className={`flex items-center gap-2 px-3.5 py-2 text-sm cursor-pointer transition-colors-smooth ${
+                className={`flex items-center gap-2 px-3.5 py-2 text-sm cursor-pointer transition-colors ${
                   isActive
                     ? 'bg-overlay-10 text-primary'
                     : 'text-body hover:bg-overlay-5 hover:text-primary'

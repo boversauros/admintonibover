@@ -6,7 +6,7 @@ interface LinkProps extends Omit<
   'href'
 > {
   href: string;
-  variant?: 'primary' | 'muted' | 'secondary' | 'accent-border';
+  variant?: 'primary' | 'muted' | 'secondary' | 'underline';
   active?: boolean;
   children: ReactNode;
 }
@@ -20,11 +20,11 @@ export function Link({
   ...rest
 }: LinkProps) {
   const variantClasses = {
-    primary: 'text-body hover:text-primary transition-colors-default',
-    muted: 'text-muted hover:text-primary transition-colors-default',
-    secondary: 'text-primary-60 hover:text-primary transition-colors-default',
-    'accent-border':
-      'text-muted border-b border-transparent hover:text-primary hover:border-primary transition-colors-default',
+    primary: 'text-body hover:text-primary transition-colors',
+    muted: 'text-muted hover:text-primary transition-colors',
+    secondary: 'text-primary/60 hover:text-primary transition-colors',
+    underline:
+      'text-muted border-b border-transparent hover:text-primary hover:border-primary transition-colors',
   };
 
   const activeClasses = active ? 'border-b-2 border-primary text-primary' : '';

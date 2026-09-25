@@ -49,7 +49,7 @@ export function PostCard({
 
   return (
     <article className="group">
-      <div className="flex gap-5 py-4 border-b border-overlay-10 hover:bg-overlay-2 transition-colors-smooth">
+      <div className="flex gap-5 py-4 border-b border-default hover:bg-overlay-2 transition-colors">
         {/* Left: Thumbnail */}
         <div className="relative min-h-[100px] w-28 shrink-0 self-stretch overflow-hidden bg-overlay-5 sm:w-48">
           {thumbnailUrl ? (
@@ -66,13 +66,13 @@ export function PostCard({
               </Text>
             </div>
           ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 border border-amber-500/20 px-3 text-center">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 border border-warning/30 px-3 text-center">
               <Icon
                 name="image-placeholder"
                 size="8"
-                className="text-amber-300/50"
+                className="text-warning"
               />
-              <Text variant="small" className="text-xs text-amber-200/80">
+              <Text variant="small" className="text-xs text-body">
                 Falta la miniatura
               </Text>
             </div>
@@ -88,7 +88,7 @@ export function PostCard({
               <Text
                 as="span"
                 variant="small"
-                className="text-slate-400 text-xs tracking-widest uppercase font-medium"
+                className="text-muted text-xs tracking-wider uppercase"
               >
                 {categoryLabel}
               </Text>
@@ -105,12 +105,8 @@ export function PostCard({
               />
               <StatusBadge published={post.published} />
               <Badge
-                variant={inventoryStatus === 'complete' ? 'default' : 'error'}
-                className={
-                  inventoryStatus === 'complete'
-                    ? 'border-emerald-500/30 text-emerald-300'
-                    : 'border-amber-500/30 text-amber-300'
-                }
+                tone={inventoryStatus === 'complete' ? 'success' : 'warning'}
+                size="md"
               >
                 {inventoryLabel}
               </Badge>
@@ -126,7 +122,7 @@ export function PostCard({
               <span className="text-primary tabular-nums">
                 {post.sortOrder}
               </span>
-              <span className="text-primary-30 mx-1.5" aria-hidden="true">
+              <span className="text-subtle mx-1.5" aria-hidden="true">
                 ·
               </span>
               {title}
@@ -136,7 +132,7 @@ export function PostCard({
             {excerpt && (
               <Text
                 variant="small"
-                className="text-primary-60 leading-relaxed mt-2 line-clamp-2"
+                className="text-primary/60 leading-relaxed mt-2 line-clamp-2"
               >
                 {excerpt}
               </Text>
@@ -151,7 +147,7 @@ export function PostCard({
                   key={i}
                   as="span"
                   variant="small"
-                  className="text-primary-50 tracking-wide font-serif"
+                  className="text-subtle tracking-wide font-serif"
                 >
                   {kw}
                 </Text>
@@ -179,7 +175,7 @@ export function PostCard({
                 e.stopPropagation();
                 onDelete(post);
               }}
-              className="hover:text-red-400 hover:bg-red-500/10"
+              className="hover:text-danger hover:bg-danger/10"
               aria-label={`Elimina ${title}`}
             >
               <Icon name="trash" />

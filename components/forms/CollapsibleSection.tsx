@@ -21,11 +21,9 @@ export function CollapsibleSection({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full py-4 flex items-center justify-between text-muted hover:text-primary transition-colors-default"
+        className="w-full py-4 flex items-center justify-between text-muted hover:text-primary transition-colors"
       >
-        <span className="text-xs uppercase tracking-wider font-medium">
-          {title}
-        </span>
+        <span className="text-xs uppercase tracking-wider">{title}</span>
         <span
           className={`transform transition-transform duration-300 ${
             isOpen ? 'rotate-180' : ''

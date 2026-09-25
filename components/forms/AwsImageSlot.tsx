@@ -227,7 +227,7 @@ export function AwsImageSlot({
   return (
     <section
       aria-labelledby={`${inputId}-label`}
-      className="space-y-3 border border-default bg-surface/40 p-3"
+      className="space-y-3 border border-default p-3"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -242,10 +242,10 @@ export function AwsImageSlot({
           </Text>
         </div>
         <span
-          className={`shrink-0 border px-2 py-1 text-[10px] uppercase tracking-wider ${
+          className={`shrink-0 border px-2 py-1 text-2xs uppercase tracking-wider ${
             image
-              ? 'border-emerald-500/30 text-emerald-300'
-              : 'border-amber-500/40 text-amber-300'
+              ? 'border-success/30 text-success'
+              : 'border-warning/30 text-warning'
           }`}
         >
           {image ? 'Disponible' : 'Falta'}
@@ -280,14 +280,14 @@ export function AwsImageSlot({
           </div>
         )}
         {candidate ? (
-          <span className="absolute left-2 top-2 border border-sky-400/40 bg-black/80 px-2 py-1 text-[10px] uppercase tracking-wider text-sky-200">
+          <span className="absolute left-2 top-2 border border-info/30 bg-scrim px-2 py-1 text-2xs uppercase tracking-wider text-body">
             Pendent de pujar
           </span>
         ) : null}
       </div>
 
       {candidate ? (
-        <div className="border-l-2 border-sky-400/50 pl-3">
+        <div className="border-l-2 border-info/30 pl-3">
           <Text variant="small" className="break-all text-body">
             {candidate.name} · {formatBytes(candidate.size)}
           </Text>
@@ -303,7 +303,7 @@ export function AwsImageSlot({
       {operation === 'uploading' && progress ? (
         <div className="space-y-1">
           <progress
-            className="h-2 w-full accent-sky-400"
+            className="h-2 w-full accent-info"
             max={100}
             value={progress.percent}
             aria-label={`Progrés de pujada de ${label.toLowerCase()}`}
@@ -407,7 +407,7 @@ export function AwsImageSlot({
         ) : null}
       </div>
       {error ? (
-        <p className="text-sm text-red-300" role="alert">
+        <p className="text-sm text-danger" role="alert">
           {error}
         </p>
       ) : null}

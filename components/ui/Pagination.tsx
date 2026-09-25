@@ -39,7 +39,6 @@ export function Pagination({
         disabled={isFirstPage}
         variant="ghost"
         size="sm"
-        className={isFirstPage ? 'text-overlay-30 cursor-not-allowed' : ''}
         aria-label="Pàgina anterior"
       >
         <Icon name="chevron-left" size="4" />
@@ -61,7 +60,6 @@ export function Pagination({
         disabled={isLastPage}
         variant="ghost"
         size="sm"
-        className={isLastPage ? 'text-overlay-30 cursor-not-allowed' : ''}
         aria-label="Pàgina següent"
       >
         <Text as="span" variant="small" className="mr-1">

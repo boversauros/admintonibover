@@ -24,7 +24,7 @@ function LanguageTab({ name, active, hasContent, onClick }: LanguageTabProps) {
       type="button"
       onClick={onClick}
       variant="ghost"
-      className={`relative px-6 py-3 text-sm font-medium transition-all-smooth ${
+      className={`relative px-6 py-3 text-sm transition ${
         active ? 'text-primary' : 'text-muted hover:text-secondary'
       }`}
     >
@@ -32,14 +32,14 @@ function LanguageTab({ name, active, hasContent, onClick }: LanguageTabProps) {
         {name}
         {!hasContent && !active && (
           <span
-            className="w-2 h-2 rounded-full bg-amber-500/50 animate-pulse"
+            className="w-2 h-2 rounded-full bg-warning animate-pulse"
             title="No traduït"
             aria-label="No traduït"
           />
         )}
       </Text>
       {active && (
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary animate-slide-in-right" />
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary animate-slide-in origin-left" />
       )}
     </Button>
   );
