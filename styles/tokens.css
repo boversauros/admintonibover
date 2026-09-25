@@ -1,0 +1,117 @@
+/* ============================================
+   DESIGN TOKENS
+   Two tiers:
+   1. Palette (:root, --palette-*): raw values. Never used in components.
+   2. Theme (@theme): semantic tokens. These are the only values Tailwind
+      turns into utilities, so anything not listed here does not compile.
+   See docs/design-system.md for usage rules.
+   ============================================ */
+
+:root {
+  /* Neutrals (shared with the public site) */
+  --palette-black: #000000;
+  --palette-white: #ffffff;
+  --palette-gray-200: #e5e7eb;
+  --palette-gray-300: #d1d5db;
+  --palette-gray-400: #9ca3af;
+  --palette-gray-500: #6b7280;
+  --palette-gray-800: #1f2937;
+
+  /* Status hues */
+  --palette-green-400: #34d399;
+  --palette-amber-400: #fbbf24;
+  --palette-red-400: #f87171;
+}
+
+@theme {
+  /* Drop Tailwind's defaults so only the tokens below exist. */
+  --color-*: initial;
+  --font-weight-*: initial;
+  --tracking-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
+
+  /* ===== Color: text ramp (also usable as bg/border/ring) ===== */
+  --color-primary: var(--palette-white);
+  --color-secondary: var(--palette-gray-200);
+  --color-body: var(--palette-gray-300);
+  --color-muted: var(--palette-gray-400);
+  --color-subtle: var(--palette-gray-500);
+
+  /* ===== Color: backgrounds ===== */
+  --color-background: var(--palette-black);
+  --color-nav: rgb(0 0 0 / 0.95);
+  --color-scrim: rgb(0 0 0 / 0.7);
+
+  /* White overlays: hover fills, skeletons, selected states */
+  --color-overlay-2: rgb(255 255 255 / 0.02);
+  --color-overlay-5: rgb(255 255 255 / 0.05);
+  --color-overlay-10: rgb(255 255 255 / 0.1);
+  --color-overlay-20: rgb(255 255 255 / 0.2);
+  --color-overlay-30: rgb(255 255 255 / 0.3);
+  --color-overlay-60: rgb(255 255 255 / 0.6);
+
+  /* ===== Color: status (tint with /10 bg, /30 border) ===== */
+  --color-success: var(--palette-green-400);
+  --color-warning: var(--palette-amber-400);
+  --color-danger: var(--palette-red-400);
+  --color-info: var(--palette-gray-300);
+
+  /* ===== Borders (border-* and divide-* only) ===== */
+  --border-color-default: var(--palette-gray-800);
+  --border-color-subtle: rgb(31 41 55 / 0.5);
+  --border-color-strong: rgb(255 255 255 / 0.3);
+  --border-color-focus: rgb(255 255 255 / 0.6);
+
+  /* ===== Typography ===== */
+  --font-serif:
+    var(--font-bodoni), ui-serif, Georgia, Cambria, 'Times New Roman', serif;
+  --font-sans:
+    var(--font-nunito), ui-sans-serif, system-ui, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji';
+
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-semibold: 600;
+
+  /* Smallest size: uppercase micro-labels only */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  --tracking-wide: 0.025em; /* navigation, buttons */
+  --tracking-wider: 0.05em; /* uppercase labels */
+  --tracking-widest: 0.25em; /* brand wordmark */
+
+  /* ===== Shape ===== */
+  /* Square corners everywhere; rounded-full stays for avatars and dots. */
+
+  /* ===== Motion ===== */
+  --default-transition-duration: 300ms;
+  --default-transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+
+  --animate-fade-in: fade-in 200ms cubic-bezier(0, 0, 0.2, 1) both;
+  --animate-fade-in-up: fade-in-up 300ms cubic-bezier(0, 0, 0.2, 1) both;
+  --animate-slide-in: slide-in 300ms cubic-bezier(0, 0, 0.2, 1) both;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @keyframes slide-in {
+    from {
+      transform: scaleX(0);
+    }
+  }
+}

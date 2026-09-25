@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { AppHeader } from '@/components/layout/AppHeader';
 import { Badge, Button, Icon, Text } from '@/components/ui';
 
 interface FormHeaderProps {
@@ -21,19 +22,18 @@ export function FormHeader({
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-nav backdrop-blur-sm border-b border-default">
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <AppHeader
+      leading={
         <Button variant="ghost" onClick={handleBack}>
           <Icon name="chevron-left" size="5" />
           <Text as="span" variant="small">
             Tornar
           </Text>
         </Button>
-
-        {readOnly ? (
-          <Badge variant="accent" size="md">
-            Només lectura
-          </Badge>
+      }
+      actions={
+        readOnly ? (
+          <Badge size="md">Només lectura</Badge>
         ) : (
           <Button
             type="submit"
@@ -43,8 +43,8 @@ export function FormHeader({
           >
             {isSubmitting ? (isEditMode ? 'Desant...' : 'Creant...') : 'Desar'}
           </Button>
-        )}
-      </div>
-    </header>
+        )
+      }
+    />
   );
 }

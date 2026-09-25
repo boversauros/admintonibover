@@ -103,7 +103,7 @@ export function Modal({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-40 animate-fade-in"
+        className="fixed inset-0 bg-scrim z-40 animate-fade-in"
         onClick={handleBackdropClick}
         aria-hidden="true"
       />
@@ -117,14 +117,14 @@ export function Modal({
           ref={dialogRef}
           tabIndex={-1}
           className={`
-            bg-surface
+            bg-background
             border
             border-default
-            shadow-lg
             w-full
             ${sizeClasses[size]}
             overflow-hidden
-            animate-scale-in
+            animate-fade-in
+            focus:outline-none
           `
             .trim()
             .replace(/\s+/g, ' ')}

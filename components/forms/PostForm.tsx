@@ -650,7 +650,7 @@ export function PostForm({
           <div className="mx-auto mt-4 max-w-6xl space-y-3 px-4 sm:px-6">
             {saveNotice ? (
               <div
-                className="border border-emerald-500/30 bg-emerald-500/10 px-4 py-3"
+                className="border border-success/30 bg-success/5 px-4 py-3"
                 role="status"
               >
                 <Text variant="small">{saveNotice}</Text>
@@ -658,10 +658,10 @@ export function PostForm({
             ) : null}
             {submissionError ? (
               <div
-                className="border border-red-500/30 bg-red-500/10 px-4 py-3"
+                className="border border-danger/30 bg-danger/5 px-4 py-3"
                 role="alert"
               >
-                <Text variant="small" className="text-red-200">
+                <Text variant="small" className="text-body">
                   {submissionError}
                 </Text>
               </div>
@@ -675,7 +675,7 @@ export function PostForm({
             className="max-w-6xl mx-auto mt-6 px-4 sm:px-6"
             role="status"
           >
-            <div className="border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <div className="border border-warning/30 bg-warning/5 px-4 py-3">
               <Text variant="small">
                 Les dades provenen de l’API d’AWS. L’edició estarà disponible
                 quan s’activin les operacions d’escriptura.
@@ -688,7 +688,7 @@ export function PostForm({
           <div className="max-w-6xl mx-auto mt-4 space-y-3 px-4 sm:px-6">
             {categoryError ? (
               <div
-                className="flex flex-wrap items-center justify-between gap-3 border border-amber-500/30 bg-amber-500/10 px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 border border-warning/30 bg-warning/5 px-4 py-3"
                 role="alert"
               >
                 <Text variant="small">{categoryError}</Text>
@@ -703,7 +703,7 @@ export function PostForm({
             ) : null}
             {keywordsError ? (
               <div
-                className="flex flex-wrap items-center justify-between gap-3 border border-amber-500/30 bg-amber-500/10 px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 border border-warning/30 bg-warning/5 px-4 py-3"
                 role="alert"
               >
                 <Text variant="small">{keywordsError.message}</Text>

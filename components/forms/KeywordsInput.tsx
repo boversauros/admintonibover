@@ -111,7 +111,7 @@ export function KeywordsInput({
                 key={i}
                 as="span"
                 variant="small"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-overlay-5 border border-overlay-20 text-primary-80"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-overlay-5 border border-strong text-primary/80"
               >
                 {kw}
                 <Button
@@ -119,7 +119,7 @@ export function KeywordsInput({
                   variant="icon"
                   size="icon"
                   onClick={() => handleRemove(kw)}
-                  className="text-primary-40 hover:text-red-400 transition-colors h-auto w-auto p-0"
+                  className="text-primary/40 hover:text-danger transition-colors h-auto w-auto p-0"
                 >
                   <Icon name="x" />
                 </Button>
@@ -153,7 +153,7 @@ export function KeywordsInput({
               <Text
                 as="span"
                 variant="small"
-                className="text-[10px] text-muted uppercase tracking-wider px-2"
+                className="text-2xs text-muted uppercase tracking-wider px-2"
               >
                 Suggeriments
               </Text>

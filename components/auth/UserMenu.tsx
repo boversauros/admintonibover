@@ -43,7 +43,7 @@ function MenuItem({
 }: MenuItemProps) {
   const variantClasses =
     variant === 'destructive'
-      ? 'text-red-400/90 hover:bg-red-500/10 hover:text-red-300 focus-visible:bg-red-500/10 focus-visible:text-red-300'
+      ? 'text-danger hover:bg-danger/10 focus-visible:bg-danger/10'
       : 'text-body hover:bg-overlay-5 hover:text-primary focus-visible:bg-overlay-5 focus-visible:text-primary';
 
   return (
@@ -52,7 +52,7 @@ function MenuItem({
       role="menuitem"
       onClick={onClick}
       disabled={disabled || loading}
-      className={`group flex w-full items-center gap-3 px-3.5 py-2.5 text-sm transition-colors-smooth focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${variantClasses}`}
+      className={`group flex w-full items-center gap-3 px-3.5 py-2.5 text-sm transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${variantClasses}`}
     >
       <span className="flex h-4 w-4 shrink-0 items-center justify-center">
         {loading ? (
@@ -145,10 +145,10 @@ export function UserMenu({
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label={`Menú d'usuari de ${email || user.id}`}
-        className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-overlay-10 text-sm font-medium text-primary ring-1 transition-all-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-overlay-50 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+        className={`relative flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold text-primary transition-colors ${
           isOpen
-            ? 'bg-overlay-20 ring-overlay-40 scale-105'
-            : 'ring-overlay-10 hover:bg-overlay-15 hover:ring-overlay-30 hover:scale-105 active:scale-95'
+            ? 'bg-overlay-10 border-strong'
+            : 'bg-overlay-5 border-default hover:bg-overlay-10 hover:border-strong'
         }`}
       >
         <span aria-hidden="true">{initials}</span>
@@ -158,13 +158,13 @@ export function UserMenu({
         <div
           role="menu"
           aria-label="Menú d'usuari"
-          className="absolute right-0 mt-3 w-72 origin-top-right overflow-hidden border border-overlay-10 bg-surface shadow-2xl shadow-black/60 animate-scale-in"
+          className="absolute right-0 mt-3 w-72 origin-top-right overflow-hidden border border-default bg-background animate-fade-in"
         >
           {/* Identity header */}
-          <div className="flex items-center gap-3 px-4 py-3.5 border-b border-subtle bg-overlay-2">
+          <div className="flex items-center gap-3 px-4 py-3.5 border-b border-subtle">
             <div
               aria-hidden="true"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-overlay-10 text-xs font-medium text-primary ring-1 ring-overlay-10"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-default bg-overlay-5 text-xs font-semibold text-primary"
             >
               {initials}
             </div>

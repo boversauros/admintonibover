@@ -1,4 +1,12 @@
 import { SelectHTMLAttributes, forwardRef } from 'react';
+import {
+  fieldControlClasses,
+  fieldLabelClasses,
+  fieldMessageClasses,
+  fieldSizeClasses,
+  type FieldSize,
+} from './field';
+import { Icon } from './Icon';
 
 export interface SelectOption {
   value: string;
@@ -18,7 +26,7 @@ interface SelectProps extends Omit<
   label?: string;
   error?: string;
   helperText?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: FieldSize;
   isInvalid?: boolean;
   options: SelectOption[] | SelectGroup[];
   placeholder?: string;
@@ -48,61 +56,26 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     },
     ref
   ) => {
-    const sizeClasses = {
-      sm: 'text-sm px-3 py-1.5 pr-8',
-      md: 'text-base px-4 py-2 pr-10',
-      lg: 'text-lg px-4 py-3 pr-12',
+    const chevronPaddingClasses: Record<FieldSize, string> = {
+      sm: 'pr-8',
+      md: 'pr-10',
+      lg: 'pr-12',
     };
 
     const selectId = id || label?.toLowerCase().replace(/\s+/g, '-');
 
-    const selectClasses = `
-      w-full
-      bg-transparent
-      border
-      ${isInvalid || error ? 'border-red-400' : 'border-default'}
-      text-primary
-      appearance-none
-      cursor-pointer
-      focus:outline-none
-      focus:border-focus
-      focus:glow
-      hover:border-subtle
-      disabled:opacity-50
-      disabled:cursor-not-allowed
-      transition-all-smooth
-      ${sizeClasses[size]}
-      ${className}
-    `
-      .trim()
-      .replace(/\s+/g, ' ');
-
-    // Uses --color-text-muted (#9ca3af) for chevron color
-    const chevronSvg = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E`;
+    const selectClasses =
+      `${fieldControlClasses(isInvalid || Boolean(error))} appearance-none cursor-pointer ${fieldSizeClasses[size]} ${chevronPaddingClasses[size]} ${className}`.trim();
 
     return (
       <div className={wrapperClassName}>
         {label && (
-          <label
-            htmlFor={selectId}
-            className="block text-sm text-muted font-medium tracking-wide mb-2"
-          >
+          <label htmlFor={selectId} className={fieldLabelClasses}>
             {label}
           </label>
         )}
         <div className="relative w-full">
-          <select
-            ref={ref}
-            id={selectId}
-            className={selectClasses}
-            style={{
-              backgroundImage: `url("${chevronSvg}")`,
-              backgroundPosition: 'right 0.75rem center',
-              backgroundSize: '1.25rem',
-              backgroundRepeat: 'no-repeat',
-            }}
-            {...rest}
-          >
+          <select ref={ref} id={selectId} className={selectClasses} {...rest}>
             {placeholder && (
               <option value="" disabled hidden>
                 {placeholder}
@@ -132,11 +105,15 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                   </option>
                 ))}
           </select>
+          <Icon
+            name="chevron-down"
+            size="4"
+            aria-hidden="true"
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted"
+          />
         </div>
         {(error || helperText) && (
-          <p
-            className={`text-sm mt-1 ${error ? 'text-red-400' : 'text-muted'}`}
-          >
+          <p className={`mt-1 ${fieldMessageClasses(Boolean(error))}`}>
             {error || helperText}
           </p>
         )}
