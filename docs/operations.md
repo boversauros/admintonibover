@@ -178,6 +178,12 @@ the exact environment content bucket under `backups/cloudformation/`, compare
 its SHA-256 with the local value, and create a CloudFormation change set using
 that private S3 object. Creating the change set must not execute it.
 
+For a development change set containing the build reader, first stage and
+verify its separate, content-addressed code zip using
+[the reader rollout procedure](build-reader-dev-rollout.md#reader-code-artifact).
+Keep that code object when removing the temporary CloudFormation template; it
+may be needed for a code update or rollback.
+
 Review every action. Expected application updates normally modify the Lambda
 and may update the API stage/integration; route work adds only the reviewed
 route. Stop on a replacement/deletion, unapproved service/resource type, public
@@ -190,7 +196,8 @@ variables are non-empty and use the deployment prefix.
 ### Post-deployment verification
 
 1. Verify stack status, drift, outputs, tags, protected-resource retention, and
-   the 42-resource/18-type contract.
+   the 42-resource production contract or 47-resource development contract
+   after the reader rollout.
 2. Verify DynamoDB is active, on-demand, deletion-protected in production,
    string `PK`/`SK`, with no unexpected indexes, streams, or paid features.
 3. Verify S3 Block Public Access, owner enforcement, exact CORS, TLS policy,
