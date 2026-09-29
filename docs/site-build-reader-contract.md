@@ -1,9 +1,27 @@
 # Astro site build reader: proposed v1 contract
 
-Status: proposed for joint admin and Astro owner review under
+## Owner acceptance update — 2026-09-29
+
+The owner requires `tonibover/dev` Preview to read published content and images
+from `admintonibover` production and operate correctly before a site merge into
+`main`. The code branch is `dev`; the configured data environment is `prod`.
+This supersedes the earlier dev-only staging prerequisite and production-reader
+ordering below. See [site #11](https://github.com/boversauros/tonibover/issues/11),
+[admin #59](https://github.com/boversauros/admintonibover/issues/59) and the
+[production reader rollout](production-site-reader-rollout.md).
+
+The existing v1 wire contract, publication filtering, image ownership/version
+checks, read-only build permissions and local-dev access rules remain valid.
+Production content mutations are not required for agent-run acceptance tests.
+The public-site main merge/release follows the owner's acceptance of the
+production-backed Preview. Historical development decisions below describe the
+already deployed development reader, which remains available independently.
+
+Status: v1 was approved in
 [admin issue #55](https://github.com/boversauros/admintonibover/issues/55) and
-[site tracker #11](https://github.com/boversauros/tonibover/issues/11). This
-document specifies the interface for later implementation; it deploys nothing.
+implemented in #56. The revised production-backed Preview is tracked in
+[site #11](https://github.com/boversauros/tonibover/issues/11) and admin #59.
+This document specifies the interface; it deploys nothing.
 
 The admin `dev` branch was created from reviewed remote `main` commit
 `9ee8338b16b92931f28b3ca80712e2b193f078a8` (issue #54). Reader work

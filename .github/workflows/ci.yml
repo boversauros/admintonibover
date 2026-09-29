@@ -64,6 +64,10 @@ jobs:
           infra/backup-recovery-disposable-table.template.json
           infra/generated/dev-foundation.template.json
           infra/generated/prod-foundation.template.json
+          infra/generated/production-site-reader.template.json
+
+      - name: Validate production reader synthesis
+        run: pnpm reader:prod:validate
 
       - name: Lint
         run: pnpm lint
