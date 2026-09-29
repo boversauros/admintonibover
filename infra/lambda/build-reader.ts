@@ -18,7 +18,7 @@ let reader: ReturnType<typeof createBuildReader> | undefined;
 export async function handler(event: unknown) {
   if (!reader) {
     const environment = required('READER_ENVIRONMENT');
-    if (environment !== 'dev')
+    if (environment !== 'dev' && environment !== 'prod')
       throw new Error('Unsupported reader environment');
     const documentClient = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
       marshallOptions: { removeUndefinedValues: true },

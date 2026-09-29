@@ -46,7 +46,11 @@ function storedPost(value: Post): DynamoItem[] {
   return [prepared.aggregate, prepared.summary, ...prepared.referenceSegments];
 }
 
-function fixture(values: Post[] = [post('post-1')], maxPageSize = 2) {
+function fixture(
+  values: Post[] = [post('post-1')],
+  maxPageSize = 2,
+  environment: 'dev' | 'prod' = 'dev'
+) {
   const port = new InMemoryDynamoDbPort(
     [
       {
@@ -99,7 +103,7 @@ function fixture(values: Post[] = [post('post-1')], maxPageSize = 2) {
   const calls: string[] = [];
   let mediaExists = true;
   const reader = createBuildReader({
-    environment: 'dev',
+    environment,
     dynamodb: port,
     posts: new DynamoDbPostRepository(port, { queryPageSize: 3 }),
     objects: {
@@ -258,89 +262,131 @@ test('published detail rebuilds segmented references, projects fields, and enfor
   );
 });
 
-test('drafts, arbitrary image keys, missing media, and version changes grant nothing', async () => {
-  const live = post('post-1');
-  live.mainImage = {
-    key: 'images/posts/post-1/main/photo.webp',
-    title: 'Main',
-    alt: 'Alt',
-    contentType: 'image/webp',
-    sizeBytes: 123,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
-  const arbitrary = post('post-2');
-  arbitrary.mainImage = { ...live.mainImage, key: 'backups/private.webp' };
-  const { reader, calls, setMediaExists } = fixture([
-    live,
-    arbitrary,
-    post('draft-3', false),
-  ]);
-  assert.equal(
-    failure(
-      await reader(request('post', { id: 'draft-3', expectedVersion: 1 }))
-    ),
-    'NOT_FOUND'
+for (const environment of ['dev', 'prod'] as const) {
+  test(`${environment}: drafts, arbitrary image keys, missing media, and version changes grant nothing`, async () => {
+    const environmentRequest = (
+      operation: string,
+      extra: Record<string, unknown> = {}
+    ) => request(operation, { ...extra, environment });
+    const live = post('post-1');
+    live.mainImage = {
+      key: 'images/posts/post-1/main/photo.webp',
+      title: 'Main',
+      alt: 'Alt',
+      contentType: 'image/webp',
+      sizeBytes: 123,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const arbitrary = post('post-2');
+    arbitrary.mainImage = { ...live.mainImage, key: 'backups/private.webp' };
+    const { reader, calls, setMediaExists } = fixture(
+      [live, arbitrary, post('draft-3', false)],
+      2,
+      environment
+    );
+    assert.equal(
+      failure(
+        await reader(
+          environmentRequest('post', { id: 'draft-3', expectedVersion: 1 })
+        )
+      ),
+      'NOT_FOUND'
+    );
+    assert.equal(
+      failure(
+        await reader(
+          environmentRequest('media', {
+            postId: 'draft-3',
+            role: 'main',
+            expectedVersion: 1,
+          })
+        )
+      ),
+      'NOT_FOUND'
+    );
+    assert.equal(
+      failure(
+        await reader(
+          environmentRequest('media', {
+            postId: 'post-2',
+            role: 'main',
+            expectedVersion: 1,
+          })
+        )
+      ),
+      'DATA_INTEGRITY'
+    );
+    assert.equal(
+      failure(
+        await reader(
+          environmentRequest('media', {
+            postId: 'post-1',
+            role: 'thumb',
+            expectedVersion: 1,
+          })
+        )
+      ),
+      'MEDIA_NOT_ATTACHED'
+    );
+    assert.equal(
+      failure(
+        await reader(
+          environmentRequest('media', {
+            postId: 'post-1',
+            role: 'main',
+            expectedVersion: 2,
+          })
+        )
+      ),
+      'VERSION_CONFLICT'
+    );
+    assert.deepEqual(calls, []);
+    setMediaExists(false);
+    assert.equal(
+      failure(
+        await reader(
+          environmentRequest('media', {
+            postId: 'post-1',
+            role: 'main',
+            expectedVersion: 1,
+          })
+        )
+      ),
+      'MEDIA_UNAVAILABLE'
+    );
+    setMediaExists(true);
+    const granted = await reader(
+      environmentRequest('media', {
+        postId: 'post-1',
+        role: 'main',
+        expectedVersion: 1,
+      })
+    );
+    assert.equal(granted.ok, true);
+    assert.deepEqual(calls.slice(-2), [
+      'head:images/posts/post-1/main/photo.webp',
+      'sign:images/posts/post-1/main/photo.webp:300',
+    ]);
+  });
+}
+
+test('production reader returns only published records and rejects dev requests', async () => {
+  const { reader } = fixture(
+    [post('post-1'), post('draft-2', false)],
+    2,
+    'prod'
   );
-  assert.equal(
-    failure(
-      await reader(
-        request('media', {
-          postId: 'draft-3',
-          role: 'main',
-          expectedVersion: 1,
-        })
-      )
-    ),
-    'NOT_FOUND'
+  const response = await reader(
+    request('posts', { limit: 50, environment: 'prod' })
   );
-  assert.equal(
-    failure(
-      await reader(
-        request('media', { postId: 'post-2', role: 'main', expectedVersion: 1 })
-      )
-    ),
-    'DATA_INTEGRITY'
-  );
-  assert.equal(
-    failure(
-      await reader(
-        request('media', {
-          postId: 'post-1',
-          role: 'thumb',
-          expectedVersion: 1,
-        })
-      )
-    ),
-    'MEDIA_NOT_ATTACHED'
-  );
-  assert.equal(
-    failure(
-      await reader(
-        request('media', { postId: 'post-1', role: 'main', expectedVersion: 2 })
-      )
-    ),
-    'VERSION_CONFLICT'
-  );
-  assert.deepEqual(calls, []);
-  setMediaExists(false);
-  assert.equal(
-    failure(
-      await reader(
-        request('media', { postId: 'post-1', role: 'main', expectedVersion: 1 })
-      )
-    ),
-    'MEDIA_UNAVAILABLE'
-  );
-  setMediaExists(true);
-  const granted = await reader(
-    request('media', { postId: 'post-1', role: 'main', expectedVersion: 1 })
-  );
-  assert.equal(granted.ok, true);
-  assert.deepEqual(calls.slice(-2), [
-    'head:images/posts/post-1/main/photo.webp',
-    'sign:images/posts/post-1/main/photo.webp:300',
-  ]);
+  assert.deepEqual(response, {
+    version: 1,
+    environment: 'prod',
+    ok: true,
+    data: { items: [{ id: 'post-1', version: 1 }], nextCursor: null },
+  });
+  assert.equal(failure(await reader(request('revision'))), 'INVALID_REQUEST');
 });
 
 test('request boundary and missing revision fail with stable content-free errors', async () => {
