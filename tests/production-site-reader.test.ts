@@ -32,7 +32,7 @@ test('production reader stack cannot replace existing data or admin resources', 
     S3Key: { Ref: 'ReaderCodeObjectKey' },
   });
   assert.equal(reader.VpcConfig, undefined);
-  assert.equal(reader.ReservedConcurrentExecutions, 2);
+  assert.equal(reader.ReservedConcurrentExecutions, undefined);
   assert.equal(
     template.Resources.ReaderLogGroup.Properties!.RetentionInDays,
     14
