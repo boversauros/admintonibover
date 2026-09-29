@@ -145,7 +145,6 @@ export function createProductionSiteReaderTemplate(): CloudFormationTemplate {
           Architectures: ['arm64'],
           MemorySize: 256,
           Timeout: 30,
-          ReservedConcurrentExecutions: 2,
           RecursiveLoop: 'Terminate',
           Role: { 'Fn::GetAtt': ['ReaderExecutionRole', 'Arn'] },
           Code: {

@@ -46,8 +46,8 @@ gets a separate invoke identity during site #16.
    the intended account, `eu-west-1`, the production foundation's terminal
    status and exact `TableName`/`BucketName` outputs. Verify table/region,
    bucket Block Public Access/encryption and the existing OIDC provider's
-   URL/client IDs against the observed Vercel Team claims. Check Lambda
-   concurrency headroom for the reader's reservation of two.
+   URL/client IDs against the observed Vercel Team claims. Check the regional
+   Lambda concurrency quota and usage; the reader uses shared concurrency.
 2. Run `pnpm reader:prod:synth`, `pnpm reader:prod:validate`, the focused reader
    tests, and `cfn-lint infra/generated/production-site-reader.template.json`.
    Save the generated reader zip hash/key in the private deployment report.
@@ -65,7 +65,7 @@ gets a separate invoke identity during site #16.
    resource modification, replacement or deletion. Review the narrow IAM
    statements and private identity baseline before executing the change set.
 6. Wait for `CREATE_COMPLETE`. Privately verify the reader's environment,
-   exact table/bucket variables, roles and trust, two reserved executions,
+   exact table/bucket variables, roles and trust, shared concurrency,
    14-day logs and absence of a public Function URL. Read the stack outputs.
 7. For `tonibover` **Preview/dev**, set `AWS_READER_ENVIRONMENT=prod`,
    `AWS_READER_REGION` to `ReaderRegion`, `AWS_READER_FUNCTION_ARN` to
@@ -86,9 +86,13 @@ S3 keys and signed grants.
 ## Cost and rollback
 
 There is no VPC, NAT, new table/bucket, public endpoint, provisioned concurrency
-or new OIDC provider. Lambda uses 256 MiB, 30-second timeout and at most two
-concurrent executions. Charges come from reader invocations/duration,
-DynamoDB reads, S3 image requests/egress, the code object and 14-day logs.
+or new OIDC provider. Lambda uses 256 MiB, a 30-second timeout and shared
+regional concurrency. At the 2026-09-29 review, the `eu-west-1` account limit
+was 10, which cannot support reserved concurrency under
+[AWS's unreserved-capacity rule](https://docs.aws.amazon.com/lambda/latest/dg/configuration-concurrency.html).
+Monitor invocations, errors, throttles and request duration during Preview
+builds. Charges come from reader invocations/duration, DynamoDB reads, S3 image
+requests/egress, the code object and 14-day logs.
 IAM roles have no direct hourly charge. Review the actual account baseline
 and expected content/build volume before execution; this preparation does
 not claim a live currency estimate or deployed production acceptance.
