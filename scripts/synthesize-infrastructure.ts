@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 import { buildFoundationLambda } from './build-foundation-lambda';
+import { buildReaderLambda } from './build-reader-lambda';
 
 const DEFAULT_OUTPUTS = {
   dev: resolve('infra/generated/dev-foundation.template.json'),
@@ -94,6 +95,7 @@ async function main(): Promise<void> {
   }
 
   const lambda = await buildFoundationLambda({ check: options.check });
+  await buildReaderLambda({ check: options.check });
   const [{ createFoundationTemplate }, { validateFoundationTemplate }] =
     await Promise.all([
       import('../infra/dev-foundation'),

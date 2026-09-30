@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
+import { SiteRebuildNotice } from '@/components/layout/SiteRebuildNotice';
 import { AuthProvider } from '@/lib/auth/AuthContext';
 import { getCognitoConfig } from '@/lib/auth/cognito/config';
 import { readCognitoSession } from '@/lib/auth/cognito/session';
@@ -26,6 +27,7 @@ export default async function RootLayout({
       <body className="min-h-screen antialiased flex flex-col">
         <AuthProvider initialUser={cognitoSession?.user ?? null}>
           {children}
+          {cognitoSession ? <SiteRebuildNotice /> : null}
         </AuthProvider>
 
         <footer className="border-t border-subtle mt-auto">

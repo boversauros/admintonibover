@@ -8,6 +8,11 @@ import {
 } from '@/lib/auth/cognito/cookies';
 import { isJsonRequest, isSameOriginMutation } from '@/lib/auth/cognito/http';
 import { readCognitoSession } from '@/lib/auth/cognito/session';
+import {
+  SITE_REBUILD_HEADER,
+  siteRebuildForMutation,
+  type SiteRebuildPolicy,
+} from '@/lib/site-rebuild';
 
 export const MAX_PROXY_BODY_BYTES = 256 * 1024;
 const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
@@ -81,7 +86,8 @@ function jsonError(
 export async function proxyAwsAdminApi(
   request: NextRequest,
   path: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  { siteRebuild }: { siteRebuild?: SiteRebuildPolicy } = {}
 ): Promise<Response> {
   const requestId = correlationId(request);
   const isMutation = method !== 'GET';
@@ -168,6 +174,12 @@ export async function proxyAwsAdminApi(
       },
     });
     const responseBody = await upstream.text();
+    // The AWS write has committed; the hook outcome is reported beside it.
+    const rebuild = await siteRebuildForMutation(
+      siteRebuild,
+      { ok: upstream.ok, body: responseBody },
+      `${method} ${path.split('?', 1)[0]}`
+    );
     const response = new NextResponse(responseBody, {
       status: upstream.status,
       headers: {
@@ -187,6 +199,7 @@ export async function proxyAwsAdminApi(
                 upstream.headers.get('content-disposition') ?? '',
             }
           : {}),
+        ...(rebuild ? { [SITE_REBUILD_HEADER]: rebuild } : {}),
       },
     });
     if (upstream.status === 401) {

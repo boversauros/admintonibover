@@ -22,7 +22,9 @@ export async function PUT(
   { params }: RouteContext
 ): Promise<Response> {
   const { id } = await params;
-  return proxyAwsAdminApi(request, `posts/${encodeURIComponent(id)}`, 'PUT');
+  return proxyAwsAdminApi(request, `posts/${encodeURIComponent(id)}`, 'PUT', {
+    siteRebuild: 'ifPublished',
+  });
 }
 
 export async function DELETE(
@@ -30,5 +32,10 @@ export async function DELETE(
   { params }: RouteContext
 ): Promise<Response> {
   const { id } = await params;
-  return proxyAwsAdminApi(request, `posts/${encodeURIComponent(id)}`, 'DELETE');
+  return proxyAwsAdminApi(
+    request,
+    `posts/${encodeURIComponent(id)}`,
+    'DELETE',
+    { siteRebuild: 'always' }
+  );
 }

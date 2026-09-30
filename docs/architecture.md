@@ -29,7 +29,7 @@ fresh, temporary AWS session.
 
 ## Next.js routes and component boundaries
 
-The App Router exposes four pages:
+The App Router exposes five pages:
 
 | Route                   | Entry point                         | Purpose                                                                     |
 | ----------------------- | ----------------------------------- | --------------------------------------------------------------------------- |
@@ -37,6 +37,7 @@ The App Router exposes four pages:
 | `/reflexions/new`       | `app/reflexions/new/page.tsx`       | Create a post                                                               |
 | `/reflexions/[id]/edit` | `app/reflexions/[id]/edit/page.tsx` | Load and edit one post                                                      |
 | `/usuaris`              | `app/usuaris/page.tsx`              | Super-admin user list and invitation controls                               |
+| `/adreces`              | `app/adreces/page.tsx`              | One-time super-admin replacement of legacy numeric post slugs               |
 
 The page entries and root layout are Server Components. `app/layout.tsx` reads
 the encrypted Cognito session and passes only the safe user projection into the
@@ -77,12 +78,16 @@ The same-origin `/api/aws/*` handlers expose the admin application contract:
 | `GET /api/aws/backup`                      | Download a validated DynamoDB backup                                  |
 | `GET`, `POST /api/aws/users`               | List users or invite an editor                                        |
 | `POST /api/aws/users/[username]/actions`   | Resend invitation, reset password, enable/disable, or revoke sessions |
+| `POST /api/site/rebuild`                   | Retry the site Deploy Hook (not an AWS operation)                     |
 
 Reads and mutations validate the local Cognito session, attach the access token
 server-side, forward a correlation ID, and return `Cache-Control: no-store`.
 Mutations additionally require exact same-origin requests; JSON requests are
 capped at 256 KiB and require `application/json`. Conditional versions and
-idempotency keys prevent lost updates and duplicate retries.
+idempotency keys prevent lost updates and duplicate retries. After a
+committed content mutation that can change the public site, the server
+triggers the site's Vercel Deploy Hook and reports the outcome in
+`x-site-rebuild`; see [operations.md](operations.md#site-rebuilds-after-content-changes).
 
 ## Authentication and authorization
 
@@ -192,6 +197,10 @@ comparison, and representative repository reads. It never merges into the
 active table or restores S3 objects.
 
 ## Deployment inputs and validation
+
+The proposed read-only Astro build interface and its separate IAM boundary
+are specified in [site-build-reader-contract.md](site-build-reader-contract.md).
+It is a development staging contract; no reader resource is deployed yet.
 
 Source inputs are `infra/dev-foundation.ts`, `infra/lambda/foundation.ts`, the
 parameter examples, and the pinned dependency graph. `pnpm infra:synth`

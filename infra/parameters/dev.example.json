@@ -30,5 +30,17 @@
   {
     "ParameterKey": "EnableTableDeletionProtection",
     "ParameterValue": "false"
+  },
+  {
+    "ParameterKey": "VercelTeamSlug",
+    "ParameterValue": "replace-with-exact-vercel-team-slug"
+  },
+  {
+    "ParameterKey": "VercelSiteProjectName",
+    "ParameterValue": "replace-with-exact-vercel-site-project-name"
+  },
+  {
+    "ParameterKey": "ReaderCodeObjectKey",
+    "ParameterValue": "deployment/build-reader/replace-with-reader-build-sha256.zip"
   }
 ]

@@ -6,6 +6,7 @@ import {
   EXACT_PRODUCTION_CALLBACK_URL_PATTERN,
   EXACT_PRODUCTION_LOGOUT_URL_PATTERN,
   EXPECTED_RESOURCE_TYPE_COUNTS,
+  EXPECTED_DEV_RESOURCE_TYPE_COUNTS,
   REQUIRED_TAGS,
   type CloudFormationTemplate,
   type FoundationEnvironment,
@@ -99,10 +100,19 @@ export function validateFoundationTemplate(
   const issues: string[] = [];
   const resourceTypes: Record<string, number> = {};
   const isProduction = environment === 'prod';
+  if (
+    Buffer.byteLength(`${JSON.stringify(template, null, 2)}\n`, 'utf8') >
+    1024 * 1024
+  ) {
+    issues.push('Template exceeds the CloudFormation 1 MiB S3 template limit');
+  }
+  const expectedResourceTypes = isProduction
+    ? EXPECTED_RESOURCE_TYPE_COUNTS
+    : EXPECTED_DEV_RESOURCE_TYPE_COUNTS;
 
   for (const [logicalId, resource] of Object.entries(template.Resources)) {
     resourceTypes[resource.Type] = (resourceTypes[resource.Type] ?? 0) + 1;
-    if (!(resource.Type in EXPECTED_RESOURCE_TYPE_COUNTS)) {
+    if (!(resource.Type in expectedResourceTypes)) {
       issues.push(
         `Resources.${logicalId} uses unapproved type ${resource.Type}`
       );
@@ -110,7 +120,7 @@ export function validateFoundationTemplate(
   }
 
   for (const [resourceType, expectedCount] of Object.entries(
-    EXPECTED_RESOURCE_TYPE_COUNTS
+    expectedResourceTypes
   )) {
     requireEqual(
       resourceTypes[resourceType],
@@ -171,6 +181,120 @@ export function validateFoundationTemplate(
     );
   }
   const existingSuperAdmin = template.Parameters.ExistingSuperAdminUsername;
+  if (!isProduction) {
+    for (const name of ['VercelTeamSlug', 'VercelSiteProjectName']) {
+      const parameter = template.Parameters[name];
+      requireEqual(
+        parameter?.AllowedPattern,
+        '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+        `${name}.AllowedPattern`,
+        issues
+      );
+      if (!parameter || 'Default' in parameter)
+        issues.push(`${name} must be required without a default`);
+    }
+    requireEqual(
+      template.Parameters.ReaderCodeObjectKey?.AllowedPattern,
+      '^deployment/build-reader/[0-9a-f]{64}\\.zip$',
+      'ReaderCodeObjectKey.AllowedPattern',
+      issues
+    );
+    if (
+      !template.Parameters.ReaderCodeObjectKey ||
+      'Default' in template.Parameters.ReaderCodeObjectKey
+    )
+      issues.push('ReaderCodeObjectKey must be required without a default');
+    const reader = template.Resources.ReaderFunction;
+    const execution = template.Resources.ReaderExecutionRole;
+    const invoke = template.Resources.ReaderInvokeRole;
+    const provider = template.Resources.VercelOidcProvider;
+    const readerCode = asRecord(
+      reader?.Properties?.Code,
+      'ReaderFunction.Code',
+      issues
+    );
+    requireEqual(
+      readerCode,
+      {
+        S3Bucket: { Ref: 'ContentBucket' },
+        S3Key: { Ref: 'ReaderCodeObjectKey' },
+      },
+      'ReaderFunction.Code',
+      issues
+    );
+    const readerPolicies = JSON.stringify(execution?.Properties?.Policies);
+    const invokePolicies = JSON.stringify(invoke?.Properties?.Policies);
+    requireEqual(
+      readerPolicies.includes('dynamodb:GetItem') &&
+        readerPolicies.includes('dynamodb:Query'),
+      true,
+      'ReaderExecutionRole table reads',
+      issues
+    );
+    requireEqual(
+      readerPolicies.includes('images/posts/*'),
+      true,
+      'ReaderExecutionRole image prefix',
+      issues
+    );
+    for (const forbidden of [
+      'dynamodb:Scan',
+      'dynamodb:PutItem',
+      's3:ListBucket',
+      's3:PutObject',
+      'backups/*',
+      'lambda:InvokeFunction',
+    ]) {
+      if (readerPolicies.includes(forbidden))
+        issues.push(`ReaderExecutionRole contains ${forbidden}`);
+    }
+    requireEqual(
+      invokePolicies.includes('lambda:InvokeFunction') &&
+        invokePolicies.includes('ReaderFunction'),
+      true,
+      'ReaderInvokeRole exact invoke',
+      issues
+    );
+    for (const forbidden of ['dynamodb:', 's3:', 'FoundationFunction']) {
+      if (invokePolicies.includes(forbidden))
+        issues.push(`ReaderInvokeRole contains ${forbidden}`);
+    }
+    requireEqual(
+      provider?.Properties?.Url,
+      { 'Fn::Sub': 'https://oidc.vercel.com/${VercelTeamSlug}' },
+      'VercelOidcProvider.Url',
+      issues
+    );
+    const trust = JSON.stringify(invoke?.Properties?.AssumeRolePolicyDocument);
+    for (const required of [
+      'sts:AssumeRoleWithWebIdentity',
+      ':aud',
+      ':sub',
+      'environment:preview',
+      'StringEquals',
+    ]) {
+      if (!trust.includes(required))
+        issues.push(`ReaderInvokeRole trust lacks ${required}`);
+    }
+    if (trust.includes('StringLike') || trust.includes('*'))
+      issues.push('ReaderInvokeRole trust must have exact conditions');
+    if (
+      'ReaderFunctionUrl' in template.Resources ||
+      'ReaderApiRoute' in template.Resources
+    )
+      issues.push('Reader must not have a public endpoint');
+  } else {
+    for (const name of [
+      'ReaderFunction',
+      'ReaderExecutionRole',
+      'ReaderInvokeRole',
+      'VercelOidcProvider',
+      'ReaderLogGroup',
+    ]) {
+      if (name in template.Resources)
+        issues.push(`Production must not contain ${name}`);
+    }
+  }
   requireEqual(
     existingSuperAdmin?.NoEcho,
     true,

@@ -11,6 +11,7 @@ import {
   EXACT_PRODUCTION_CALLBACK_URL_PATTERN,
   EXACT_PRODUCTION_LOGOUT_URL_PATTERN,
   EXPECTED_RESOURCE_TYPE_COUNTS,
+  EXPECTED_DEV_RESOURCE_TYPE_COUNTS,
   FOUNDATION_LAMBDA_CODE,
   createDevFoundationTemplate,
   createProductionFoundationTemplate,
@@ -34,8 +35,48 @@ test('development foundation passes the offline safety contract', () => {
   const template = createDevFoundationTemplate();
   const summary = validateDevFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 42);
-  assert.deepEqual(summary.resourceTypes, EXPECTED_RESOURCE_TYPE_COUNTS);
+  assert.equal(summary.resourceCount, 47);
+  assert.deepEqual(summary.resourceTypes, EXPECTED_DEV_RESOURCE_TYPE_COUNTS);
+  assert.deepEqual(template.Resources.ReaderFunction.Properties!.Code, {
+    S3Bucket: { Ref: 'ContentBucket' },
+    S3Key: { Ref: 'ReaderCodeObjectKey' },
+  });
+  assert.deepEqual(
+    template.Resources.ReaderExecutionRole.Properties!.Policies,
+    [
+      {
+        PolicyName: 'published-reader-only',
+        PolicyDocument: {
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Sid: 'WriteReaderLogs',
+              Effect: 'Allow',
+              Action: ['logs:CreateLogStream', 'logs:PutLogEvents'],
+              Resource: { 'Fn::GetAtt': ['ReaderLogGroup', 'Arn'] },
+            },
+            {
+              Sid: 'ReadExactTable',
+              Effect: 'Allow',
+              Action: ['dynamodb:GetItem', 'dynamodb:Query'],
+              Resource: { 'Fn::GetAtt': ['ContentTable', 'Arn'] },
+            },
+            {
+              Sid: 'ReadPostImagesOnly',
+              Effect: 'Allow',
+              Action: ['s3:GetObject'],
+              Resource: { 'Fn::Sub': '${ContentBucket.Arn}/images/posts/*' },
+            },
+          ],
+        },
+      },
+    ]
+  );
+  const trust = template.Resources.ReaderInvokeRole.Properties!
+    .AssumeRolePolicyDocument as { 'Fn::Sub': string };
+  assert.match(trust['Fn::Sub'], /environment:preview/);
+  assert.match(trust['Fn::Sub'], /StringEquals/);
+  assert.equal(template.Resources.ReaderFunctionUrl, undefined);
 });
 
 test('production foundation is isolated and retains data-bearing resources', () => {

@@ -18,6 +18,7 @@ import { Button, Select, Input, Modal, Text } from '@/components/ui';
 import { useKeywords } from '@/lib/hooks/useKeywords';
 import { PostFormData, StoredPost, Language } from '@/lib/types/post';
 import { slugify } from '@/lib/utils/slugify';
+import { isLegacyNumericSlug } from '@/lib/domain/posts/public-slugs';
 import {
   AdminMutationError,
   buildAwsPost,
@@ -36,9 +37,9 @@ import {
 import type { Post } from '@/lib/domain/posts/types';
 import type { ImagePreview, ImageRole } from '@/lib/domain/media/contracts';
 import {
-  postFormResolver,
-  type PostFormValidationContext,
-} from '@/lib/validation/postSchema';
+  postFormWithSlugsResolver,
+  type PostFormSlugContext,
+} from '@/lib/validation/postSlugRules';
 import { LanguageTabs } from './LanguageTabs';
 import { TranslationSection } from './TranslationSection';
 import { KeywordsSection } from './KeywordsSection';
@@ -223,8 +224,22 @@ export function PostForm({
     return () => controller.abort();
   }, [activeAwsPostId, applyAwsInspection]);
 
-  const methods = useForm<PostFormData, PostFormValidationContext>({
-    resolver: postFormResolver,
+  // Categories load after the form is created; the resolver reads them here.
+  const categorySlugsRef = useRef<string[]>([]);
+  useEffect(() => {
+    categorySlugsRef.current = categories.map(category => category.slug);
+  }, [categories]);
+  const methods = useForm<PostFormData, PostFormSlugContext>({
+    resolver: (values, context, options) =>
+      postFormWithSlugsResolver(
+        values,
+        {
+          requireCompleteTranslations:
+            context?.requireCompleteTranslations === true,
+          categorySlugs: categorySlugsRef.current,
+        },
+        options
+      ),
     context: { requireCompleteTranslations: true },
     defaultValues: initialData
       ? {
@@ -310,7 +325,8 @@ export function PostForm({
     return () => controller.abort();
   }, [initialData, readOnly, setValue]);
 
-  // Auto-generate slugs from titles
+  // Auto-generate slugs from titles. An imported numeric slug (the old `-N`
+  // placeholder) is replaced too, so saving the post fixes its address.
   const [titleCA, titleEN, slugCA, slugEN, isPublished] = useWatch({
     control: methods.control,
     name: [
@@ -335,7 +351,11 @@ export function PostForm({
   useEffect(() => {
     if (titleCA) {
       const generatedSlug = slugify(titleCA);
-      if (!slugCA || slugCA === previousAutoSlugCA.current) {
+      if (
+        !slugCA ||
+        slugCA === previousAutoSlugCA.current ||
+        isLegacyNumericSlug(slugCA, titleCA)
+      ) {
         setValue('translations.ca.slug', generatedSlug);
       }
       previousAutoSlugCA.current = generatedSlug;
@@ -345,7 +365,11 @@ export function PostForm({
   useEffect(() => {
     if (titleEN) {
       const generatedSlug = slugify(titleEN);
-      if (!slugEN || slugEN === previousAutoSlugEN.current) {
+      if (
+        !slugEN ||
+        slugEN === previousAutoSlugEN.current ||
+        isLegacyNumericSlug(slugEN, titleEN)
+      ) {
         setValue('translations.en.slug', generatedSlug);
       }
       previousAutoSlugEN.current = generatedSlug;

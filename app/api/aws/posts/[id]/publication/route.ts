@@ -14,6 +14,7 @@ export async function PUT(
   return proxyAwsAdminApi(
     request,
     `posts/${encodeURIComponent(id)}/publication`,
-    'PUT'
+    'PUT',
+    { siteRebuild: 'always' }
   );
 }

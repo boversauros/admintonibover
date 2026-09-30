@@ -14,6 +14,7 @@ export async function DELETE(
   return proxyAwsAdminApi(
     request,
     `posts/${encodeURIComponent(id)}/images/${encodeURIComponent(role)}`,
-    'DELETE'
+    'DELETE',
+    { siteRebuild: 'always' }
   );
 }
