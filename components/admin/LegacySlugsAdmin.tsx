@@ -40,6 +40,7 @@ export function LegacySlugsAdmin() {
   const [busy, setBusy] = useState<'scan' | 'apply' | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
   const allowed = Boolean(user && canManageCognitoUsers(user.groups));
 
   const ready = rows?.filter(row => !row.blocked) ?? [];
@@ -54,7 +55,9 @@ export function LegacySlugsAdmin() {
       setRows(
         await scanLegacySlugs(
           legacySlugDependencies,
-          categories.map(category => category.slug)
+          categories.map(category => category.slug),
+          (done, total) =>
+            setProgress(`Llegint articles: ${done} de ${total}…`)
         )
       );
     } catch (error) {
@@ -67,6 +70,7 @@ export function LegacySlugsAdmin() {
       });
     } finally {
       setBusy(null);
+      setProgress(null);
     }
   }
 
@@ -77,13 +81,15 @@ export function LegacySlugsAdmin() {
     let updated = 0;
     let failed = 0;
     // One post at a time: each save is re-read and version-checked.
-    for (const row of ready) {
+    for (const [index, row] of ready.entries()) {
+      setProgress(`Desant articles: ${index} de ${ready.length}…`);
       const outcome = await applyLegacySlugRow(legacySlugDependencies, row);
       if (outcome.status === 'updated') updated += 1;
       if (outcome.status === 'failed') failed += 1;
       setOutcomes(current => ({ ...current, [row.postId]: outcome }));
     }
     setBusy(null);
+    setProgress(null);
     setMessage(
       failed === 0
         ? {
@@ -181,6 +187,12 @@ export function LegacySlugsAdmin() {
             </Button>
           )}
         </div>
+
+        {progress && (
+          <p role="status" className="mb-6 text-sm text-muted">
+            {progress} Pot trigar un parell de minuts; no tanquis la pàgina.
+          </p>
+        )}
 
         {rows && rows.length === 0 && (
           <p role="status" className="border border-default p-6 text-muted">

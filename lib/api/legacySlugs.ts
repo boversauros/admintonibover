@@ -12,6 +12,7 @@ import {
   updateAwsPost,
 } from './adminMutations';
 import {
+  AdminReadError,
   AWS_ADMIN_POST_PAGE_LIMIT,
   getAdminPostById,
   getAdminPostsPage,
@@ -53,18 +54,21 @@ const LANGUAGE_LABELS: Record<PostLanguage, string> = {
   en: 'anglès',
 };
 
+export type LegacySlugProgress = (done: number, total: number) => void;
+
 async function readAll(
   dependencies: LegacySlugDependencies,
-  published?: boolean
+  published?: boolean,
+  onProgress?: LegacySlugProgress
 ): Promise<Post[]> {
   const ids = await dependencies.listPostIds(published);
   const posts: Post[] = [];
-  // Small fixed width keeps ~100 reads quick without bursting the API.
-  for (let index = 0; index < ids.length; index += 4) {
-    const batch = await Promise.all(
-      ids.slice(index, index + 4).map(id => dependencies.getPost(id))
-    );
-    for (const post of batch) if (post) posts.push(post);
+  onProgress?.(0, ids.length);
+  // One at a time: the API allows ~2 requests per second (see pacedRequests).
+  for (const [index, id] of ids.entries()) {
+    const post = await dependencies.getPost(id);
+    if (post) posts.push(post);
+    onProgress?.(index + 1, ids.length);
   }
   return posts;
 }
@@ -72,9 +76,10 @@ async function readAll(
 /** Preview of every post that still has a legacy numeric slug. */
 export async function scanLegacySlugs(
   dependencies: LegacySlugDependencies,
-  categorySlugs: readonly string[]
+  categorySlugs: readonly string[],
+  onProgress?: LegacySlugProgress
 ): Promise<LegacySlugRow[]> {
-  const posts = await readAll(dependencies);
+  const posts = await readAll(dependencies, undefined, onProgress);
   const owners = new Map<string, string>();
   for (const post of posts) {
     for (const language of ['ca', 'en'] as const) {
@@ -163,9 +168,10 @@ export async function applyLegacySlugRow(
 
 /** Unpublished posts that bulk publication must not publish yet. */
 export async function countDraftsWithLegacySlugs(
-  dependencies: LegacySlugDependencies = legacySlugDependencies
+  dependencies: LegacySlugDependencies = legacySlugDependencies,
+  onProgress?: LegacySlugProgress
 ): Promise<number> {
-  const drafts = await readAll(dependencies, false);
+  const drafts = await readAll(dependencies, false, onProgress);
   return drafts.filter(post => legacySlugChanges(post).length > 0).length;
 }
 
@@ -179,18 +185,68 @@ export function legacyRedirects(rows: readonly LegacySlugRow[]): string[] {
   );
 }
 
+/** Gap between request starts; the API stage allows 2 per second. */
+const REQUEST_INTERVAL_MS = 600;
+const THROTTLE_RETRIES = 4;
+
+const wait = (ms: number) => new Promise<void>(done => setTimeout(done, ms));
+
+function throttleDelay(error: unknown, attempt: number): number | null {
+  if (
+    !(error instanceof AdminReadError || error instanceof AdminMutationError) ||
+    error.status !== 429 ||
+    attempt >= THROTTLE_RETRIES
+  ) {
+    return null;
+  }
+  const seconds = Number(error.retryAfter);
+  return Number.isFinite(seconds) && seconds > 0
+    ? seconds * 1000
+    : 2000 * 2 ** attempt;
+}
+
+/**
+ * Spaces requests to stay under the API rate limit and retries a throttled
+ * one. A throttled request did not commit, and a resent save keeps its
+ * idempotency key.
+ */
+export function pacedRequests(
+  sleep: (ms: number) => Promise<void> = wait,
+  now: () => number = Date.now
+) {
+  let nextStart = 0;
+  return async function paced<T>(request: () => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt += 1) {
+      const start = Math.max(nextStart, now());
+      nextStart = start + REQUEST_INTERVAL_MS;
+      if (start > now()) await sleep(start - now());
+      try {
+        return await request();
+      } catch (error) {
+        const delay = throttleDelay(error, attempt);
+        if (delay === null) throw error;
+        nextStart = Math.max(nextStart, now() + delay);
+      }
+    }
+  };
+}
+
+const paced = pacedRequests();
+
 export const legacySlugDependencies: LegacySlugDependencies = {
   async listPostIds(published) {
     const ids: string[] = [];
     const seenCursors = new Set<string>();
     let cursor: string | undefined;
     do {
-      const page = await getAdminPostsPage({
-        limit: AWS_ADMIN_POST_PAGE_LIMIT,
-        cursor,
-        direction: 'ascending',
-        ...(published === undefined ? {} : { published }),
-      });
+      const page = await paced(() =>
+        getAdminPostsPage({
+          limit: AWS_ADMIN_POST_PAGE_LIMIT,
+          cursor,
+          direction: 'ascending',
+          ...(published === undefined ? {} : { published }),
+        })
+      );
       ids.push(...page.items.map(item => item.id));
       cursor = page.nextCursor ?? undefined;
       if (cursor) {
@@ -207,9 +263,9 @@ export const legacySlugDependencies: LegacySlugDependencies = {
     return ids;
   },
   async getPost(id) {
-    return (await getAdminPostById(id))?.aws_post ?? null;
+    return (await paced(() => getAdminPostById(id)))?.aws_post ?? null;
   },
   updatePost(post, expectedVersion, idempotencyKey) {
-    return updateAwsPost(post, expectedVersion, idempotencyKey);
+    return paced(() => updateAwsPost(post, expectedVersion, idempotencyKey));
   },
 };
