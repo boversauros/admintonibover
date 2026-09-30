@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { findSecretReasons } from '../scripts/check-secrets.mjs';
+import { deleteAdminPost } from '../lib/api/adminMutations';
 import { reportSiteRebuild, SITE_REBUILD_EVENT } from '../lib/api/siteRebuild';
 import {
   mutationAffectsSite,
@@ -242,6 +243,49 @@ test('the browser broadcasts only known rebuild outcomes', () => {
     reportSiteRebuild(withHeader('<script>'));
     reportSiteRebuild(new Response(null));
     assert.deepEqual(seen, ['failed', 'requested']);
+  } finally {
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: originalWindow,
+    });
+  }
+});
+
+test('a committed mutation stays successful and surfaces a failed rebuild', async () => {
+  const originalWindow = globalThis.window;
+  const target = new EventTarget();
+  const seen: string[] = [];
+  target.addEventListener(SITE_REBUILD_EVENT, event => {
+    seen.push((event as CustomEvent<string>).detail);
+  });
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: target,
+  });
+  try {
+    const result = await deleteAdminPost(
+      { id: 'post-1', version: 7 },
+      'post-delete:fixed-key',
+      async () =>
+        Response.json(
+          {
+            version: 1,
+            data: {
+              postId: 'post-1',
+              cleanup: {
+                pending: false,
+                failedCount: 0,
+                retryWithSameIdempotencyKey: false,
+              },
+              replayed: false,
+            },
+            requestId: 'delete-request',
+          },
+          { headers: { 'x-site-rebuild': 'failed' } }
+        )
+    );
+    assert.equal(result.postId, 'post-1');
+    assert.deepEqual(seen, ['failed']);
   } finally {
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
