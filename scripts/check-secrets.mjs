@@ -14,6 +14,13 @@ const secretDetectors = [
     test: text => /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/.test(text),
   },
   {
+    name: 'Vercel Deploy Hook URL',
+    test: text =>
+      /api\.vercel\.com\/v1\/integrations\/deploy\/prj_[A-Za-z0-9]{8,}\/[A-Za-z0-9]{6,}/.test(
+        text
+      ),
+  },
+  {
     name: 'GitHub access token',
     test: text =>
       /\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{80,})\b/.test(

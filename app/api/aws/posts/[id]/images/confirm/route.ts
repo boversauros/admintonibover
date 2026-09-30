@@ -14,6 +14,7 @@ export async function POST(
   return proxyAwsAdminApi(
     request,
     `posts/${encodeURIComponent(id)}/images/confirm`,
-    'POST'
+    'POST',
+    { siteRebuild: 'always' }
   );
 }
