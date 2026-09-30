@@ -405,9 +405,10 @@ Release order:
    **Analitzar articles**, reviews the preview, and confirms. Each post is
    re-read and saved once through the normal update route; only its slugs and
    `updatedAt` change. Published posts trigger a site rebuild.
-3. Run the analysis again; it must report no remaining posts. Rows flagged as
+3. Before re-running the analysis, copy the redirect list from the page into
+   the site cutover (tonibover #16); a new analysis no longer shows fixed posts.
+4. Run the analysis again; it must report no remaining posts. Rows flagged as
    clashing need a title change by the owner, then another run.
-4. Copy the redirect list from the page into the site cutover (tonibover #16).
 5. Only then start publishing the migrated posts.
 
 Safety nets for later edits (browser-side; the site build guard is the hard

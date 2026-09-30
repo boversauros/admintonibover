@@ -224,12 +224,23 @@ export function PostForm({
     return () => controller.abort();
   }, [activeAwsPostId, applyAwsInspection]);
 
+  // Categories load after the form is created; the resolver reads them here.
+  const categorySlugsRef = useRef<string[]>([]);
+  useEffect(() => {
+    categorySlugsRef.current = categories.map(category => category.slug);
+  }, [categories]);
   const methods = useForm<PostFormData, PostFormSlugContext>({
-    resolver: postFormWithSlugsResolver,
-    context: {
-      requireCompleteTranslations: true,
-      categorySlugs: categories.map(category => category.slug),
-    },
+    resolver: (values, context, options) =>
+      postFormWithSlugsResolver(
+        values,
+        {
+          requireCompleteTranslations:
+            context?.requireCompleteTranslations === true,
+          categorySlugs: categorySlugsRef.current,
+        },
+        options
+      ),
+    context: { requireCompleteTranslations: true },
     defaultValues: initialData
       ? {
           category_id: initialData.category_id,

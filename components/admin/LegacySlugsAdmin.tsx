@@ -88,11 +88,11 @@ export function LegacySlugsAdmin() {
       failed === 0
         ? {
             kind: 'success',
-            text: `${updated} article(s) actualitzats. Torna a analitzar per comprovar que no en queda cap.`,
+            text: `${updated} article(s) actualitzats. Copia la llista de redireccions (a sota) abans de tornar a analitzar per comprovar que no en queda cap.`,
           }
         : {
             kind: 'error',
-            text: `${updated} article(s) actualitzats i ${failed} amb errors. Pots tornar a analitzar i repetir-ho.`,
+            text: `${updated} article(s) actualitzats i ${failed} amb errors. Copia la llista de redireccions abans de tornar a analitzar i repetir-ho.`,
           }
     );
   }
@@ -252,7 +252,7 @@ export function LegacySlugsAdmin() {
               </table>
             </div>
 
-            <details className="mt-8">
+            <details className="mt-8" open={Object.keys(outcomes).length > 0}>
               <summary className="cursor-pointer text-sm text-muted">
                 Llista de redireccions per al canvi de web
               </summary>

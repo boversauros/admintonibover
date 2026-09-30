@@ -187,7 +187,7 @@ test('applying changes only the slugs and updatedAt, in one save per post', asyn
   assert.equal(outcome.status, 'updated');
   assert.equal(updates.length, 1);
   assert.equal(updates[0].version, 3);
-  assert.equal(updates[0].key, 'post-slug-fix:p081:v3');
+  assert.match(updates[0].key, /^post-slug-fix:[0-9a-f-]{36}$/);
   const expected = structuredClone(before);
   expected.translations.ca.slug = 'linies-de-foc-i-taques-de-llum';
   expected.translations.en.slug = 'lines-of-fire-and-light-stains';

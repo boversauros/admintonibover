@@ -6,7 +6,11 @@ import {
 } from '@/lib/domain/posts/public-slugs';
 import type { Post, PostLanguage } from '@/lib/domain/posts/types';
 
-import { AdminMutationError, updateAwsPost } from './adminMutations';
+import {
+  AdminMutationError,
+  mutationKey,
+  updateAwsPost,
+} from './adminMutations';
 import {
   AWS_ADMIN_POST_PAGE_LIMIT,
   getAdminPostById,
@@ -135,8 +139,9 @@ export async function applyLegacySlugRow(
     const updated = await dependencies.updatePost(
       withReplacedSlugs(post, changes, now),
       post.version,
-      // Stable per post version: a retried request cannot apply twice.
-      `post-slug-fix:${post.id}:v${post.version}`
+      // A fresh key per attempt: the expected version already stops a
+      // second application, and the stored digest covers `updatedAt`.
+      mutationKey('post-slug-fix')
     );
     return { status: 'updated', post: updated };
   } catch (error) {
