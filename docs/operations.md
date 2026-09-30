@@ -311,6 +311,85 @@ must be replaced or detached.
    key. Delete only a proven unreferenced object under that post/role prefix;
    never bulk-delete `images/`. Leave abandoned temporary uploads to lifecycle.
 
+## Site rebuilds after content changes
+
+Trigger: enabling, rotating or disabling the site rebuild hook, a
+`site_rebuild_failed` log event, a failed site deployment notification, or an
+editor reporting the rebuild warning.
+
+The public site is a static build. After an AWS write commits, the admin
+server posts to one branch-bound Vercel Deploy Hook held in
+`SITE_REBUILD_HOOK_URL` ([admin #58](https://github.com/boversauros/admintonibover/issues/58)).
+The URL is a bearer secret: anyone holding it can start site builds. It is a
+server-only variable (never `NEXT_PUBLIC_`), is never logged or returned to
+the browser, and CI checks the repository and browser output for it.
+
+Which committed mutations request a build:
+
+| Mutation                            | Build requested                 |
+| ----------------------------------- | ------------------------------- |
+| Publish or unpublish one post       | Always                          |
+| Bulk publication                    | When it published any post      |
+| Create or update a post             | Only when the post is published |
+| Delete a post                       | Always                          |
+| Attach or detach a main/thumb image | Always                          |
+| Reads, users, backups               | Never                           |
+
+Each proxied mutation response carries `x-site-rebuild`: `requested` (Vercel
+queued a build; it has not finished), `failed`, `disabled` (no hook
+configured) or `skipped` (the site cannot have changed). The mutation's own
+status and body never depend on the hook. A failure shows a persistent notice
+with **Actualitzar la web**, which calls the same-origin, signed-in
+`POST /api/site/rebuild`. The next successful save also clears it, because
+every build reads the complete published snapshot.
+
+Delay, bursts and limits: the hook call waits at most 5 seconds; the site is
+current once the queued Vercel build completes (normally a few minutes). If a
+hook is triggered again for the same commit, Vercel cancels the earlier build,
+so a burst of saves coalesces into the latest build without admin-side state.
+Vercel allows 60 Deploy Hook triggers per hour per project. A long image
+re-upload session can reach it: the request then fails with `429`, the notice
+appears, and a later retry or save covers the earlier changes.
+
+Unpublish urgency: an unpublished or deleted post stays on the site until a
+later build succeeds. A failed hook or failed build after an unpublish is
+therefore the urgent case; retry immediately or redeploy manually. Previously
+built image files and old deployment URLs can outlive the unpublish
+(see `production-site-reader-rollout.md`).
+
+Alerting: Vercel keeps the last successful deployment on the branch alias, so
+a failed build is never promoted. Enable Vercel deployment-failure
+notifications for the operator on the `tonibover` project, and review the
+admin's runtime logs for `site_rebuild_failed` and
+`site_rebuild_misconfigured` (fixed event names with a failure class and HTTP
+status only). A misconfigured value never fails a mutation; it reports
+`failed`.
+
+### Enable, rotate or disable
+
+1. In the `tonibover` Vercel project, create one Deploy Hook for branch `dev`
+   only, named for the admin. During Preview acceptance it must not target
+   `main`. The public-site hook is created only as part of the accepted
+   cutover ([site #16](https://github.com/boversauros/tonibover/issues/16)).
+2. Set `SITE_REBUILD_HOOK_URL` as a sensitive variable in the admin Vercel
+   project's **Production** environment only. Do not set it in admin
+   Preview/Development or `.env.local`: admin-dev writes do not feed the site
+   Preview and would spend the hourly hook budget.
+3. The change takes effect on the next admin Production deployment that
+   contains this feature. Admin Production deploys from its production branch,
+   so a `dev`-only merge does not enable it.
+4. Verify with the owner's normal production edits, not agent-created
+   content: one save of a published post shows a new `dev` Preview build from
+   the hook and the change on the Preview after it completes. Record only
+   redacted evidence (times, statuses, build outcome).
+5. To rotate, create the new hook, replace the variable, redeploy the admin,
+   then revoke the old hook in Vercel. To disable, remove the variable and
+   redeploy; mutations then report `disabled` and a manual Vercel redeploy of
+   the site branch remains the fallback.
+
+Cost: Deploy Hooks are free; each triggered build uses the site project's
+Vercel build minutes and one production-reader invocation set.
+
 ## Monitoring and cost response
 
 Trigger: after deployment/recovery, on a budget/anomaly email, or on an

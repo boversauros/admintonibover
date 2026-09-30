@@ -7,6 +7,8 @@ const FORBIDDEN_BROWSER_MARKERS = [
   'AWS_SECRET_ACCESS_KEY',
   'AWS_SESSION_TOKEN',
   'AWS_COGNITO_SESSION_SECRET',
+  'SITE_REBUILD_HOOK_URL',
+  '/v1/integrations/deploy/',
   'admintonibover-cognito-access',
   'admintonibover-cognito-id',
   'admintonibover-cognito-refresh',
@@ -19,6 +21,7 @@ const SENSITIVE_VALUE_ENV_NAMES = [
   'AWS_SESSION_TOKEN',
   'AWS_COGNITO_SESSION_SECRET',
   'BROWSER_AUDIT_REFRESH_TOKEN',
+  'SITE_REBUILD_HOOK_URL',
 ];
 
 async function filesBelow(directory) {

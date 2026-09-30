@@ -25,6 +25,7 @@ import type {
 import type { StoredPost } from '@/lib/types/post';
 
 import { AWS_ADMIN_POST_PAGE_LIMIT, getAdminPostsPage } from './adminReads';
+import { reportSiteRebuild } from './siteRebuild';
 
 const RETRYABLE_GATEWAY_STATUSES = new Set([502, 503, 504]);
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
@@ -212,6 +213,7 @@ async function requestAwsMutation<T>({
     }
 
     if (response.ok) {
+      reportSiteRebuild(response);
       try {
         return parseSuccess(payload);
       } catch {

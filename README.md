@@ -34,6 +34,9 @@ AWS_COGNITO_SESSION_SECRET=<base64url-encoded-32-byte-secret>
 AWS_CONTENT_BUCKET_ORIGIN=https://<BucketName>.s3.eu-west-1.amazonaws.com
 ```
 
+Leave `SITE_REBUILD_HOOK_URL` unset locally; it belongs only to the deployed
+admin Production environment (see `docs/operations.md`).
+
 Sign in on the application page with an invited account's email and password.
 On first sign-in, enter the temporary password and set a permanent password
 (14+ characters with uppercase, lowercase, number, and symbol). **Forgot

@@ -77,12 +77,16 @@ The same-origin `/api/aws/*` handlers expose the admin application contract:
 | `GET /api/aws/backup`                      | Download a validated DynamoDB backup                                  |
 | `GET`, `POST /api/aws/users`               | List users or invite an editor                                        |
 | `POST /api/aws/users/[username]/actions`   | Resend invitation, reset password, enable/disable, or revoke sessions |
+| `POST /api/site/rebuild`                   | Retry the site Deploy Hook (not an AWS operation)                     |
 
 Reads and mutations validate the local Cognito session, attach the access token
 server-side, forward a correlation ID, and return `Cache-Control: no-store`.
 Mutations additionally require exact same-origin requests; JSON requests are
 capped at 256 KiB and require `application/json`. Conditional versions and
-idempotency keys prevent lost updates and duplicate retries.
+idempotency keys prevent lost updates and duplicate retries. After a
+committed content mutation that can change the public site, the server
+triggers the site's Vercel Deploy Hook and reports the outcome in
+`x-site-rebuild`; see [operations.md](operations.md#site-rebuilds-after-content-changes).
 
 ## Authentication and authorization
 

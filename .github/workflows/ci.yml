@@ -95,6 +95,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: browser-audit-secret-access-key
           AWS_SESSION_TOKEN: browser-audit-session-token
           BROWSER_AUDIT_REFRESH_TOKEN: browser-audit-refresh-token
+          SITE_REBUILD_HOOK_URL: https://hooks.example.invalid/browser-audit-site-rebuild-hook
         run: pnpm build
 
       - name: Check browser artifacts for server-only data
@@ -104,6 +105,7 @@ jobs:
           AWS_SESSION_TOKEN: browser-audit-session-token
           AWS_COGNITO_SESSION_SECRET: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
           BROWSER_AUDIT_REFRESH_TOKEN: browser-audit-refresh-token
+          SITE_REBUILD_HOOK_URL: https://hooks.example.invalid/browser-audit-site-rebuild-hook
         run: pnpm check:browser-artifacts
 
   dependency-review:

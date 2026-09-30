@@ -15,5 +15,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
-  return proxyAwsAdminApi(request, 'posts', 'POST');
+  return proxyAwsAdminApi(request, 'posts', 'POST', {
+    siteRebuild: 'ifPublished',
+  });
 }
