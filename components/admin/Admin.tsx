@@ -339,7 +339,14 @@ function PostsContent() {
         });
         return;
       }
-      const legacy = await countDraftsWithLegacySlugs();
+      const legacy = await countDraftsWithLegacySlugs(
+        undefined,
+        (done, total) =>
+          setMutationMessage({
+            type: 'success',
+            text: `Comprovant les adreces dels esborranys: ${done} de ${total}…`,
+          })
+      );
       if (legacy > 0) {
         setMutationMessage({
           type: 'error',
@@ -347,6 +354,7 @@ function PostsContent() {
         });
         return;
       }
+      setMutationMessage(null);
       setConfirmation({
         kind: 'bulk',
         count,
