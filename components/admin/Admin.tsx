@@ -35,6 +35,7 @@ import {
   type AdminPostSummary,
 } from '@/lib/api/adminReads';
 import { downloadBackupAsJson } from '@/lib/api/backup';
+import { countDraftsWithLegacySlugs } from '@/lib/api/legacySlugs';
 import {
   AdminMutationError,
   countDraftPosts,
@@ -335,6 +336,14 @@ function PostsContent() {
         setMutationMessage({
           type: 'success',
           text: 'No hi ha cap esborrany pendent de publicar.',
+        });
+        return;
+      }
+      const legacy = await countDraftsWithLegacySlugs();
+      if (legacy > 0) {
+        setMutationMessage({
+          type: 'error',
+          text: `${legacy} esborrany(s) encara tenen una adreça web antiga (un número). Desa’ls abans de publicar-los tots, o demana a un superadministrador que faci servir «Adreces antigues».`,
         });
         return;
       }

@@ -29,7 +29,7 @@ fresh, temporary AWS session.
 
 ## Next.js routes and component boundaries
 
-The App Router exposes four pages:
+The App Router exposes five pages:
 
 | Route                   | Entry point                         | Purpose                                                                     |
 | ----------------------- | ----------------------------------- | --------------------------------------------------------------------------- |
@@ -37,6 +37,7 @@ The App Router exposes four pages:
 | `/reflexions/new`       | `app/reflexions/new/page.tsx`       | Create a post                                                               |
 | `/reflexions/[id]/edit` | `app/reflexions/[id]/edit/page.tsx` | Load and edit one post                                                      |
 | `/usuaris`              | `app/usuaris/page.tsx`              | Super-admin user list and invitation controls                               |
+| `/adreces`              | `app/adreces/page.tsx`              | One-time super-admin replacement of legacy numeric post slugs               |
 
 The page entries and root layout are Server Components. `app/layout.tsx` reads
 the encrypted Cognito session and passes only the safe user projection into the

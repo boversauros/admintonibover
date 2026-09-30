@@ -196,6 +196,14 @@ export function UserMenu({
                   router.push('/usuaris');
                 }}
               />
+              <MenuItem
+                icon="edit"
+                label="Adreces antigues"
+                onClick={() => {
+                  setIsOpen(false);
+                  router.push('/adreces');
+                }}
+              />
             </div>
           ) : null}
           {onBackup ? (

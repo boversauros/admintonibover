@@ -390,6 +390,32 @@ status only). A misconfigured value never fails a mutation; it reports
 Cost: Deploy Hooks are free; each triggered build uses the site project's
 Vercel build minutes and one production-reader invocation set.
 
+## Replace legacy numeric post slugs
+
+The import normalized 71 Supabase placeholder slugs (`-N`) to plain numbers
+(`N`). On the public site `/<lang>/reflexions/<N>/` is also listing page N, so
+these posts would be hidden once enough posts are published; the site build
+fails instead (tonibover #14). The admin form has no slug field, so the fix is
+a one-time super-admin tool (admin #68).
+
+Release order:
+
+1. Merge admin `dev` into `main` when the owner starts using the site.
+2. A super-admin opens **Adreces antigues** (`/adreces`, user menu), runs
+   **Analitzar articles**, reviews the preview, and confirms. Each post is
+   re-read and saved once through the normal update route; only its slugs and
+   `updatedAt` change. Published posts trigger a site rebuild.
+3. Run the analysis again; it must report no remaining posts. Rows flagged as
+   clashing need a title change by the owner, then another run.
+4. Copy the redirect list from the page into the site cutover (tonibover #16).
+5. Only then start publishing the migrated posts.
+
+Safety nets for later edits (browser-side; the site build guard is the hard
+backstop): saving a post replaces a legacy numeric slug with its title slug,
+publishing from the form always saves first, **Publicar tots** refuses while a
+draft still has one, and the form rejects titles whose slug is `index` or a
+category slug. Domain validation is unchanged because it also runs on reads.
+
 ## Monitoring and cost response
 
 Trigger: after deployment/recovery, on a budget/anomaly email, or on an
