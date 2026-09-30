@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { AdminMutationError } from '../lib/api/adminMutations';
+import { AdminReadError } from '../lib/api/adminReads';
 import {
   applyLegacySlugRow,
   countDraftsWithLegacySlugs,
   legacyRedirects,
+  pacedRequests,
   scanLegacySlugs,
   type LegacySlugDependencies,
 } from '../lib/api/legacySlugs';
@@ -274,4 +276,67 @@ test('the form rejects a title whose slug is a site listing address', () => {
     /«vivencies».*Canvia el títol/
   );
   assert.match(errors.translations?.en?.title?.message ?? '', /«index»/);
+});
+
+function fakeClock() {
+  let time = 1_000;
+  const sleeps: number[] = [];
+  return {
+    sleeps,
+    now: () => time,
+    sleep: async (ms: number) => {
+      sleeps.push(ms);
+      time += ms;
+    },
+  };
+}
+
+test('requests are spaced under the API rate limit', async () => {
+  const clock = fakeClock();
+  const paced = pacedRequests(clock.sleep, clock.now);
+  const starts: number[] = [];
+  for (let index = 0; index < 3; index += 1) {
+    await paced(async () => starts.push(clock.now()));
+  }
+  assert.deepEqual(starts, [1_000, 1_600, 2_200]);
+});
+
+test('a throttled request is retried after the advertised delay', async () => {
+  const clock = fakeClock();
+  const paced = pacedRequests(clock.sleep, clock.now);
+  let calls = 0;
+  const result = await paced(async () => {
+    calls += 1;
+    if (calls === 1) {
+      throw new AdminReadError('busy', 429, 'THROTTLED', 'req', '1');
+    }
+    return 'ok';
+  });
+  assert.equal(result, 'ok');
+  assert.deepEqual(clock.sleeps, [1_000]);
+});
+
+test('throttling gives up after a few retries; other errors are not retried', async () => {
+  const clock = fakeClock();
+  const paced = pacedRequests(clock.sleep, clock.now);
+  let calls = 0;
+  await assert.rejects(
+    paced(async () => {
+      calls += 1;
+      throw new AdminMutationError('busy', 429, 'THROTTLED');
+    }),
+    /busy/
+  );
+  assert.equal(calls, 5);
+  assert.deepEqual(clock.sleeps, [2_000, 4_000, 8_000, 16_000]);
+
+  calls = 0;
+  await assert.rejects(
+    paced(async () => {
+      calls += 1;
+      throw new AdminReadError('gone', 404, 'NOT_FOUND');
+    }),
+    /gone/
+  );
+  assert.equal(calls, 1);
 });
