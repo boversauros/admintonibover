@@ -506,3 +506,26 @@ test('stack description requires every output and reads account and Region from 
       error instanceof DevRefreshError && error.code === 'STACK_INCOMPLETE'
   );
 });
+
+test('multipart prod images match their single-part dev copies by size', () => {
+  const names = { table: DEV.tableName, bucket: DEV.bucketName };
+  const result = buildPlan({
+    sourceRevision: 1,
+    sourceItems: [],
+    targetItems: [],
+    sourceImages: [
+      image('images/posts/1/cover/multi.jpg', '"abc-2"', 100),
+      image('images/posts/2/cover/grown.jpg', '"def-2"', 100),
+    ],
+    targetImages: [
+      image('images/posts/1/cover/multi.jpg', '"0123"', 100),
+      image('images/posts/2/cover/grown.jpg', '"4567"', 99),
+    ],
+    targetNames: names,
+  });
+  assert.deepEqual(
+    result.imageCopies.map(object => object.key),
+    ['images/posts/2/cover/grown.jpg']
+  );
+  assert.equal(result.unchangedImages, 1);
+});

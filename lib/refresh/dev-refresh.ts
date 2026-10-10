@@ -174,6 +174,13 @@ function referencedImageKeys(value: unknown, found: Set<string>): void {
   }
 }
 
+// A multipart ETag (`<md5>-<parts>`) becomes a plain MD5 once copied, so the
+// two can never match; size is the only stable comparison for those objects.
+function sameObject(a: StoredObject, b: StoredObject): boolean {
+  if (a.size !== b.size) return false;
+  return a.etag.includes('-') || b.etag.includes('-') || a.etag === b.etag;
+}
+
 function increment(counts: Record<string, number>, name: string): void {
   counts[name] = (counts[name] ?? 0) + 1;
 }
@@ -230,11 +237,7 @@ export function buildPlan(input: {
   let unchangedImages = 0;
   for (const object of sourceImages) {
     const current = targetImages.get(object.key);
-    if (
-      current &&
-      current.etag === object.etag &&
-      current.size === object.size
-    ) {
+    if (current && sameObject(current, object)) {
       unchangedImages += 1;
       continue;
     }
