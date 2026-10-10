@@ -37,7 +37,7 @@
     "@aws-sdk/lib-dynamodb": "3.1101.0",
     "@aws-sdk/s3-request-presigner": "3.1101.0",
     "jose": "6.2.4",
-    "next": "16.3.4",
+    "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "7.69.0"
@@ -49,7 +49,7 @@
     "@types/react-dom": "19.2.7",
     "esbuild": "0.28.0",
     "eslint": "9.39.2",
-    "eslint-config-next": "16.3.4",
+    "eslint-config-next": "16.3.8",
     "eslint-plugin-react-hooks": "7.1.1",
     "prettier": "^3.7.4",
     "tailwindcss": "4.1.18",
@@ -61,7 +61,10 @@
       "browserslist": ">=4.28.7",
       "nanoid": ">=3.3.18",
       "postcss": ">=8.5.18",
-      "ws": ">=8.21.0"
+      "ws": ">=8.21.0",
+      "sharp": "^0.35.5",
+      "source-map-js": "^1.2.2",
+      "@babel/core": "^7.29.1"
     }
   }
 }
