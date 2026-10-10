@@ -293,6 +293,36 @@ After acceptance, re-read stack parameters, tags, and its sole table resource;
 delete that exact stack, wait for deletion, and independently confirm the stack
 and table are absent. Cleanup is stack deletion, never item-level deletes.
 
+## Refresh dev from prod
+
+Trigger: before local testing that needs realistic content. Production is the
+only source of truth and is edited only on the production site; dev is a
+disposable copy that localhost reads and writes.
+
+Deploy the current `main` to dev first, so dev's Lambda understands the shape
+of production data. Then, with operator credentials for the account:
+
+```bash
+pnpm dev:refresh
+pnpm dev:refresh -- --execute --confirm <code>
+```
+
+The first command is a dry run. It resolves both tables and buckets from the
+`admintonibover-prod` and `admintonibover-dev` stack outputs, refuses any
+target that is not `Environment=dev`, looks like production, or shares a
+resource with the source, then reads prod and dev and prints the plan and a
+confirmation code. The prod read follows the backup rule: the data revision
+must not move during the scan.
+
+The second command applies exactly that plan; if prod or dev changed since the
+dry run, the code no longer matches and nothing is written. It copies changed
+images under `images/`, writes changed items (revision last), deletes dev items
+and images that prod does not have, then re-reads dev and fails unless it
+matches the prod snapshot. `IDEMPOTENCY` and `MEDIA_UPLOAD` records are never
+copied and are cleared from dev. Prod is opened read-only, and dev Cognito
+users, `backups/`, and `temporary/` are untouched. Direct table writes do not
+trigger site rebuilds. Anything edited only in dev is lost by design.
+
 ## Image repair
 
 Trigger: the inventory reports a missing main/thumbnail, or an attached image

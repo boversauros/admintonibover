@@ -48,6 +48,9 @@ importers:
         specifier: 7.69.0
         version: 7.69.0(react@19.2.8)
     devDependencies:
+      '@aws-sdk/client-cloudformation':
+        specifier: 3.1101.0
+        version: 3.1101.0
       '@tailwindcss/postcss':
         specifier: 4.1.18
         version: 4.1.18
@@ -93,6 +96,10 @@ packages:
 
   '@aws-sdk/checksums@3.1000.24':
     resolution: {integrity: sha512-7TWLjypP8kk3savsDBRuhZJx7mBuFFA2136BQhwwLllsAnO4Tmq/p+SXZaNxbuulkzUFz3BZzj0bb4YzexZcNQ==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-cloudformation@3.1101.0':
+    resolution: {integrity: sha512-ydqM2G9bhuVWp791J1L9k4sfBpgE6r8h1iED91xNtdY4hYrIBCsQOVMoyzfr8ZO5QPPMvhn5dih2lN2DfptVvQ==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-cognito-identity-provider@3.1101.0':
@@ -2382,6 +2389,17 @@ snapshots:
       '@aws-sdk/core': 3.977.4
       '@aws-sdk/types': 3.974.2
       '@smithy/core': 3.31.1
+      '@smithy/types': 4.16.1
+      tslib: 2.8.1
+
+  '@aws-sdk/client-cloudformation@3.1101.0':
+    dependencies:
+      '@aws-sdk/core': 3.977.4
+      '@aws-sdk/credential-provider-node': 3.972.76
+      '@aws-sdk/types': 3.974.2
+      '@smithy/core': 3.31.1
+      '@smithy/fetch-http-handler': 5.6.13
+      '@smithy/node-http-handler': 4.9.13
       '@smithy/types': 4.16.1
       tslib: 2.8.1
 

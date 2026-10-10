@@ -24,6 +24,7 @@
     "reader:prod:synth": "node --import tsx scripts/synthesize-production-site-reader.ts",
     "reader:prod:validate": "pnpm reader:prod:synth -- --check",
     "backup:restore": "node --import tsx scripts/restore-dynamodb-backup.ts",
+    "dev:refresh": "node --import tsx scripts/refresh-dev-from-prod.ts",
     "infra:synth": "node --import tsx scripts/synthesize-infrastructure.ts",
     "infra:validate": "node --import tsx scripts/synthesize-infrastructure.ts --check",
     "ci": "pnpm check:secrets && pnpm infra:validate && pnpm reader:prod:validate && pnpm check:design-tokens && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:browser-artifacts",
@@ -43,6 +44,7 @@
     "react-hook-form": "7.69.0"
   },
   "devDependencies": {
+    "@aws-sdk/client-cloudformation": "3.1101.0",
     "@tailwindcss/postcss": "4.1.18",
     "@types/node": "25.0.3",
     "@types/react": "19.2.18",
