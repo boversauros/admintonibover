@@ -1,11 +1,11 @@
 import {
   DevRefreshError,
-  applyPlan,
   buildPlan,
+  checkUpToDate,
+  executeRefresh,
   planIsEmpty,
   readSourceSnapshot,
   readTargetState,
-  verifyTarget,
   type RefreshPlan,
 } from '../lib/refresh/dev-refresh';
 import { createAwsRefresh } from '../lib/refresh/aws-refresh';
@@ -17,20 +17,26 @@ const TARGET_STACK = 'admintonibover-dev';
 const USAGE = `Usage:
   pnpm dev:refresh                                   Dry run: show what would change
   pnpm dev:refresh -- --execute --confirm <code>     Apply the plan the dry run showed
+  pnpm dev:refresh -- --full                         Compare everything even if dev looks current
 
 Copies production content and images into dev, one way. Production is only read.
-Dev items and images that prod does not have are deleted; dev users are untouched.`;
+Dev items and images that prod does not have are deleted; dev users are untouched.
+When neither side changed since the last refresh, it stops after reading three values.`;
 
-type CliOptions = { execute: boolean; confirm?: string };
+type CliOptions = { execute: boolean; full: boolean; confirm?: string };
 
 function parseArguments(args: string[]): CliOptions | null {
-  const options: CliOptions = { execute: false };
+  const options: CliOptions = { execute: false, full: false };
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === '--') continue;
     if (argument === '--help' || argument === '-h') return null;
     if (argument === '--execute') {
       options.execute = true;
+      continue;
+    }
+    if (argument === '--full') {
+      options.full = true;
       continue;
     }
     if (argument === '--confirm') {
@@ -103,6 +109,25 @@ async function run(options: CliOptions): Promise<void> {
     console.log(
       `  to   ${aws.target.stackName}: ${aws.target.tableName}, ${aws.target.bucketName}`
     );
+
+    if (!options.full) {
+      const check = await checkUpToDate(aws.sourceSide, aws.targetSide);
+      if (check.upToDate && check.marker) {
+        console.log(
+          `\nDev is up to date with prod revision ${check.sourceRevision} (last refresh ${check.marker.completedAt}).`
+        );
+        console.log(
+          'Neither side changed since then. Use --full to compare everything anyway.'
+        );
+        return;
+      }
+      console.log(
+        check.marker
+          ? `\nChanged since the last refresh (prod revision ${check.marker.sourceRevision} -> ${check.sourceRevision ?? 'none'}, dev revision ${check.marker.targetRevision ?? 'none'} -> ${check.targetRevision ?? 'none'}).`
+          : '\nNo record of a previous refresh.'
+      );
+    }
+
     console.log('Reading prod (read-only) and dev...');
 
     const snapshot = await readSourceSnapshot(aws.sourceSide);
@@ -144,11 +169,9 @@ async function run(options: CliOptions): Promise<void> {
     }
 
     console.log('\nApplying to dev...');
-    await applyPlan(plan, aws.source.bucketName, aws.targetSide, {
+    await executeRefresh(plan, aws.source.bucketName, aws.targetSide, {
       log: message => console.log(message),
     });
-    console.log('Verifying dev matches the prod snapshot...');
-    await verifyTarget(plan, aws.targetSide);
     console.log(
       `\nDone. Dev now matches prod revision ${snapshot.revision ?? 'none'}.`
     );

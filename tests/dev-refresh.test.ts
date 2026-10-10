@@ -11,6 +11,9 @@ import {
   applyPlan,
   assertRefreshDirection,
   buildPlan,
+  checkUpToDate,
+  executeRefresh,
+  parseRefreshMarker,
   planIsEmpty,
   readSourceSnapshot,
   readTargetState,
@@ -18,6 +21,7 @@ import {
   type EnvironmentResources,
   type RawItem,
   type RefreshBucket,
+  type RefreshMarker,
   type RefreshSide,
   type RefreshTable,
   type StoredObject,
@@ -105,6 +109,7 @@ class FakeTable implements RefreshTable {
 
 class FakeBucket implements RefreshBucket {
   readonly objects = new Map<string, StoredObject>();
+  marker: RefreshMarker | null = null;
 
   constructor(
     readonly name: string,
@@ -132,6 +137,20 @@ class FakeBucket implements RefreshBucket {
   async delete(keys: string[]): Promise<void> {
     if (!this.writable) throw new Error(`delete in source ${this.name}`);
     for (const key of keys) this.objects.delete(key);
+  }
+
+  async readMarker(): Promise<RefreshMarker | null> {
+    return this.marker;
+  }
+
+  async writeMarker(marker: RefreshMarker): Promise<void> {
+    if (!this.writable) throw new Error(`marker in source ${this.name}`);
+    this.marker = marker;
+  }
+
+  async clearMarker(): Promise<void> {
+    if (!this.writable) throw new Error(`marker in source ${this.name}`);
+    this.marker = null;
   }
 }
 
@@ -528,4 +547,147 @@ test('multipart prod images match their single-part dev copies by size', () => {
     ['images/posts/2/cover/grown.jpg']
   );
   assert.equal(result.unchangedImages, 1);
+});
+
+test('a verified refresh records both revisions and the next check stops early', async () => {
+  const env = environments({
+    prodItems: [revisionItem(8), item('POST#1', 'POST#1', 'POST')],
+    devItems: [revisionItem(2)],
+  });
+  const before = await checkUpToDate(env.prod, env.dev);
+  assert.equal(before.upToDate, false);
+  assert.equal(before.marker, null);
+
+  const marker = await executeRefresh(
+    await plan(env.prod, env.dev),
+    env.prod.bucket.name,
+    env.dev,
+    { now: () => new Date('2026-10-10T12:00:00Z') }
+  );
+  assert.deepEqual(marker, {
+    version: 1,
+    sourceRevision: 8,
+    targetRevision: 8,
+    completedAt: '2026-10-10T12:00:00.000Z',
+  });
+  assert.equal((await checkUpToDate(env.prod, env.dev)).upToDate, true);
+});
+
+test('any prod or dev save after the refresh forces a full comparison', async () => {
+  const setup = async () => {
+    const env = environments({
+      prodItems: [revisionItem(3), item('POST#1', 'POST#1', 'POST')],
+      devItems: [],
+    });
+    await executeRefresh(
+      await plan(env.prod, env.dev),
+      env.prod.bucket.name,
+      env.dev
+    );
+    return env;
+  };
+
+  const prodSaved = await setup();
+  prodSaved.prodTable.items.set('SYSTEM|REVISION', revisionItem(4));
+  assert.equal(
+    (await checkUpToDate(prodSaved.prod, prodSaved.dev)).upToDate,
+    false
+  );
+
+  const devSaved = await setup();
+  devSaved.devTable.items.set('SYSTEM|REVISION', revisionItem(4));
+  assert.equal(
+    (await checkUpToDate(devSaved.prod, devSaved.dev)).upToDate,
+    false
+  );
+});
+
+test('a refresh that fails halfway leaves no marker behind', async () => {
+  const env = environments({
+    prodItems: [revisionItem(5), item('POST#1', 'POST#1', 'POST')],
+    devItems: [],
+  });
+  env.devBucket.marker = {
+    version: 1,
+    sourceRevision: 5,
+    targetRevision: 5,
+    completedAt: '2026-10-01T00:00:00.000Z',
+  };
+  env.devTable.batchWrite = async requests => requests;
+  await assert.rejects(() =>
+    executeRefresh(
+      buildPlan({
+        sourceRevision: 5,
+        sourceItems: [revisionItem(5), item('POST#1', 'POST#1', 'POST')],
+        targetItems: [],
+        sourceImages: [],
+        targetImages: [],
+        targetNames: { table: DEV.tableName, bucket: DEV.bucketName },
+      }),
+      env.prod.bucket.name,
+      env.dev,
+      { sleep: async () => {}, retryDelaysMs: [0] }
+    )
+  );
+  assert.equal(env.devBucket.marker, null);
+  assert.equal((await checkUpToDate(env.prod, env.dev)).upToDate, false);
+});
+
+test('a missing prod revision or a malformed marker never counts as up to date', async () => {
+  const env = environments({ prodItems: [], devItems: [] });
+  env.devBucket.marker = {
+    version: 1,
+    sourceRevision: null,
+    targetRevision: null,
+    completedAt: '2026-10-01T00:00:00.000Z',
+  };
+  assert.equal((await checkUpToDate(env.prod, env.dev)).upToDate, false);
+
+  assert.equal(parseRefreshMarker('not json'), null);
+  assert.equal(parseRefreshMarker('{"version":2}'), null);
+  assert.equal(
+    parseRefreshMarker(
+      '{"version":1,"sourceRevision":-1,"targetRevision":1,"completedAt":"x"}'
+    ),
+    null
+  );
+  assert.deepEqual(
+    parseRefreshMarker(
+      '{"version":1,"sourceRevision":4,"targetRevision":4,"completedAt":"x","extra":1}'
+    ),
+    { version: 1, sourceRevision: 4, targetRevision: 4, completedAt: 'x' }
+  );
+});
+
+test('marker adapter treats a missing object as no marker and refuses prod writes', async () => {
+  const missing = Object.assign(new Error('missing'), { name: 'NoSuchKey' });
+  const sent: string[] = [];
+  const client = {
+    async send(command: { constructor: { name: string } }) {
+      sent.push(command.constructor.name);
+      if (command.constructor.name === 'GetObjectCommand') throw missing;
+      return {};
+    },
+  };
+  const prodBucket = new AwsRefreshBucket(
+    PROD.bucketName,
+    PROD.accountId,
+    client,
+    false
+  );
+  assert.equal(await prodBucket.readMarker(), null);
+  const forbidden = (error: unknown) =>
+    error instanceof DevRefreshError && error.code === 'SOURCE_WRITE_FORBIDDEN';
+  await assert.rejects(() => prodBucket.clearMarker(), forbidden);
+  await assert.rejects(
+    () =>
+      prodBucket.writeMarker({
+        version: 1,
+        sourceRevision: 1,
+        targetRevision: 1,
+        completedAt: 'x',
+      }),
+    forbidden
+  );
+  assert.deepEqual(sent, ['GetObjectCommand']);
 });

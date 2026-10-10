@@ -12,19 +12,25 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import {
   CopyObjectCommand,
+  DeleteObjectCommand,
   DeleteObjectsCommand,
+  GetObjectCommand,
   ListObjectsV2Command,
+  PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 
 import {
   DevRefreshError,
   IMAGE_PREFIX,
+  REFRESH_MARKER_KEY,
   REVISION_KEY,
   assertRefreshDirection,
+  parseRefreshMarker,
   type EnvironmentResources,
   type RawItem,
   type RefreshBucket,
+  type RefreshMarker,
   type RefreshSide,
   type RefreshTable,
   type StoredObject,
@@ -197,6 +203,47 @@ export class AwsRefreshBucket implements RefreshBucket {
         );
       }
     }
+  }
+  async readMarker(): Promise<RefreshMarker | null> {
+    try {
+      const result = (await this.client.send(
+        new GetObjectCommand({
+          Bucket: this.name,
+          Key: REFRESH_MARKER_KEY,
+          ExpectedBucketOwner: this.accountId,
+        })
+      )) as { Body?: { transformToString(): Promise<string> } };
+      return result.Body
+        ? parseRefreshMarker(await result.Body.transformToString())
+        : null;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'NoSuchKey') return null;
+      throw error;
+    }
+  }
+
+  async writeMarker(marker: RefreshMarker): Promise<void> {
+    if (!this.writable) readOnly(this.name);
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.name,
+        Key: REFRESH_MARKER_KEY,
+        Body: JSON.stringify(marker),
+        ContentType: 'application/json',
+        ExpectedBucketOwner: this.accountId,
+      })
+    );
+  }
+
+  async clearMarker(): Promise<void> {
+    if (!this.writable) readOnly(this.name);
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.name,
+        Key: REFRESH_MARKER_KEY,
+        ExpectedBucketOwner: this.accountId,
+      })
+    );
   }
 }
 

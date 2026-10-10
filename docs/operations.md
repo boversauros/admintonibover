@@ -318,7 +318,13 @@ The second command applies exactly that plan; if prod or dev changed since the
 dry run, the code no longer matches and nothing is written. It copies changed
 images under `images/`, writes changed items (revision last), deletes dev items
 and images that prod does not have, then re-reads dev and fails unless it
-matches the prod snapshot. `IDEMPOTENCY` and `MEDIA_UPLOAD` records are never
+matches the prod snapshot. A verified run then stores both data revisions in
+the dev bucket at `refresh/last-refresh.json` (cleared before any write, so a
+failed run never looks current). The next run reads only the two revisions and
+that marker; when neither moved it reports dev as up to date and stops. Every
+prod and dev save, image uploads included, moves its revision, so only a manual
+S3 change is missed; `pnpm dev:refresh -- --full` always compares everything.
+`IDEMPOTENCY` and `MEDIA_UPLOAD` records are never
 copied and are cleared from dev. Prod is opened read-only, and dev Cognito
 users, `backups/`, and `temporary/` are untouched. Direct table writes do not
 trigger site rebuilds. Anything edited only in dev is lost by design.

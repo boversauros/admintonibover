@@ -9,6 +9,8 @@ import { EXCLUDED_BACKUP_ENTITY_TYPES } from '@/lib/aws/backup-contract';
 
 export const IMAGE_PREFIX = 'images/';
 export const REVISION_KEY = { PK: 'SYSTEM', SK: 'REVISION' } as const;
+// Outside every prefix the app or this tool compares, so it never shows in a plan.
+export const REFRESH_MARKER_KEY = 'refresh/last-refresh.json';
 
 const BATCH_SIZE = 25;
 const COPY_CONCURRENCY = 4;
@@ -44,7 +46,20 @@ export interface RefreshBucket {
   list(prefix: string): Promise<StoredObject[]>;
   copyFrom(sourceBucket: string, key: string): Promise<void>;
   delete(keys: string[]): Promise<void>;
+  /** Returns null when the marker is missing or unreadable. */
+  readMarker(): Promise<RefreshMarker | null>;
+  writeMarker(marker: RefreshMarker): Promise<void>;
+  clearMarker(): Promise<void>;
 }
+
+// Revisions of both sides right after a verified refresh. Every prod save and
+// every dev save moves its revision, so equal revisions mean nothing changed.
+export type RefreshMarker = {
+  version: 1;
+  sourceRevision: number | null;
+  targetRevision: number | null;
+  completedAt: string;
+};
 
 export type RefreshSide = { table: RefreshTable; bucket: RefreshBucket };
 
@@ -431,4 +446,78 @@ export async function verifyTarget(
       `Dev still differs from the snapshot: ${remaining.itemPuts.length} items to write, ${remaining.itemDeletes.length} to delete, ${remaining.imageCopies.length} images to copy, ${remaining.imageDeletes.length} to delete`
     );
   }
+}
+
+export type UpToDateCheck = {
+  upToDate: boolean;
+  sourceRevision: number | null;
+  targetRevision: number | null;
+  marker: RefreshMarker | null;
+};
+
+export async function checkUpToDate(
+  source: RefreshSide,
+  target: RefreshSide
+): Promise<UpToDateCheck> {
+  const [sourceRevision, targetRevision, marker] = await Promise.all([
+    source.table.getRevision(),
+    target.table.getRevision(),
+    target.bucket.readMarker(),
+  ]);
+  const upToDate =
+    marker !== null &&
+    sourceRevision !== null &&
+    marker.sourceRevision === sourceRevision &&
+    marker.targetRevision === targetRevision;
+  return { upToDate, sourceRevision, targetRevision, marker };
+}
+
+export async function executeRefresh(
+  plan: RefreshPlan,
+  sourceBucketName: string,
+  target: RefreshSide,
+  options: ApplyOptions & { now?: () => Date } = {}
+): Promise<RefreshMarker> {
+  // Cleared before any write: a run that fails halfway must never look current.
+  await target.bucket.clearMarker();
+  await applyPlan(plan, sourceBucketName, target, options);
+  options.log?.('Verifying dev matches the prod snapshot...');
+  await verifyTarget(plan, target);
+  const marker: RefreshMarker = {
+    version: 1,
+    sourceRevision: plan.sourceRevision,
+    targetRevision: await target.table.getRevision(),
+    completedAt: (options.now ?? (() => new Date()))().toISOString(),
+  };
+  await target.bucket.writeMarker(marker);
+  return marker;
+}
+
+export function parseRefreshMarker(text: string): RefreshMarker | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  const revision = (candidate: unknown) =>
+    candidate === null ||
+    (Number.isSafeInteger(candidate) && (candidate as number) >= 0);
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    (value as RefreshMarker).version !== 1 ||
+    !revision((value as RefreshMarker).sourceRevision) ||
+    !revision((value as RefreshMarker).targetRevision) ||
+    typeof (value as RefreshMarker).completedAt !== 'string'
+  ) {
+    return null;
+  }
+  const marker = value as RefreshMarker;
+  return {
+    version: 1,
+    sourceRevision: marker.sourceRevision,
+    targetRevision: marker.targetRevision,
+    completedAt: marker.completedAt,
+  };
 }
