@@ -46,6 +46,7 @@ function fixture(overrides: Record<string, unknown> = {}) {
           Enabled: true,
           UserAttributes: [
             { Name: 'sub', Value: 'user-subject' },
+            { Name: 'email', Value: 'editor@example.test' },
             { Name: 'email_verified', Value: 'true' },
           ],
           ...overrides,
@@ -77,6 +78,7 @@ test('invitation assigns editor before sending email and never passes a password
   assert.equal(calls[1].input.Username, 'cognito-private-username');
   assert.equal(calls[1].input.GroupName, 'editors');
   assert.equal(calls[2].input.MessageAction, 'RESEND');
+  assert.equal(calls[2].input.Username, 'editor@example.test');
   assert.equal(
     calls.every(call => !('TemporaryPassword' in call.input)),
     true
@@ -164,6 +166,7 @@ test('disable revokes sessions, and expired invitation can be resent', async () 
     ]
   );
   assert.equal(calls[2].input.MessageAction, 'RESEND');
+  assert.equal(calls[2].input.Username, 'editor@example.test');
 });
 
 test('password reset uses Cognito recovery without exposing a code', async () => {

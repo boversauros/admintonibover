@@ -170,10 +170,11 @@ export class CognitoUserManagement implements UserManagement {
       );
     }
     try {
+      // The pool signs in by email, so Cognito rejects RESEND with the private username.
       await this.client.send(
         new AdminCreateUserCommand({
           UserPoolId: this.poolId,
-          Username: username,
+          Username: email,
           DesiredDeliveryMediums: ['EMAIL'],
           MessageAction: 'RESEND',
         })
@@ -254,10 +255,18 @@ export class CognitoUserManagement implements UserManagement {
           'Cal assignar primer el grup d’editors.'
         );
       }
+      const email = attribute(user.UserAttributes, 'email');
+      if (!email) {
+        throw new UserManagementError(
+          'USER_EMAIL_UNAVAILABLE',
+          502,
+          'No s’ha pogut trobar el correu d’aquest compte.'
+        );
+      }
       await this.client.send(
         new AdminCreateUserCommand({
           UserPoolId: this.poolId,
-          Username: user.Username ?? username,
+          Username: email,
           DesiredDeliveryMediums: ['EMAIL'],
           MessageAction: 'RESEND',
         })
