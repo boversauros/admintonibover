@@ -51,6 +51,34 @@ admin workflows worked as expected. Subsequent AWS backup recovery on
 canonical digests exactly, parsed representative aggregates and summaries
 through the production repository code, and deleted the disposable stack.
 
+## Site build reader
+
+Current state and procedures are in [site-build-reader.md](site-build-reader.md).
+
+- **v1 contract (#55, 2026-09-24).** The owner approved a separate, read-only
+  reader Lambda invoked by the Astro build through Vercel Team OIDC, rather than
+  exposing the admin API. The owner accepted that the Preview trust covers every
+  Preview build of the site project, since it grants published content only.
+  A read-only inventory that day found 42 development resources, a private
+  bucket and no Vercel OIDC provider.
+- **Development reader (#56, #57).** Added five resources to the development
+  foundation (42 → 47), with the reader code staged as a content-addressed zip
+  because the inline bundle would exceed CloudFormation's 1 MB template limit.
+  The production foundation template stayed at 42 resources.
+- **Owner acceptance gate (2026-09-29, site #11).** The `tonibover/dev` Preview
+  must read **production** published content and images and work correctly
+  before any site merge into `main`. This replaced the earlier plan to finish a
+  dev-admin/fixture rehearsal first. Production content is not mutated for
+  acceptance tests; controlled fixtures cover missing and failure cases.
+- **Production reader (#59, #64, #65; 2026-09-29/30).** Deployed as the separate
+  four-resource `admintonibover-prod-site-reader` stack, reusing the existing
+  OIDC provider. Its planned reserved concurrency of two was dropped because the
+  account's regional limit of 10 cannot support a reservation. The site Preview
+  was switched to it and the owner confirmed it loads published production
+  posts. Live image checks moved to site #13, pending image re-uploads.
+- **Rebuilds and slugs (#58, #68).** Committed content changes trigger the site
+  Deploy Hook; legacy numeric slugs are replaced before publishing.
+
 ## Known source limitations
 
 - Post 64 has the sole incomplete English title/slug. No translation was

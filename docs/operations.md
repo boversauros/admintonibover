@@ -180,7 +180,7 @@ that private S3 object. Creating the change set must not execute it.
 
 For a development change set containing the build reader, first stage and
 verify its separate, content-addressed code zip using
-[the reader rollout procedure](build-reader-dev-rollout.md#reader-code-artifact).
+[the reader code artifact procedure](site-build-reader.md#reader-code-artifact).
 Keep that code object when removing the temporary CloudFormation template; it
 may be needed for a code update or rollback.
 
@@ -391,7 +391,7 @@ Unpublish urgency: an unpublished or deleted post stays on the site until a
 later build succeeds. A failed hook or failed build after an unpublish is
 therefore the urgent case; retry immediately or redeploy manually. Previously
 built image files and old deployment URLs can outlive the unpublish
-(see `production-site-reader-rollout.md`).
+(see [site-build-reader.md](site-build-reader.md#media)).
 
 Alerting: Vercel keeps the last successful deployment on the branch alias, so
 a failed build is never promoted. Enable Vercel deployment-failure

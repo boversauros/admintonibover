@@ -13,7 +13,7 @@ export function createProductionSiteReaderTemplate(): CloudFormationTemplate {
     AWSTemplateFormatVersion: '2010-09-09',
     Description:
       'Read-only production content reader for the Toni Bover dev Preview.',
-    Metadata: { Operations: 'docs/production-site-reader-rollout.md' },
+    Metadata: { Operations: 'docs/site-build-reader.md' },
     Parameters: {
       GuardrailsEvidenceConfirmed: {
         Type: 'String',
