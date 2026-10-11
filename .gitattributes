@@ -1,0 +1,8 @@
+# Vendored agent skills (restored from skills-lock.json). Collapsed in GitHub diffs
+# and excluded from language stats.
+.agents/** linguist-vendored
+skills-lock.json linguist-generated
+
+# Deterministic output of `pnpm infra:synth`. Committed so a manual deploy uploads
+# exactly the reviewed template; collapsed in GitHub diffs.
+infra/generated/** linguist-generated
