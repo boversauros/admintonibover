@@ -18,6 +18,9 @@ flowchart LR
   N -->|short-lived signed PUT or GET| S
   N -->|validated JSON download| B[Private operator backup]
   B -->|guarded restore only| R[(Disposable development table)]
+  V[Astro site build on Vercel] -->|OIDC role; Invoke only| RL[Read-only build reader Lambda]
+  RL -->|published content and image grants| D
+  RL --> S
 ```
 
 The browser trusts only the Next.js origin and a configured exact S3 origin.
@@ -136,7 +139,11 @@ paths, credentials, queries, fragments, and wildcards are rejected.
 CloudFormation templates. Each environment has one Cognito User Pool/client/
 domain/resource server, `super-admins` and `editors` groups, one HTTP API and
 JWT authorizer, one arm64 Node.js 24 Lambda, one on-demand DynamoDB table, one
-private S3 bucket, and a 14-day Lambda log group. The API stage is throttled at
+private S3 bucket, and a 14-day Lambda log group. The development template also
+contains the development build reader. The production build reader is a separate
+`admintonibover-prod-site-reader` stack; see
+[site-build-reader.md](site-build-reader.md) for both readers, their IAM
+boundary and the v1 wire contract. The API stage is throttled at
 two requests per second with a burst of four; Lambda has no VPC, reserved
 concurrency, or provisioned concurrency.
 
@@ -197,10 +204,6 @@ comparison, and representative repository reads. It never merges into the
 active table or restores S3 objects.
 
 ## Deployment inputs and validation
-
-The proposed read-only Astro build interface and its separate IAM boundary
-are specified in [site-build-reader-contract.md](site-build-reader-contract.md).
-It is a development staging contract; no reader resource is deployed yet.
 
 Source inputs are `infra/dev-foundation.ts`, `infra/lambda/foundation.ts`, the
 parameter examples, and the pinned dependency graph. `pnpm infra:synth`

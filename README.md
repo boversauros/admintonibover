@@ -108,6 +108,6 @@ Useful focused commands:
 
 - [Architecture](docs/architecture.md)
 - [Operations](docs/operations.md)
-- [Production reader for the site dev Preview](docs/production-site-reader-rollout.md)
+- [Site build reader](docs/site-build-reader.md)
 - [Migration history](docs/migration-history.md)
 - [DynamoDB backup v2 schema](docs/schemas/dynamodb-backup-v2.schema.json)
