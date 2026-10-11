@@ -90,6 +90,8 @@ Useful focused commands:
   and the security/resource contract.
 - `pnpm backup:restore -- --input <backup> --manifest <report>` validates an AWS
   backup without contacting AWS.
+- `pnpm dev:refresh` previews a one-way copy of production content and images
+  into dev; see [Refresh dev from prod](docs/operations.md#refresh-dev-from-prod).
 - `pnpm check:secrets` and `pnpm check:browser-artifacts` enforce the repository
   and browser disclosure boundaries.
 
