@@ -179,6 +179,12 @@ function setup(maximumPageSize = Number.POSITIVE_INFINITY) {
     async delete(key: string) {
       deletedKeys.push(key);
     },
+    async presignDownload(key: string, expiresInSeconds: number) {
+      return {
+        url: `https://signed.example.invalid/${key}?ttl=${expiresInSeconds}`,
+        expiresAt: NOW,
+      };
+    },
   };
   const logger: NonNullable<AdminApiDependencies['logger']> = {
     info: value => logs.push(JSON.stringify(value)),
@@ -711,6 +717,33 @@ test('delete remains data-atomic and retries observable image cleanup with the s
   });
   assert.equal(data(retry).replayed, true);
   assert.equal(deletedKeys.filter(key => key.includes('/main/')).length, 2);
+});
+
+test('post list signs a preview only for each post-owned thumbnail', async () => {
+  const { handler, posts } = setup();
+  await posts.create(postFixture('post-delete', { images: true }));
+  await posts.create({
+    ...postFixture('post-9', { images: true }),
+    translations: {
+      ca: { ...postFixture('post-9').translations.ca, slug: 'post-9-ca' },
+      en: { ...postFixture('post-9').translations.en, slug: 'post-9-en' },
+    },
+  });
+  await posts.create(postFixture('post-7'));
+
+  const listed = await handler(event('GET /posts'));
+  assert.equal(listed.statusCode, 200);
+  const previews = Object.fromEntries(
+    (
+      data(listed).items as { id: string; thumbPreviewUrl: string | null }[]
+    ).map(item => [item.id, item.thumbPreviewUrl])
+  );
+  assert.deepEqual(previews, {
+    'post-delete': `https://signed.example.invalid/${image('thumb').key}?ttl=300`,
+    // The fixture key lives under post-delete, so post-9 does not own it.
+    'post-9': null,
+    'post-7': null,
+  });
 });
 
 test('post update changes only the alt text of the stored images', async () => {

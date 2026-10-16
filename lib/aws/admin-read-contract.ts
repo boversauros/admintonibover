@@ -28,8 +28,13 @@ export type AdminKeywordRead = {
   updatedAt: string;
 };
 
+/** A list item plus a short-lived signed URL for its uploaded thumbnail. */
+export type AdminPostListItem = PostListItem & {
+  thumbPreviewUrl: string | null;
+};
+
 export type AdminPostListPage = {
-  items: PostListItem[];
+  items: AdminPostListItem[];
   nextCursor: string | null;
 };
 
@@ -206,7 +211,7 @@ export function parseAdminPost(value: unknown, path = 'data.post'): Post {
   };
 }
 
-function parseListItem(value: unknown, path: string): PostListItem {
+function parseListItem(value: unknown, path: string): AdminPostListItem {
   const post = recordValue(value, path);
   const category = recordValue(post.category, `${path}.category`);
   return {
@@ -233,6 +238,10 @@ function parseListItem(value: unknown, path: string): PostListItem {
     ),
     mainImage: parseImage(post.mainImage, `${path}.mainImage`),
     thumbImage: parseImage(post.thumbImage, `${path}.thumbImage`),
+    thumbPreviewUrl:
+      post.thumbPreviewUrl === undefined || post.thumbPreviewUrl === null
+        ? null
+        : stringValue(post.thumbPreviewUrl, `${path}.thumbPreviewUrl`),
   };
 }
 

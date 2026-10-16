@@ -1,3 +1,5 @@
+import { isOwnedImageKey } from '@/lib/aws/media/service';
+import { PRESIGNED_URL_TTL_SECONDS } from '@/lib/domain/media/contracts';
 import { PostNotFoundError } from '@/lib/domain/posts/errors';
 import type { Post, PostImage } from '@/lib/domain/posts/types';
 
@@ -72,7 +74,24 @@ function bulkPublicationTargets(
 
 const listPosts: RouteHandler = async ({ event, requestId, dependencies }) => {
   const page = await dependencies.posts.list(parseListOptions(event));
-  return response(200, { data: page }, requestId);
+  // Thumbnails are private; sign a short-lived preview for each uploaded one.
+  // Signing is local, so this adds no S3 request per post.
+  const items = await Promise.all(
+    page.items.map(async item => {
+      const key = item.thumbImage?.key;
+      const thumbPreviewUrl =
+        key && isOwnedImageKey(item.id, 'thumb', key)
+          ? (
+              await dependencies.objects.presignDownload(
+                key,
+                PRESIGNED_URL_TTL_SECONDS
+              )
+            ).url
+          : null;
+      return { ...item, thumbPreviewUrl };
+    })
+  );
+  return response(200, { data: { ...page, items } }, requestId);
 };
 
 const createPost: RouteHandler = async ({
