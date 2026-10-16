@@ -114,9 +114,13 @@ export function ImageInventorySummary({
               key={status}
               type="button"
               aria-pressed={isSelected}
-              disabled={!counts}
-              onClick={() => onSelect(isSelected ? 'all' : status)}
-              className={`min-h-28 p-3 text-left transition-colors disabled:cursor-wait disabled:opacity-60 ${
+              // aria-disabled, not disabled: browsers such as Firefox restore a
+              // button's pre-reload disabled state, which breaks hydration.
+              aria-disabled={!counts}
+              onClick={() => {
+                if (counts) onSelect(isSelected ? 'all' : status);
+              }}
+              className={`min-h-28 p-3 text-left transition-colors aria-disabled:cursor-wait aria-disabled:opacity-60 ${
                 isSelected ? 'bg-info/10' : 'bg-background hover:bg-overlay-5'
               }`}
             >
