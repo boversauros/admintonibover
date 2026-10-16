@@ -713,6 +713,48 @@ test('delete remains data-atomic and retries observable image cleanup with the s
   assert.equal(deletedKeys.filter(key => key.includes('/main/')).length, 2);
 });
 
+test('post update changes only the alt text of the stored images', async () => {
+  const { handler, posts } = setup();
+  const stored = postFixture('post-alt', { images: true });
+  await posts.create(stored);
+  const mainImage = stored.mainImage!;
+  const thumbImage = stored.thumbImage!;
+
+  const updated = await handler(
+    event('PUT /posts/{id}', {
+      id: 'post-alt',
+      body: {
+        ...stored,
+        mainImage: { ...mainImage, alt: 'Peu de foto nou', sizeBytes: 9 },
+        thumbImage: {
+          ...thumbImage,
+          key: 'images/posts/post-alt/thumb/forged.webp',
+          alt: 'Forged',
+        },
+      },
+      headers: { 'if-match': '"1"', 'idempotency-key': 'update-alt-0001' },
+    })
+  );
+  assert.equal(updated.statusCode, 200);
+  assert.equal(updated.headers.etag, '"2"');
+  const after = await posts.getById('post-alt');
+  assert.deepEqual(after?.mainImage, { ...mainImage, alt: 'Peu de foto nou' });
+  assert.deepEqual(after?.thumbImage, thumbImage);
+
+  const cleared = await handler(
+    event('PUT /posts/{id}', {
+      id: 'post-alt',
+      body: { ...stored, version: 2, mainImage: null, thumbImage: null },
+      headers: { 'if-match': '"2"', 'idempotency-key': 'update-alt-0002' },
+    })
+  );
+  assert.equal(cleared.statusCode, 200);
+  assert.equal(
+    (await posts.getById('post-alt'))?.mainImage?.alt,
+    'Peu de foto nou'
+  );
+});
+
 test('image detach is conditional, idempotent, and retries cleanup after commit', async () => {
   const setupValue = setup();
   const { handler, posts, deletedKeys, dependencies } = setupValue;

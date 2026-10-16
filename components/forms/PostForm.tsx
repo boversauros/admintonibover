@@ -24,6 +24,7 @@ import {
   buildAwsPost,
   countAdminPosts,
   createAwsPost,
+  detachAwsPostImage,
   getAwsMediaInspection,
   setAwsPostPublication,
   updateAwsPost,
@@ -45,8 +46,7 @@ import { TranslationSection } from './TranslationSection';
 import { KeywordsSection } from './KeywordsSection';
 import { ReferencesSection } from './ReferencesSection';
 import { FormHeader } from './FormHeader';
-import { ImageSelector } from './ImageSelector';
-import { AwsImageSlot } from './AwsImageSlot';
+import { ImageDropzone } from './ImageDropzone';
 import { TranslationStatusPanel } from './TranslationStatusPanel';
 import { PublicationStatusPanel } from './PublicationStatusPanel';
 import { CollapsibleSection } from './CollapsibleSection';
@@ -118,14 +118,8 @@ export function PostForm({
   const [existingThumbnailId, setExistingThumbnailId] = useState<string | null>(
     initialData?.thumbnail_id || null
   );
-  const [existingThumbnailUrl, setExistingThumbnailUrl] = useState<string>(
-    initialData?.thumbnail?.url || ''
-  );
   const [existingMainImageId, setExistingMainImageId] = useState<string | null>(
     initialData?.image_id || null
-  );
-  const [existingMainImageUrl, setExistingMainImageUrl] = useState<string>(
-    initialData?.image?.url || ''
   );
   const [awsMainImage, setAwsMainImage] = useState<ImagePreview | null>(() =>
     initialData?.aws_post?.mainImage
@@ -146,9 +140,9 @@ export function PostForm({
           }
         : null
     );
-  const [activeImageRole, setActiveImageRole] = useState<ImageRole | null>(
-    null
-  );
+  const [pendingRemoval, setPendingRemoval] = useState<
+    Record<ImageRole, boolean>
+  >({ main: false, thumb: false });
 
   const activeAwsPostId = savedAwsPost?.id ?? initialData?.id;
 
@@ -185,9 +179,7 @@ export function PostForm({
       setAwsMainImage(main);
       setAwsThumbnailImage(thumb);
       setExistingMainImageId(main?.image.key ?? null);
-      setExistingMainImageUrl(main?.previewUrl ?? '');
       setExistingThumbnailId(thumb?.image.key ?? null);
-      setExistingThumbnailUrl(thumb?.previewUrl ?? '');
       setSavedAwsPost(current =>
         current
           ? {
@@ -337,9 +329,9 @@ export function PostForm({
       'is_published',
     ],
   });
-  const mainImageAlt = useWatch({
+  const [mainImageFile, thumbnailFile] = useWatch({
     control: methods.control,
-    name: 'main_image_alt',
+    name: ['main_image_file', 'thumbnail_file'],
   });
   const previousAutoSlugCA = useRef(
     initialData ? slugify(initialData.translations.ca.title) : ''
@@ -431,18 +423,6 @@ export function PostForm({
         'INVALID_CATEGORY'
       );
     }
-    if (
-      current?.mainImage &&
-      !data.main_image_file &&
-      (data.main_image_alt ?? '') !== current.mainImage.alt
-    ) {
-      throw new AdminMutationError(
-        'Per canviar el text alternatiu a AWS, selecciona també una imatge de substitució.',
-        400,
-        'IMAGE_REPLACEMENT_REQUIRED'
-      );
-    }
-
     const storedPost = formStoredPost(data, base, now, {
       ca: data.translations.ca.slug,
       en: data.translations.en.slug,
@@ -455,9 +435,24 @@ export function PostForm({
       published: current?.published ?? false,
       now,
     });
+    // The alt text is saved with the post, independently of the image file.
+    const mainImageAlt = data.main_image_alt ?? '';
+    if (canonical.mainImage) {
+      canonical = {
+        ...canonical,
+        mainImage: { ...canonical.mainImage, alt: mainImageAlt },
+      };
+    }
 
+    let altNotSaved = false;
     if (current) {
       canonical = await updateAwsPost(canonical, current.version);
+      // An old admin Lambda silently keeps the stored alt; surface that.
+      altNotSaved =
+        !data.main_image_file &&
+        !pendingRemoval.main &&
+        canonical.mainImage !== null &&
+        canonical.mainImage.alt !== mainImageAlt;
     } else {
       canonical = await createAwsPost(canonical);
       window.history.replaceState(
@@ -467,8 +462,14 @@ export function PostForm({
       );
     }
     setSavedAwsPost(canonical);
+    const savedMainImage = canonical.mainImage;
+    if (savedMainImage) {
+      setAwsMainImage(preview =>
+        preview ? { ...preview, image: savedMainImage } : preview
+      );
+    }
     setSaveNotice(
-      'El text ja està desat. Si una imatge falla, podràs continuar des d’aquest article.'
+      'El text ja està desat. Si una imatge falla, podràs tornar a desar des d’aquest article.'
     );
 
     if (!data.is_published && canonical.published) {
@@ -489,7 +490,7 @@ export function PostForm({
         role: 'main',
         file: data.main_image_file,
         title: 'Post Main Image',
-        alt: data.main_image_alt || '',
+        alt: mainImageAlt,
       });
       canonical = {
         ...canonical,
@@ -498,9 +499,10 @@ export function PostForm({
         updatedAt: confirmed.image.image.updatedAt,
       };
       setSavedAwsPost(canonical);
+      setAwsMainImage(confirmed.image);
       setExistingMainImageId(confirmed.image.image.key);
-      setExistingMainImageUrl(confirmed.image.previewUrl ?? '');
       setValue('main_image_file', null);
+      setPendingRemoval(state => ({ ...state, main: false }));
     }
 
     if (data.thumbnail_file) {
@@ -519,9 +521,34 @@ export function PostForm({
         updatedAt: confirmed.image.image.updatedAt,
       };
       setSavedAwsPost(canonical);
+      setAwsThumbnailImage(confirmed.image);
       setExistingThumbnailId(confirmed.image.image.key);
-      setExistingThumbnailUrl(confirmed.image.previewUrl ?? '');
       setValue('thumbnail_file', null);
+      setPendingRemoval(state => ({ ...state, thumb: false }));
+    }
+
+    for (const role of ['main', 'thumb'] as const) {
+      const field = role === 'main' ? 'mainImage' : 'thumbImage';
+      if (!pendingRemoval[role] || !canonical[field]) continue;
+      const detached = await detachAwsPostImage({
+        postId: canonical.id,
+        postVersion: canonical.version,
+        role,
+      });
+      canonical = {
+        ...canonical,
+        [field]: null,
+        version: detached.postVersion,
+      };
+      setSavedAwsPost(canonical);
+      if (role === 'main') {
+        setAwsMainImage(null);
+        setExistingMainImageId(null);
+      } else {
+        setAwsThumbnailImage(null);
+        setExistingThumbnailId(null);
+      }
+      setPendingRemoval(state => ({ ...state, [role]: false }));
     }
 
     if (data.is_published && !canonical.published) {
@@ -533,6 +560,13 @@ export function PostForm({
       setSavedAwsPost(canonical);
     }
     setSaveNotice(null);
+    if (altNotSaved) {
+      throw new AdminMutationError(
+        'L’article s’ha desat, però el servidor no ha acceptat el text alternatiu. Cal desplegar la versió nova del backend.',
+        502,
+        'IMAGE_ALT_NOT_SAVED'
+      );
+    }
   }
 
   const onSubmit = async (data: PostFormData, event?: BaseSyntheticEvent) => {
@@ -606,38 +640,17 @@ export function PostForm({
     setValue('is_published', checked);
   };
 
-  const handleThumbnailSelect = (file: File | null) => {
-    setValue('thumbnail_file', file);
+  const handleImageSelect = (role: ImageRole, file: File | null) => {
+    setValue(role === 'main' ? 'main_image_file' : 'thumbnail_file', file);
+    setPendingRemoval(state => ({ ...state, [role]: false }));
   };
 
-  const handleMainImageSelect = (file: File | null) => {
-    setValue('main_image_file', file);
-  };
-
-  const handleAwsImageChange = (
-    role: ImageRole,
-    change: { image: ImagePreview | null; postVersion: number }
-  ) => {
-    const nextImage = change.image?.image ?? null;
-    setSavedAwsPost(current =>
-      current
-        ? {
-            ...current,
-            [role === 'main' ? 'mainImage' : 'thumbImage']: nextImage,
-            version: change.postVersion,
-            updatedAt: nextImage?.updatedAt ?? new Date().toISOString(),
-          }
-        : current
-    );
-    if (role === 'main') {
-      setAwsMainImage(change.image);
-      setExistingMainImageId(nextImage?.key ?? null);
-      setExistingMainImageUrl(change.image?.previewUrl ?? '');
-    } else {
-      setAwsThumbnailImage(change.image);
-      setExistingThumbnailId(nextImage?.key ?? null);
-      setExistingThumbnailUrl(change.image?.previewUrl ?? '');
-    }
+  // Removing clears a staged file and, when the post has a saved image, marks
+  // it to be detached on save so the slot ends up empty.
+  const handleImageRemove = (role: ImageRole) => {
+    const hasSaved = role === 'main' ? !!awsMainImage : !!awsThumbnailImage;
+    setValue(role === 'main' ? 'main_image_file' : 'thumbnail_file', null);
+    setPendingRemoval(state => ({ ...state, [role]: hasSaved }));
   };
 
   const handleCopyRecovery = async () => {
@@ -800,77 +813,45 @@ export function PostForm({
                 />
 
                 {/* Featured Image */}
-                {savedAwsPost && activeAwsPostId ? (
-                  <AwsImageSlot
-                    activeRole={activeImageRole}
-                    alt={mainImageAlt || ''}
-                    aspectRatio="video"
-                    disabled={readOnly || isSubmitting}
-                    hint="16:9 · imatge de capçalera"
-                    image={awsMainImage}
-                    label="Imatge destacada"
-                    onChange={change => handleAwsImageChange('main', change)}
-                    onOperationStateChange={(role, active) =>
-                      setActiveImageRole(active ? role : null)
-                    }
-                    onRefreshPreview={refreshAwsMedia}
-                    postId={activeAwsPostId}
-                    postVersion={savedAwsPost.version}
-                    role="main"
-                    title="Post Main Image"
-                  />
-                ) : (
-                  <ImageSelector
-                    label="Imatge destacada"
-                    aspectRatio="video"
-                    hint="16:9"
-                    value={existingMainImageUrl || null}
-                    onFileSelect={handleMainImageSelect}
-                    error={errors.main_image_file?.message as string}
-                  />
-                )}
+                <ImageDropzone
+                  label="Imatge destacada"
+                  hint="16:9 · imatge de capçalera"
+                  aspectRatio="video"
+                  file={mainImageFile ?? null}
+                  hasSavedImage={awsMainImage !== null}
+                  savedUrl={awsMainImage?.previewUrl ?? null}
+                  removalPending={pendingRemoval.main}
+                  disabled={readOnly || isSubmitting}
+                  error={errors.main_image_file?.message as string}
+                  onSelect={file => handleImageSelect('main', file)}
+                  onRemove={() => handleImageRemove('main')}
+                  onUndoRemove={() => handleImageSelect('main', null)}
+                  onPreviewError={() => void refreshAwsMedia()}
+                />
                 <Input
                   {...register('main_image_alt')}
                   label="Text alternatiu de la imatge destacada"
                   placeholder="Descriu la imatge per a l'accessibilitat"
-                  helperText={
-                    existingMainImageId
-                      ? 'Per canviar aquest text a AWS, selecciona també una imatge de substitució.'
-                      : undefined
-                  }
+                  helperText="Es mostra sota la imatge a l’article publicat. Es desa amb l’article."
                   error={errors.main_image_alt?.message as string}
                 />
 
                 {/* Thumbnail */}
-                {savedAwsPost && activeAwsPostId ? (
-                  <AwsImageSlot
-                    activeRole={activeImageRole}
-                    alt={`Miniatura per a ${titleCA || titleEN || 'post'}`}
-                    aspectRatio="thumbnail"
-                    disabled={readOnly || isSubmitting}
-                    hint="4:3 · per als llistats"
-                    image={awsThumbnailImage}
-                    label="Miniatura"
-                    onChange={change => handleAwsImageChange('thumb', change)}
-                    onOperationStateChange={(role, active) =>
-                      setActiveImageRole(active ? role : null)
-                    }
-                    onRefreshPreview={refreshAwsMedia}
-                    postId={activeAwsPostId}
-                    postVersion={savedAwsPost.version}
-                    role="thumb"
-                    title="Post Thumbnail"
-                  />
-                ) : (
-                  <ImageSelector
-                    label="Miniatura"
-                    aspectRatio="thumbnail"
-                    hint="4:3 · Per llistats"
-                    value={existingThumbnailUrl || null}
-                    onFileSelect={handleThumbnailSelect}
-                    error={errors.thumbnail_file?.message as string}
-                  />
-                )}
+                <ImageDropzone
+                  label="Miniatura"
+                  hint="4:3 · per als llistats"
+                  aspectRatio="thumbnail"
+                  file={thumbnailFile ?? null}
+                  hasSavedImage={awsThumbnailImage !== null}
+                  savedUrl={awsThumbnailImage?.previewUrl ?? null}
+                  removalPending={pendingRemoval.thumb}
+                  disabled={readOnly || isSubmitting}
+                  error={errors.thumbnail_file?.message as string}
+                  onSelect={file => handleImageSelect('thumb', file)}
+                  onRemove={() => handleImageRemove('thumb')}
+                  onUndoRemove={() => handleImageSelect('thumb', null)}
+                  onPreviewError={() => void refreshAwsMedia()}
+                />
 
                 {/* Category */}
                 <div className="space-y-2">

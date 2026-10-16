@@ -1,5 +1,5 @@
 import { PostNotFoundError } from '@/lib/domain/posts/errors';
-import type { Post } from '@/lib/domain/posts/types';
+import type { Post, PostImage } from '@/lib/domain/posts/types';
 
 import type { RouteHandler } from '../context';
 import { ApiConflictError, validation } from '../errors';
@@ -29,6 +29,19 @@ import { parseListOptions, parsePost } from '../post-parsing';
 import type { MutationReservation } from '../store';
 
 const MAX_BULK_POSTS = 100;
+
+/**
+ * Images are attached only through presign/confirm, so a post update keeps the
+ * stored image and accepts nothing but its alt text, and only when the body
+ * names the same object key.
+ */
+function keepImageWithAlt(
+  stored: PostImage | null,
+  submitted: PostImage | null
+): PostImage | null {
+  if (!stored || submitted?.key !== stored.key) return stored;
+  return { ...stored, alt: submitted.alt };
+}
 
 type BulkPublicationTarget = { id: string; version: number };
 
@@ -235,8 +248,8 @@ const updatePost: RouteHandler = async ({
   const safePost: Post = {
     ...post,
     published: current.published,
-    mainImage: current.mainImage,
-    thumbImage: current.thumbImage,
+    mainImage: keepImageWithAlt(current.mainImage, post.mainImage),
+    thumbImage: keepImageWithAlt(current.thumbImage, post.thumbImage),
   };
   const key = requireIdempotencyKey(event);
   const reservation = await dependencies.store.reserveMutation({
