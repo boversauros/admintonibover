@@ -57,7 +57,7 @@ export type AdminApiDependencies = {
   posts: PostRepository;
   store: DynamoDbAdminStore;
   media: MediaOperations;
-  objects: Pick<MediaObjectStore, 'delete'>;
+  objects: Pick<MediaObjectStore, 'delete' | 'presignDownload'>;
   environment: BackupEnvironment;
   users?: UserManagement;
   security: {

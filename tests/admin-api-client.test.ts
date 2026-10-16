@@ -11,10 +11,11 @@ import { AdminApiClient } from '../lib/aws/admin-api-client';
 import type {
   AdminApiErrorEnvelope,
   AdminApiSuccessEnvelope,
+  AdminPostListItem,
   AdminPostListPage,
 } from '../lib/aws/admin-read-contract';
 import { parseAdminPostListSearchParams } from '../lib/aws/admin-post-list-query';
-import type { Post, PostImage, PostListItem } from '../lib/domain/posts/types';
+import type { Post, PostImage } from '../lib/domain/posts/types';
 
 const NOW = '2026-08-22T10:00:00.000Z';
 const ACCESS_TOKEN = 'private-access-token-that-must-not-leak';
@@ -31,7 +32,7 @@ function image(role: 'main' | 'thumb'): PostImage {
   };
 }
 
-function listItem(id: string, sortOrder: number): PostListItem {
+function listItem(id: string, sortOrder: number): AdminPostListItem {
   return {
     id,
     category: { id: 'category-1', slug: 'reflexions' },
@@ -46,6 +47,7 @@ function listItem(id: string, sortOrder: number): PostListItem {
     keywords: { ca: ['filosofia'], en: ['philosophy'] },
     mainImage: null,
     thumbImage: null,
+    thumbPreviewUrl: null,
   };
 }
 

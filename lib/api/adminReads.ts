@@ -5,7 +5,7 @@ import {
   type ImageInventoryCounts,
   type ImageInventoryStatus,
 } from '@/lib/domain/media/contracts';
-import type { Post, PostImage, PostListItem } from '@/lib/domain/posts/types';
+import type { Post, PostImage } from '@/lib/domain/posts/types';
 import {
   parseAdminApiErrorEnvelope,
   parseCategoriesEnvelope,
@@ -13,6 +13,7 @@ import {
   parsePostDetailEnvelope,
   parsePostListEnvelope,
   type AdminApiSuccessEnvelope,
+  type AdminPostListItem,
 } from '@/lib/aws/admin-read-contract';
 import type { StoredPost } from '@/lib/types/post';
 
@@ -181,7 +182,7 @@ async function requestAwsRead<T>(
   }
 }
 
-function awsSummary(post: PostListItem): AdminPostSummary {
+function awsSummary(post: AdminPostListItem): AdminPostSummary {
   return {
     id: post.id,
     categoryId: post.category.id,
@@ -200,6 +201,7 @@ function awsSummary(post: PostListItem): AdminPostSummary {
     },
     ...(post.mainImage ? { mainImageKey: post.mainImage.key } : {}),
     ...(post.thumbImage ? { thumbnailKey: post.thumbImage.key } : {}),
+    ...(post.thumbPreviewUrl ? { thumbnailUrl: post.thumbPreviewUrl } : {}),
   };
 }
 
