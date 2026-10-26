@@ -42,18 +42,9 @@ export type MutationReservation =
 export class AdminStoreConflictError extends Error {
   readonly code = 'ADMIN_STORE_CONFLICT';
 
-  constructor(readonly reason: 'version' | 'idempotency' | 'backup') {
+  constructor(readonly reason: 'idempotency' | 'backup') {
     super('The requested change conflicts with current state');
     this.name = 'AdminStoreConflictError';
-  }
-}
-
-export class AdminStoreNotFoundError extends Error {
-  readonly code = 'ADMIN_STORE_NOT_FOUND';
-
-  constructor(readonly resource: 'category' | 'keyword') {
-    super(`${resource} not found`);
-    this.name = 'AdminStoreNotFoundError';
   }
 }
 
@@ -62,14 +53,6 @@ const KEYWORD_PARTITION = 'TAXONOMY#KEYWORDS';
 const SYSTEM_REVISION_KEY: DynamoKey = { PK: 'SYSTEM', SK: 'REVISION' };
 const IDEMPOTENCY_TTL_SECONDS = 24 * 60 * 60;
 const MAX_STORED_RESULT_BYTES = 32 * 1024;
-
-function categoryKey(id: string): DynamoKey {
-  return { PK: CATEGORY_PARTITION, SK: `CATEGORY#${id}` };
-}
-
-function keywordKey(id: string): DynamoKey {
-  return { PK: KEYWORD_PARTITION, SK: `KEYWORD#${id}` };
-}
 
 function mutationKey(scope: string, subject: string, key: string): DynamoKey {
   const digest = createHash('sha256')
@@ -189,64 +172,6 @@ export class DynamoDbAdminStore {
       .sort((left, right) => left.id.localeCompare(right.id));
   }
 
-  async getCategory(id: string): Promise<AdminCategory | null> {
-    const item = await this.dynamodb.get(categoryKey(id), true);
-    return item ? categoryFromItem(item) : null;
-  }
-
-  async createCategory(
-    input: Pick<AdminCategory, 'id' | 'slug' | 'names'>
-  ): Promise<AdminCategory> {
-    const timestamp = this.clock().toISOString();
-    const category: AdminCategory = {
-      ...structuredClone(input),
-      version: 1,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
-    await this.writeTaxonomyItem(
-      {
-        ...categoryKey(category.id),
-        entityType: 'CATEGORY',
-        schemaVersion: 1,
-        ...category,
-      },
-      { type: 'attributeNotExists', attribute: 'PK' },
-      timestamp
-    );
-    return structuredClone(category);
-  }
-
-  async updateCategory(
-    input: Pick<AdminCategory, 'id' | 'slug' | 'names'>,
-    expectedVersion: number
-  ): Promise<AdminCategory> {
-    const existing = await this.getCategory(input.id);
-    if (!existing) throw new AdminStoreNotFoundError('category');
-    const timestamp = this.clock().toISOString();
-    const category: AdminCategory = {
-      ...structuredClone(input),
-      version: expectedVersion + 1,
-      createdAt: existing.createdAt,
-      updatedAt: timestamp,
-    };
-    await this.writeTaxonomyItem(
-      {
-        ...categoryKey(category.id),
-        entityType: 'CATEGORY',
-        schemaVersion: 1,
-        ...category,
-      },
-      { type: 'equals', attribute: 'version', value: expectedVersion },
-      timestamp
-    );
-    return structuredClone(category);
-  }
-
-  async deleteCategory(id: string, expectedVersion: number): Promise<void> {
-    await this.deleteTaxonomyItem(categoryKey(id), expectedVersion, 'category');
-  }
-
   async listKeywords(language?: PostLanguage): Promise<AdminKeyword[]> {
     const items = await this.queryPartition(KEYWORD_PARTITION);
     return items
@@ -255,64 +180,6 @@ export class DynamoDbAdminStore {
         keyword => language === undefined || keyword.language === language
       )
       .sort((left, right) => left.value.localeCompare(right.value));
-  }
-
-  async getKeyword(id: string): Promise<AdminKeyword | null> {
-    const item = await this.dynamodb.get(keywordKey(id), true);
-    return item ? keywordFromItem(item) : null;
-  }
-
-  async createKeyword(
-    input: Pick<AdminKeyword, 'id' | 'language' | 'value'>
-  ): Promise<AdminKeyword> {
-    const timestamp = this.clock().toISOString();
-    const keyword: AdminKeyword = {
-      ...structuredClone(input),
-      version: 1,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
-    await this.writeTaxonomyItem(
-      {
-        ...keywordKey(keyword.id),
-        entityType: 'KEYWORD',
-        schemaVersion: 1,
-        ...keyword,
-      },
-      { type: 'attributeNotExists', attribute: 'PK' },
-      timestamp
-    );
-    return structuredClone(keyword);
-  }
-
-  async updateKeyword(
-    input: Pick<AdminKeyword, 'id' | 'language' | 'value'>,
-    expectedVersion: number
-  ): Promise<AdminKeyword> {
-    const existing = await this.getKeyword(input.id);
-    if (!existing) throw new AdminStoreNotFoundError('keyword');
-    const timestamp = this.clock().toISOString();
-    const keyword: AdminKeyword = {
-      ...structuredClone(input),
-      version: expectedVersion + 1,
-      createdAt: existing.createdAt,
-      updatedAt: timestamp,
-    };
-    await this.writeTaxonomyItem(
-      {
-        ...keywordKey(keyword.id),
-        entityType: 'KEYWORD',
-        schemaVersion: 1,
-        ...keyword,
-      },
-      { type: 'equals', attribute: 'version', value: expectedVersion },
-      timestamp
-    );
-    return structuredClone(keyword);
-  }
-
-  async deleteKeyword(id: string, expectedVersion: number): Promise<void> {
-    await this.deleteTaxonomyItem(keywordKey(id), expectedVersion, 'keyword');
   }
 
   async reserveMutation(input: {
@@ -498,55 +365,6 @@ export class DynamoDbAdminStore {
       exclusiveStartKey = page.lastEvaluatedKey;
     } while (exclusiveStartKey !== undefined);
     return items;
-  }
-
-  private async writeTaxonomyItem(
-    item: DynamoItem,
-    condition: NonNullable<
-      Extract<DynamoTransactionAction, { type: 'put' }>['condition']
-    >,
-    timestamp: string
-  ): Promise<void> {
-    try {
-      await this.dynamodb.transactWrite([
-        { type: 'put', label: 'taxonomy:write', item, condition },
-        revisionAction(timestamp),
-      ]);
-    } catch (error) {
-      if (error instanceof DynamoTransactionCanceledError) {
-        throw new AdminStoreConflictError('version');
-      }
-      throw error;
-    }
-  }
-
-  private async deleteTaxonomyItem(
-    key: DynamoKey,
-    expectedVersion: number,
-    resource: 'category' | 'keyword'
-  ): Promise<void> {
-    const existing = await this.dynamodb.get(key, true);
-    if (!existing) throw new AdminStoreNotFoundError(resource);
-    try {
-      await this.dynamodb.transactWrite([
-        {
-          type: 'delete',
-          label: 'taxonomy:delete',
-          key,
-          condition: {
-            type: 'equals',
-            attribute: 'version',
-            value: expectedVersion,
-          },
-        },
-        revisionAction(this.clock().toISOString()),
-      ]);
-    } catch (error) {
-      if (error instanceof DynamoTransactionCanceledError) {
-        throw new AdminStoreConflictError('version');
-      }
-      throw error;
-    }
   }
 
   private resolveReservation(

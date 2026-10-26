@@ -215,6 +215,41 @@ function setup(maximumPageSize = Number.POSITIVE_INFINITY) {
   };
 }
 
+// The catalog is migrated data; the API exposes no taxonomy writes.
+async function seedTaxonomy(port: InMemoryDynamoDbPort): Promise<void> {
+  const timestamps = { version: 1, createdAt: NOW, updatedAt: NOW };
+  await port.transactWrite([
+    {
+      type: 'put',
+      label: 'fixture:category',
+      item: {
+        PK: 'TAXONOMY#CATEGORIES',
+        SK: 'CATEGORY#category-1',
+        entityType: 'CATEGORY',
+        schemaVersion: 1,
+        id: 'category-1',
+        slug: 'category-1',
+        names: { ca: 'Categoria', en: 'Category' },
+        ...timestamps,
+      },
+    },
+    {
+      type: 'put',
+      label: 'fixture:keyword',
+      item: {
+        PK: 'TAXONOMY#KEYWORDS',
+        SK: 'KEYWORD#keyword-1',
+        entityType: 'KEYWORD',
+        schemaVersion: 1,
+        id: 'keyword-1',
+        language: 'ca',
+        value: 'prova',
+        ...timestamps,
+      },
+    },
+  ]);
+}
+
 test('authentication failures use stable 401 and group-based 403 envelopes before data access', async () => {
   const { handler, port } = setup();
   const missing = await handler(event('GET /health', { claims: null }));
@@ -605,79 +640,45 @@ test('bulk publication rejects a stale exact count before changing any post', as
   assert.equal((await posts.getById('post-2'))?.published, false);
 });
 
-test('category and keyword list/create/update/delete routes provide versioned management', async () => {
-  const { handler } = setup(1);
-  const categoryCreated = await handler(
-    event('POST /categories', {
-      body: {
-        id: 'category-1',
-        slug: 'category-one',
-        names: { ca: 'Categoria', en: 'Category' },
-      },
-      headers: { 'idempotency-key': 'category-create1' },
-    })
-  );
-  assert.equal(categoryCreated.statusCode, 201);
-  assert.equal(categoryCreated.headers.etag, '"1"');
+test('category and keyword routes are read-only', async () => {
+  const { handler, port } = setup(1);
+  await seedTaxonomy(port);
   const categories = await handler(event('GET /categories'));
-  assert.equal((data(categories).items as unknown[]).length, 1);
-  const categoryUpdated = await handler(
-    event('PUT /categories/{id}', {
-      id: 'category-1',
-      body: {
-        slug: 'category-one',
-        names: { ca: 'Categoria nova', en: 'New category' },
-      },
-      headers: {
-        'if-match': '1',
-        'idempotency-key': 'category-update1',
-      },
-    })
+  assert.equal(categories.statusCode, 200);
+  assert.deepEqual(
+    (data(categories).items as Array<{ id: string }>).map(item => item.id),
+    ['category-1']
   );
-  assert.equal(categoryUpdated.headers.etag, '"2"');
-  const categoryDeleted = await handler(
-    event('DELETE /categories/{id}', {
-      id: 'category-1',
-      headers: {
-        'if-match': '2',
-        'idempotency-key': 'category-delete1',
-      },
-    })
-  );
-  assert.equal(categoryDeleted.statusCode, 200);
-
-  const keywordCreated = await handler(
-    event('POST /keywords', {
-      body: { id: 'keyword-1', language: 'ca', value: 'arquitectura' },
-      headers: { 'idempotency-key': 'keyword-create01' },
-    })
-  );
-  assert.equal(keywordCreated.statusCode, 201);
   const keywords = await handler(
     event('GET /keywords', { query: { language: 'ca' } })
   );
-  assert.equal((data(keywords).items as unknown[]).length, 1);
-  const keywordUpdated = await handler(
-    event('PUT /keywords/{id}', {
-      id: 'keyword-1',
-      body: { language: 'ca', value: 'disseny' },
-      headers: {
-        'if-match': '1',
-        'idempotency-key': 'keyword-update01',
-      },
-    })
+  assert.equal(keywords.statusCode, 200);
+  assert.deepEqual(
+    (data(keywords).items as Array<{ value: string }>).map(item => item.value),
+    ['prova']
   );
-  assert.equal(keywordUpdated.headers.etag, '"2"');
-  const keywordDeleted = await handler(
-    event('DELETE /keywords/{id}', {
-      id: 'keyword-1',
-      headers: {
-        'if-match': '2',
-        'idempotency-key': 'keyword-delete01',
-      },
-    })
+  const invalidLanguage = await handler(
+    event('GET /keywords', { query: { language: 'fr' } })
   );
-  assert.equal(keywordDeleted.statusCode, 200);
+  assert.equal(invalidLanguage.statusCode, 400);
+
+  for (const routeKey of [
+    'POST /categories',
+    'PUT /categories/{id}',
+    'DELETE /categories/{id}',
+    'POST /keywords',
+    'PUT /keywords/{id}',
+    'DELETE /keywords/{id}',
+  ]) {
+    const result = await handler(
+      event(routeKey, {
+        id: 'category-1',
+        body: {},
+        headers: { 'if-match': '1', 'idempotency-key': 'taxonomy-write01' },
+      })
+    );
+    assert.equal(result.statusCode, 404, routeKey);
+  }
 });
 
 test('delete remains data-atomic and retries observable image cleanup with the same key', async () => {
@@ -847,19 +848,10 @@ test('image detach is conditional, idempotent, and retries cleanup after commit'
 });
 
 test('backup route paginates the full table and emits a restoration schema with integrity data', async () => {
-  const { handler, posts, port, store } = setup(2);
+  const { handler, posts, port } = setup(2);
   await posts.create(postFixture('post-1'));
   await posts.create(postFixture('post-2'));
-  await store.createCategory({
-    id: 'category-1',
-    slug: 'category-1',
-    names: { ca: 'Categoria', en: 'Category' },
-  });
-  await store.createKeyword({
-    id: 'keyword-1',
-    language: 'ca',
-    value: 'prova',
-  });
+  await seedTaxonomy(port);
   await port.transactWrite([
     {
       type: 'put',
