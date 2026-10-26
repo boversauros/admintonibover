@@ -7,7 +7,7 @@ service backed by DynamoDB and private S3.
 
 ## Prerequisites
 
-- Node.js 24.18.0 (`.node-version`)
+- Node.js 24.22.1 (`.node-version`)
 - pnpm 11.0.9 (`package.json`)
 - Non-secret outputs from the intended `admintonibover-dev` stack
 - A unique, server-only 32-byte base64url Cognito session secret
