@@ -56,8 +56,7 @@ export function LegacySlugsAdmin() {
         await scanLegacySlugs(
           legacySlugDependencies,
           categories.map(category => category.slug),
-          (done, total) =>
-            setProgress(`Llegint articles: ${done} de ${total}…`)
+          (done, total) => setProgress(`Llegint articles: ${done} de ${total}…`)
         )
       );
     } catch (error) {
