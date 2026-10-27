@@ -29,7 +29,7 @@ import {
 } from './errors';
 import { correlationId, errorResponse, isRecord } from './http';
 import { findRoute } from './routes';
-import { AdminStoreConflictError, AdminStoreNotFoundError } from './store';
+import { AdminStoreConflictError } from './store';
 import { UserManagementError } from './users';
 
 export type {
@@ -103,17 +103,12 @@ function mappedError(
   }
   if (
     error instanceof PostNotFoundError ||
-    error instanceof AdminStoreNotFoundError ||
     error instanceof MediaUploadNotFoundError
   ) {
     return errorResponse(404, 'NOT_FOUND', 'Resource not found', requestId);
   }
   if (error instanceof AdminStoreConflictError) {
     const conflict = {
-      version: {
-        code: 'VERSION_CONFLICT',
-        message: 'The resource was changed by another operation',
-      },
       idempotency: {
         code: 'IDEMPOTENCY_CONFLICT',
         message: 'The idempotency key is already in use',

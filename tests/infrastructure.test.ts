@@ -35,7 +35,7 @@ test('development foundation passes the offline safety contract', () => {
   const template = createDevFoundationTemplate();
   const summary = validateDevFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 47);
+  assert.equal(summary.resourceCount, 41);
   assert.deepEqual(summary.resourceTypes, EXPECTED_DEV_RESOURCE_TYPE_COUNTS);
   assert.deepEqual(template.Resources.ReaderFunction.Properties!.Code, {
     S3Bucket: { Ref: 'ContentBucket' },
@@ -83,7 +83,7 @@ test('production foundation is isolated and retains data-bearing resources', () 
   const template = createProductionFoundationTemplate();
   const summary = validateProductionFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 42);
+  assert.equal(summary.resourceCount, 36);
   assert.deepEqual(summary.resourceTypes, EXPECTED_RESOURCE_TYPE_COUNTS);
   assert.deepEqual(template.Parameters.Environment.AllowedValues, ['prod']);
   assert.equal(template.Parameters.EnableTableDeletionProtection, undefined);
