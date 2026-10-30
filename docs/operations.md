@@ -262,10 +262,25 @@ Require `PointInTimeRecoveryStatus` `ENABLED` and a restore time between
 PITR was enabled can be restored. Use `--use-latest-restorable-time` instead of
 `--restore-date-time` for a rehearsal.
 
-Verify the copy with `aws dynamodb scan --select COUNT --consistent-read` on
-the restored table and compare it with the expected item count (for a
-rehearsal, the source table). Spot-check the `SYSTEM`/`REVISION` item and a
-representative post with `get-item`.
+The waiter gives up after about eight minutes; if it times out, run it again
+before treating the restore as failed.
+
+Rehearse while nobody is editing. Edits and TTL expiry change transient
+`IDEMPOTENCY`/`MEDIA_UPLOAD` items, so compare durable items only, running the
+same count on the restored and source tables:
+
+```bash
+aws dynamodb scan \
+  --region eu-west-1 \
+  --table-name <table-name> \
+  --select COUNT \
+  --consistent-read \
+  --filter-expression "NOT entityType IN (:idempotency, :upload)" \
+  --expression-attribute-values '{":idempotency":{"S":"IDEMPOTENCY"},":upload":{"S":"MEDIA_UPLOAD"}}'
+```
+
+Require equal counts and the same `revision` on the `SYSTEM`/`REVISION` item
+(`get-item` on both), and spot-check a representative post.
 
 The restored table is outside CloudFormation and has no tags, TTL, or PITR. For
 an incident, repair only the affected items from it under the approved incident
