@@ -363,8 +363,7 @@ aws s3api list-object-versions \
 ```
 
 - **The post still references the key** (the object alone is gone or wrong):
-  copy that version back over the same key, then confirm the private preview
-  loads.
+  copy that version back over the same key.
 
   ```bash
   aws s3api copy-object \
@@ -376,8 +375,9 @@ aws s3api list-object-versions \
     --metadata-directive COPY
   ```
 
-  Then require `head-object --checksum-mode ENABLED` to return the post's
-  stored SHA-256; a display alone is not proof.
+  Then require `head-object --checksum-mode ENABLED` to return the same
+  `ChecksumSHA256` for the key as for the source `--version-id`; a loading
+  preview alone is not proof.
 
 - **The post now references a different image** (a replacement to undo):
   download that version with `aws s3api get-object --version-id`, then upload
