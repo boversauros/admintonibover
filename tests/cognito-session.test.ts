@@ -7,7 +7,6 @@ import {
 } from '../lib/auth/cognito/config';
 import { cognitoCookieOptions } from '../lib/auth/cognito/cookies';
 import {
-  buildManagedLogoutUrl,
   isJsonRequest,
   isSameOriginMutation,
   safeReturnTo,
@@ -20,12 +19,9 @@ import {
 
 const config: CognitoConfig = {
   apiUrl: 'https://api.example.invalid',
-  callbackUrl: 'https://admin.example.invalid/auth/callback',
+  appOrigin: 'https://admin.example.invalid',
   clientId: 'public-client',
-  hostedAdminScope: 'admintonibover-api/admin',
   issuer: 'https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_example',
-  loginUrl: 'https://login.example.invalid',
-  logoutUrl: 'https://admin.example.invalid/',
   region: 'eu-west-1',
 };
 
@@ -39,14 +35,12 @@ test('session secret is exactly 32 bytes of unpadded base64url', () => {
   assert.throws(() => parseCognitoSessionSecret(`${sessionSecret}=`));
 });
 
-test('AWS configuration requires exact same-origin callback and logout paths', () => {
+test('AWS configuration requires an exact application origin', () => {
   const names = [
+    'ADMIN_APP_ORIGIN',
     'AWS_ADMIN_API_URL',
-    'AWS_COGNITO_CALLBACK_URL',
     'AWS_COGNITO_CLIENT_ID',
     'AWS_COGNITO_ISSUER',
-    'AWS_COGNITO_LOGIN_URL',
-    'AWS_COGNITO_LOGOUT_URL',
     'AWS_COGNITO_SESSION_SECRET',
     'NODE_ENV',
   ] as const;
@@ -54,33 +48,30 @@ test('AWS configuration requires exact same-origin callback and logout paths', (
     names.map(name => [name, process.env[name]])
   );
   Object.assign(process.env, {
+    ADMIN_APP_ORIGIN: config.appOrigin,
     AWS_ADMIN_API_URL: config.apiUrl,
-    AWS_COGNITO_CALLBACK_URL: config.callbackUrl,
     AWS_COGNITO_CLIENT_ID: config.clientId,
     AWS_COGNITO_ISSUER: config.issuer,
-    AWS_COGNITO_LOGIN_URL: config.loginUrl,
-    AWS_COGNITO_LOGOUT_URL: config.logoutUrl,
     AWS_COGNITO_SESSION_SECRET: sessionSecret,
   });
 
   try {
     assert.deepEqual(getCognitoConfig(), config);
-    process.env.AWS_COGNITO_CALLBACK_URL = 'https://admin.example.invalid/';
+    process.env.ADMIN_APP_ORIGIN = 'https://admin.example.invalid/';
+    assert.deepEqual(getCognitoConfig(), config);
+    process.env.ADMIN_APP_ORIGIN = 'https://admin.example.invalid/auth';
     assert.throws(() => getCognitoConfig());
-    process.env.AWS_COGNITO_CALLBACK_URL = config.callbackUrl;
-    process.env.AWS_COGNITO_LOGOUT_URL =
-      'https://admin.example.invalid/signed-out';
+    process.env.ADMIN_APP_ORIGIN = 'https://admin.example.invalid/?next=/';
     assert.throws(() => getCognitoConfig());
-    process.env.AWS_COGNITO_LOGOUT_URL = 'https://different.example.invalid/';
+    process.env.ADMIN_APP_ORIGIN = 'https://*.example.invalid';
     assert.throws(() => getCognitoConfig());
-    process.env.AWS_COGNITO_CALLBACK_URL =
-      'https://*.example.invalid/auth/callback';
-    process.env.AWS_COGNITO_LOGOUT_URL = 'https://*.example.invalid/';
+    process.env.ADMIN_APP_ORIGIN = 'http://admin.example.invalid';
     assert.throws(() => getCognitoConfig());
+    process.env.ADMIN_APP_ORIGIN = 'http://localhost:3000';
+    assert.equal(getCognitoConfig().appOrigin, 'http://localhost:3000');
     Object.assign(process.env, { NODE_ENV: 'production' });
-    process.env.AWS_COGNITO_CALLBACK_URL =
-      'http://localhost:3000/auth/callback';
-    process.env.AWS_COGNITO_LOGOUT_URL = 'http://localhost:3000/';
+    assert.throws(() => getCognitoConfig());
+    delete process.env.ADMIN_APP_ORIGIN;
     assert.throws(() => getCognitoConfig());
   } finally {
     for (const name of names) {
@@ -165,7 +156,7 @@ test('return paths stay on the configured application origin', () => {
   assert.equal(safeReturnTo('https://evil.example.invalid/', config), '/');
   assert.equal(safeReturnTo('//evil.example.invalid/', config), '/');
   assert.equal(safeReturnTo('\\\\evil.example.invalid/', config), '/');
-  assert.equal(safeReturnTo('/auth/callback', config), '/');
+  assert.equal(safeReturnTo('/auth/login', config), '/');
 });
 
 test('state-changing requests require exact origin and JSON where applicable', () => {
@@ -193,13 +184,4 @@ test('state-changing requests require exact origin and JSON where applicable', (
   );
   assert.equal(isSameOriginMutation(crossOrigin, config), false);
   assert.equal(isJsonRequest(crossOrigin), false);
-});
-
-test('managed logout uses only the public client and exact allow-listed URL', () => {
-  const logout = new URL(buildManagedLogoutUrl(config));
-  assert.equal(logout.origin, config.loginUrl);
-  assert.equal(logout.pathname, '/logout');
-  assert.equal(logout.searchParams.get('client_id'), config.clientId);
-  assert.equal(logout.searchParams.get('logout_uri'), config.logoutUrl);
-  assert.equal(logout.searchParams.has('token'), false);
 });

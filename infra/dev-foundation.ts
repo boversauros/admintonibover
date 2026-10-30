@@ -31,9 +31,7 @@ export const EXPECTED_RESOURCE_TYPE_COUNTS = {
   'AWS::ApiGatewayV2::Stage': 1,
   'AWS::Cognito::UserPool': 1,
   'AWS::Cognito::UserPoolClient': 1,
-  'AWS::Cognito::UserPoolDomain': 1,
   'AWS::Cognito::UserPoolGroup': 2,
-  'AWS::Cognito::UserPoolResourceServer': 1,
   'AWS::Cognito::UserPoolUserToGroupAttachment': 1,
   'AWS::DynamoDB::Table': 1,
   'AWS::IAM::Role': 1,
@@ -67,11 +65,7 @@ const DNS_LABEL = '[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?';
 const DNS_TOP_LEVEL_LABEL = '[A-Za-z](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?';
 const HTTPS_PRODUCTION_ADMIN_ORIGIN = `https://${DNS_LABEL}(?:\\.${DNS_LABEL})*\\.${DNS_TOP_LEVEL_LABEL}`;
 export const EXACT_ADMIN_ORIGIN_PATTERN = `^(?:${HTTPS_ADMIN_ORIGIN}|${LOCAL_ADMIN_ORIGIN})$`;
-export const EXACT_CALLBACK_URL_PATTERN = `^(?:${HTTPS_ADMIN_ORIGIN}|${LOCAL_ADMIN_ORIGIN})/auth/callback$`;
-export const EXACT_LOGOUT_URL_PATTERN = `^(?:${HTTPS_ADMIN_ORIGIN}|${LOCAL_ADMIN_ORIGIN})/$`;
 export const EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN = `^${HTTPS_PRODUCTION_ADMIN_ORIGIN}$`;
-export const EXACT_PRODUCTION_CALLBACK_URL_PATTERN = `^${HTTPS_PRODUCTION_ADMIN_ORIGIN}/auth/callback$`;
-export const EXACT_PRODUCTION_LOGOUT_URL_PATTERN = `^${HTTPS_PRODUCTION_ADMIN_ORIGIN}/$`;
 
 export const FOUNDATION_LAMBDA_CODE = readFileSync(
   new URL('./generated/foundation-lambda.cjs', import.meta.url),
@@ -108,12 +102,6 @@ export function createFoundationTemplate(
   const originPattern = isProduction
     ? EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN
     : EXACT_ADMIN_ORIGIN_PATTERN;
-  const callbackPattern = isProduction
-    ? EXACT_PRODUCTION_CALLBACK_URL_PATTERN
-    : EXACT_CALLBACK_URL_PATTERN;
-  const logoutPattern = isProduction
-    ? EXACT_PRODUCTION_LOGOUT_URL_PATTERN
-    : EXACT_LOGOUT_URL_PATTERN;
 
   return {
     AWSTemplateFormatVersion: '2010-09-09',
@@ -135,11 +123,11 @@ export function createFoundationTemplate(
           },
           {
             Label: { default: `Exact ${environmentLabel} origins` },
-            Parameters: ['AllowedOrigins', 'CallbackUrls', 'LogoutUrls'],
+            Parameters: ['AllowedOrigins'],
           },
           {
             Label: { default: 'Cognito access' },
-            Parameters: ['CognitoDomainPrefix', 'ExistingSuperAdminUsername'],
+            Parameters: ['ExistingSuperAdminUsername'],
           },
         ],
         ParameterLabels: {
@@ -186,31 +174,6 @@ export function createFoundationTemplate(
           ? 'Each production origin must be one exact HTTPS origin, without paths or wildcards.'
           : 'Each origin must be one exact HTTPS origin or an HTTP localhost development origin, without paths or wildcards.',
         Description: `Exact ${environmentLabel} admin origins for API Gateway and S3 CORS. Do not use wildcards.`,
-      },
-      CallbackUrls: {
-        Type: 'CommaDelimitedList',
-        AllowedPattern: callbackPattern,
-        ConstraintDescription: isProduction
-          ? 'Each production callback must be an exact HTTPS URL ending in /auth/callback, without wildcards.'
-          : 'Each callback must be an exact HTTPS or localhost URL ending in /auth/callback, without wildcards.',
-        Description: `Exact ${environmentLabel} Cognito authorization-code callback URLs.`,
-      },
-      LogoutUrls: {
-        Type: 'CommaDelimitedList',
-        AllowedPattern: logoutPattern,
-        ConstraintDescription: isProduction
-          ? 'Each production logout URL must be an exact HTTPS origin with a trailing slash, without wildcards.'
-          : 'Each logout URL must be an exact HTTPS or localhost origin with a trailing slash, without wildcards.',
-        Description: `Exact ${environmentLabel} Cognito logout redirect URLs.`,
-      },
-      CognitoDomainPrefix: {
-        Type: 'String',
-        MinLength: 3,
-        MaxLength: 63,
-        AllowedPattern: '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$',
-        ConstraintDescription:
-          'Use a globally unique 3-63 character lowercase prefix containing only letters, numbers, and internal hyphens.',
-        Description: `Globally unique prefix for the ${environmentLabel} Cognito managed-login domain.`,
       },
       ExistingSuperAdminUsername: {
         Type: 'String',
@@ -481,24 +444,8 @@ export function createFoundationTemplate(
           UserPoolId: { Ref: 'UserPool' },
         },
       },
-      AdminResourceServer: {
-        Type: 'AWS::Cognito::UserPoolResourceServer',
-        Properties: {
-          Identifier: 'admintonibover-api',
-          Name: 'admintonibover admin API',
-          Scopes: [
-            {
-              ScopeName: 'admin',
-              ScopeDescription:
-                'Access to the authenticated admintonibover admin API',
-            },
-          ],
-          UserPoolId: { Ref: 'UserPool' },
-        },
-      },
       UserPoolClient: {
         Type: 'AWS::Cognito::UserPoolClient',
-        DependsOn: 'AdminResourceServer',
         Properties: {
           UserPoolId: { Ref: 'UserPool' },
           ClientName: {
@@ -506,17 +453,6 @@ export function createFoundationTemplate(
           },
           GenerateSecret: false,
           SupportedIdentityProviders: ['COGNITO'],
-          AllowedOAuthFlowsUserPoolClient: true,
-          AllowedOAuthFlows: ['code'],
-          AllowedOAuthScopes: [
-            'openid',
-            'email',
-            'profile',
-            'aws.cognito.signin.user.admin',
-            'admintonibover-api/admin',
-          ],
-          CallbackURLs: { Ref: 'CallbackUrls' },
-          LogoutURLs: { Ref: 'LogoutUrls' },
           ExplicitAuthFlows: [
             'ALLOW_USER_PASSWORD_AUTH',
             'ALLOW_REFRESH_TOKEN_AUTH',
@@ -532,13 +468,6 @@ export function createFoundationTemplate(
             IdToken: 'minutes',
             RefreshToken: 'days',
           },
-        },
-      },
-      UserPoolDomain: {
-        Type: 'AWS::Cognito::UserPoolDomain',
-        Properties: {
-          Domain: { Ref: 'CognitoDomainPrefix' },
-          UserPoolId: { Ref: 'UserPool' },
         },
       },
       LambdaLogGroup: {
@@ -960,13 +889,6 @@ export function createFoundationTemplate(
         Value: {
           'Fn::Sub':
             'https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}',
-        },
-      },
-      CognitoLoginUrl: {
-        Description: 'Base URL of the Cognito managed-login domain.',
-        Value: {
-          'Fn::Sub':
-            'https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com',
         },
       },
       TableName: {

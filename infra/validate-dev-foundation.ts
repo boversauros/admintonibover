@@ -1,10 +1,6 @@
 import {
   EXACT_ADMIN_ORIGIN_PATTERN,
-  EXACT_CALLBACK_URL_PATTERN,
-  EXACT_LOGOUT_URL_PATTERN,
   EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN,
-  EXACT_PRODUCTION_CALLBACK_URL_PATTERN,
-  EXACT_PRODUCTION_LOGOUT_URL_PATTERN,
   EXPECTED_RESOURCE_TYPE_COUNTS,
   EXPECTED_DEV_RESOURCE_TYPE_COUNTS,
   REQUIRED_TAGS,
@@ -332,18 +328,6 @@ export function validateFoundationTemplate(
       isProduction
         ? EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN
         : EXACT_ADMIN_ORIGIN_PATTERN,
-    ],
-    [
-      'CallbackUrls',
-      isProduction
-        ? EXACT_PRODUCTION_CALLBACK_URL_PATTERN
-        : EXACT_CALLBACK_URL_PATTERN,
-    ],
-    [
-      'LogoutUrls',
-      isProduction
-        ? EXACT_PRODUCTION_LOGOUT_URL_PATTERN
-        : EXACT_LOGOUT_URL_PATTERN,
     ],
   ] as const) {
     const parameter = template.Parameters[name];
@@ -743,47 +727,26 @@ export function validateFoundationTemplate(
     issues
   );
   requireEqual(
-    client.AllowedOAuthFlows,
-    ['code'],
-    'UserPoolClient.AllowedOAuthFlows',
-    issues
-  );
-  requireEqual(
-    client.AllowedOAuthScopes,
-    [
-      'openid',
-      'email',
-      'profile',
-      'aws.cognito.signin.user.admin',
-      'admintonibover-api/admin',
-    ],
-    'UserPoolClient.AllowedOAuthScopes',
-    issues
-  );
-  requireEqual(
     client.ExplicitAuthFlows,
     ['ALLOW_USER_PASSWORD_AUTH', 'ALLOW_REFRESH_TOKEN_AUTH'],
     'UserPoolClient.ExplicitAuthFlows',
     issues
   );
-  requireEqual(
-    client.CallbackURLs,
-    { Ref: 'CallbackUrls' },
-    'UserPoolClient.CallbackURLs',
-    issues
-  );
-  requireEqual(
-    client.LogoutURLs,
-    { Ref: 'LogoutUrls' },
-    'UserPoolClient.LogoutURLs',
-    issues
-  );
-  requireEqual(
-    client.DefaultRedirectURI,
-    undefined,
-    'UserPoolClient.DefaultRedirectURI',
-    issues
-  );
+  for (const property of [
+    'AllowedOAuthFlowsUserPoolClient',
+    'AllowedOAuthFlows',
+    'AllowedOAuthScopes',
+    'CallbackURLs',
+    'LogoutURLs',
+    'DefaultRedirectURI',
+  ]) {
+    requireEqual(
+      client[property],
+      undefined,
+      `UserPoolClient.${property}`,
+      issues
+    );
+  }
 
   const lambda = asRecord(
     template.Resources.FoundationFunction.Properties,

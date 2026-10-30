@@ -82,14 +82,12 @@ jobs:
         env:
           # Inert, non-secret canaries exercise the production AWS boundary.
           # The artifact step must prove none are copied into browser output.
+          ADMIN_APP_ORIGIN: https://admin.example.invalid
           ADMIN_CSP_MODE: enforce
           AWS_ADMIN_API_URL: https://api.example.invalid
           AWS_ACCESS_KEY_ID: browser-audit-access-key
-          AWS_COGNITO_CALLBACK_URL: https://admin.example.invalid/auth/callback
           AWS_COGNITO_CLIENT_ID: browser-audit-public-client
           AWS_COGNITO_ISSUER: https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_example
-          AWS_COGNITO_LOGIN_URL: https://login.example.invalid
-          AWS_COGNITO_LOGOUT_URL: https://admin.example.invalid/
           AWS_COGNITO_SESSION_SECRET: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
           AWS_CONTENT_BUCKET_ORIGIN: https://private-content.s3.eu-west-1.amazonaws.com
           AWS_SECRET_ACCESS_KEY: browser-audit-secret-access-key

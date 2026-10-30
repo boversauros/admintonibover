@@ -5,7 +5,6 @@ import { sealCognitoCookie, unsealCognitoCookie } from './seal';
 export const COGNITO_COOKIE_NAMES = {
   accessToken: 'admintonibover-cognito-access',
   idToken: 'admintonibover-cognito-id',
-  oauthRequest: 'admintonibover-cognito-oauth',
   newPasswordChallenge: 'admintonibover-cognito-challenge',
   refreshToken: 'admintonibover-cognito-refresh',
 } as const;
@@ -17,14 +16,6 @@ export type CognitoTokenSet = {
   refreshToken?: string;
 };
 
-export type CognitoTransientValues = {
-  nonce: string;
-  returnTo: string;
-  state: string;
-  verifier: string;
-};
-
-const TRANSIENT_MAX_AGE_SECONDS = 10 * 60;
 const CHALLENGE_MAX_AGE_SECONDS = 5 * 60;
 const SESSION_ENVELOPE_MAX_AGE_SECONDS = 24 * 60 * 60;
 
@@ -40,44 +31,11 @@ export function cognitoCookieOptions(
   };
 }
 
-export async function setCognitoTransientCookies(
-  response: NextResponse,
-  values: CognitoTransientValues
-): Promise<void> {
-  const sealed = await sealCognitoCookie(
-    'oauth-request',
-    values,
-    undefined,
-    TRANSIENT_MAX_AGE_SECONDS
-  );
-  response.cookies.set(COGNITO_COOKIE_NAMES.oauthRequest, sealed, {
+export function clearNewPasswordChallengeCookie(response: NextResponse): void {
+  response.cookies.set(COGNITO_COOKIE_NAMES.newPasswordChallenge, '', {
     ...cognitoCookieOptions(),
-    maxAge: TRANSIENT_MAX_AGE_SECONDS,
+    maxAge: 0,
   });
-}
-
-function isTransientValues(value: unknown): value is CognitoTransientValues {
-  if (typeof value !== 'object' || value === null) return false;
-  const candidate = value as Partial<CognitoTransientValues>;
-  return (
-    typeof candidate.nonce === 'string' &&
-    typeof candidate.returnTo === 'string' &&
-    typeof candidate.state === 'string' &&
-    typeof candidate.verifier === 'string'
-  );
-}
-
-export async function readCognitoTransientCookie(
-  sealed: string
-): Promise<CognitoTransientValues | null> {
-  const value = await unsealCognitoCookie<unknown>(sealed, 'oauth-request');
-  return isTransientValues(value) ? value : null;
-}
-
-export function clearCognitoTransientCookies(response: NextResponse): void {
-  const options = { ...cognitoCookieOptions(), maxAge: 0 };
-  response.cookies.set(COGNITO_COOKIE_NAMES.oauthRequest, '', options);
-  response.cookies.set(COGNITO_COOKIE_NAMES.newPasswordChallenge, '', options);
 }
 
 export type NewPasswordChallenge = {
@@ -192,5 +150,5 @@ export function clearCognitoSessionCookies(response: NextResponse): void {
   response.cookies.set(COGNITO_COOKIE_NAMES.accessToken, '', options);
   response.cookies.set(COGNITO_COOKIE_NAMES.idToken, '', options);
   response.cookies.set(COGNITO_COOKIE_NAMES.refreshToken, '', options);
-  clearCognitoTransientCookies(response);
+  clearNewPasswordChallengeCookie(response);
 }

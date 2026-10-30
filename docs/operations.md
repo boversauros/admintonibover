@@ -60,9 +60,8 @@ a disabled account.
    ```
 
 6. Confirm every intended user is enabled, confirmed, verified-email, and in
-   exactly the intended group. Confirm self-sign-up is disabled, the client has
-   no secret, and callback/logout URLs are exact. Clear private shell variables
-   afterward.
+   exactly the intended group. Confirm self-sign-up is disabled and the client
+   has no secret and no OAuth flows. Clear private shell variables afterward.
 
 Successful logout must revoke the refresh token and clear the local encrypted
 cookies without visiting a Cognito domain. A restored pre-logout cookie set
@@ -135,12 +134,9 @@ API authorization in an environment.
    Verify content operations succeed. A valid ungrouped development token must
    receive `403`; missing, modified, ID, or wrong-client tokens must receive
    `401`.
-6. Keep the hosted login and legacy custom scope configured until the in-app
-   login replacement has been independently verified. After deployment, test an
-   invited editor's first password change, a confirmed user's sign-in and
-   refresh, recovery by email code, logout, and restored-cookie rejection in a
-   clean private browser before removing the hosted domain/callback settings.
-   Clear private variables.
+6. In a clean private browser, test an invited editor's first password change,
+   a confirmed user's sign-in and refresh, recovery by email code, logout, and
+   restored-cookie rejection. Clear private variables.
 
 ## Deploy and verify application or infrastructure
 

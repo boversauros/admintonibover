@@ -12,18 +12,6 @@
     "ParameterValue": "http://localhost:3000,https://replace-me.example.invalid"
   },
   {
-    "ParameterKey": "CallbackUrls",
-    "ParameterValue": "http://localhost:3000/auth/callback,https://replace-me.example.invalid/auth/callback"
-  },
-  {
-    "ParameterKey": "LogoutUrls",
-    "ParameterValue": "http://localhost:3000/,https://replace-me.example.invalid/"
-  },
-  {
-    "ParameterKey": "CognitoDomainPrefix",
-    "ParameterValue": "replace-me-admintonibover-dev"
-  },
-  {
     "ParameterKey": "ExistingSuperAdminUsername",
     "ParameterValue": "replace-with-private-cognito-username"
   },

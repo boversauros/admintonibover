@@ -21,9 +21,7 @@
             "default": "Exact development origins"
           },
           "Parameters": [
-            "AllowedOrigins",
-            "CallbackUrls",
-            "LogoutUrls"
+            "AllowedOrigins"
           ]
         },
         {
@@ -31,7 +29,6 @@
             "default": "Cognito access"
           },
           "Parameters": [
-            "CognitoDomainPrefix",
             "ExistingSuperAdminUsername"
           ]
         }
@@ -79,26 +76,6 @@
       "AllowedPattern": "^(?:https://[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(?::[1-9][0-9]{0,4})?|http://(?:localhost|127\\.0\\.0\\.1)(?::[1-9][0-9]{0,4})?)$",
       "ConstraintDescription": "Each origin must be one exact HTTPS origin or an HTTP localhost development origin, without paths or wildcards.",
       "Description": "Exact development admin origins for API Gateway and S3 CORS. Do not use wildcards."
-    },
-    "CallbackUrls": {
-      "Type": "CommaDelimitedList",
-      "AllowedPattern": "^(?:https://[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(?::[1-9][0-9]{0,4})?|http://(?:localhost|127\\.0\\.0\\.1)(?::[1-9][0-9]{0,4})?)/auth/callback$",
-      "ConstraintDescription": "Each callback must be an exact HTTPS or localhost URL ending in /auth/callback, without wildcards.",
-      "Description": "Exact development Cognito authorization-code callback URLs."
-    },
-    "LogoutUrls": {
-      "Type": "CommaDelimitedList",
-      "AllowedPattern": "^(?:https://[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(?::[1-9][0-9]{0,4})?|http://(?:localhost|127\\.0\\.0\\.1)(?::[1-9][0-9]{0,4})?)/$",
-      "ConstraintDescription": "Each logout URL must be an exact HTTPS or localhost origin with a trailing slash, without wildcards.",
-      "Description": "Exact development Cognito logout redirect URLs."
-    },
-    "CognitoDomainPrefix": {
-      "Type": "String",
-      "MinLength": 3,
-      "MaxLength": 63,
-      "AllowedPattern": "^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$",
-      "ConstraintDescription": "Use a globally unique 3-63 character lowercase prefix containing only letters, numbers, and internal hyphens.",
-      "Description": "Globally unique prefix for the development Cognito managed-login domain."
     },
     "ExistingSuperAdminUsername": {
       "Type": "String",
@@ -468,25 +445,8 @@
         }
       }
     },
-    "AdminResourceServer": {
-      "Type": "AWS::Cognito::UserPoolResourceServer",
-      "Properties": {
-        "Identifier": "admintonibover-api",
-        "Name": "admintonibover admin API",
-        "Scopes": [
-          {
-            "ScopeName": "admin",
-            "ScopeDescription": "Access to the authenticated admintonibover admin API"
-          }
-        ],
-        "UserPoolId": {
-          "Ref": "UserPool"
-        }
-      }
-    },
     "UserPoolClient": {
       "Type": "AWS::Cognito::UserPoolClient",
-      "DependsOn": "AdminResourceServer",
       "Properties": {
         "UserPoolId": {
           "Ref": "UserPool"
@@ -498,23 +458,6 @@
         "SupportedIdentityProviders": [
           "COGNITO"
         ],
-        "AllowedOAuthFlowsUserPoolClient": true,
-        "AllowedOAuthFlows": [
-          "code"
-        ],
-        "AllowedOAuthScopes": [
-          "openid",
-          "email",
-          "profile",
-          "aws.cognito.signin.user.admin",
-          "admintonibover-api/admin"
-        ],
-        "CallbackURLs": {
-          "Ref": "CallbackUrls"
-        },
-        "LogoutURLs": {
-          "Ref": "LogoutUrls"
-        },
         "ExplicitAuthFlows": [
           "ALLOW_USER_PASSWORD_AUTH",
           "ALLOW_REFRESH_TOKEN_AUTH"
@@ -529,17 +472,6 @@
           "AccessToken": "minutes",
           "IdToken": "minutes",
           "RefreshToken": "days"
-        }
-      }
-    },
-    "UserPoolDomain": {
-      "Type": "AWS::Cognito::UserPoolDomain",
-      "Properties": {
-        "Domain": {
-          "Ref": "CognitoDomainPrefix"
-        },
-        "UserPoolId": {
-          "Ref": "UserPool"
         }
       }
     },
@@ -1690,12 +1622,6 @@
       "Description": "Public issuer URL used to verify Cognito JWTs.",
       "Value": {
         "Fn::Sub": "https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}"
-      }
-    },
-    "CognitoLoginUrl": {
-      "Description": "Base URL of the Cognito managed-login domain.",
-      "Value": {
-        "Fn::Sub": "https://${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com"
       }
     },
     "TableName": {
