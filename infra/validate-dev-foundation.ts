@@ -484,7 +484,7 @@ export function validateFoundationTemplate(
   );
   requireEqual(
     bucket.VersioningConfiguration,
-    undefined,
+    { Status: 'Enabled' },
     'ContentBucket.VersioningConfiguration',
     issues
   );
@@ -543,7 +543,14 @@ export function validateFoundationTemplate(
           Prefix: 'temporary/',
           Status: 'Enabled',
           ExpirationInDays: 1,
+          NoncurrentVersionExpiration: { NoncurrentDays: 1 },
           AbortIncompleteMultipartUpload: { DaysAfterInitiation: 1 },
+        },
+        {
+          Id: 'ExpirePreviousObjectVersions',
+          Status: 'Enabled',
+          NoncurrentVersionExpiration: { NoncurrentDays: 35 },
+          ExpiredObjectDeleteMarker: true,
         },
       ],
     },
