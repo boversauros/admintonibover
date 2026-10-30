@@ -265,7 +265,7 @@ export function createFoundationTemplate(
                 'Fn::If': ['TableDeletionProtectionEnabled', true, false],
               },
           PointInTimeRecoverySpecification: {
-            PointInTimeRecoveryEnabled: false,
+            PointInTimeRecoveryEnabled: true,
           },
           TimeToLiveSpecification: {
             AttributeName: 'expiresAt',

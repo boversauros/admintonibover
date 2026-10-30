@@ -246,6 +246,11 @@ test('production validation rejects destructive retention or relaxed isolation',
   disabledProtection.Resources.ContentTable.Properties!.DeletionProtectionEnabled = false;
   assert.throws(() => validateProductionFoundationTemplate(disabledProtection));
 
+  const disabledRecovery = createProductionFoundationTemplate();
+  disabledRecovery.Resources.ContentTable.Properties!.PointInTimeRecoverySpecification =
+    { PointInTimeRecoveryEnabled: false };
+  assert.throws(() => validateProductionFoundationTemplate(disabledRecovery));
+
   const hostedLogin = createProductionFoundationTemplate();
   hostedLogin.Resources.UserPoolClient.Properties!.AllowedOAuthFlows = ['code'];
   assert.throws(() => validateProductionFoundationTemplate(hostedLogin));

@@ -426,7 +426,7 @@ export function validateFoundationTemplate(
   );
   requireEqual(
     recovery.PointInTimeRecoveryEnabled,
-    false,
+    true,
     'ContentTable.PointInTimeRecoveryEnabled',
     issues
   );

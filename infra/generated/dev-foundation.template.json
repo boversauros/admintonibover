@@ -178,7 +178,7 @@
           ]
         },
         "PointInTimeRecoverySpecification": {
-          "PointInTimeRecoveryEnabled": false
+          "PointInTimeRecoveryEnabled": true
         },
         "TimeToLiveSpecification": {
           "AttributeName": "expiresAt",
