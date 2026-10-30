@@ -86,8 +86,6 @@ Useful focused commands:
   CloudFormation template and its inline Lambda bundle.
 - `pnpm infra:validate` proves both committed templates match their generators
   and the security/resource contract.
-- `pnpm backup:restore -- --input <backup> --manifest <report>` validates an AWS
-  backup without contacting AWS.
 - `pnpm dev:refresh` previews a one-way copy of production content and images
   into dev; see [Refresh dev from prod](docs/operations.md#refresh-dev-from-prod).
 - `pnpm check:secrets` and `pnpm check:browser-artifacts` enforce the repository
@@ -97,9 +95,9 @@ Useful focused commands:
 
 - `app/` — App Router pages, Cognito endpoints, and same-origin AWS API routes
 - `components/` — the administrator UI
-- `lib/` — authentication, domain rules, AWS adapters, and recovery logic
+- `lib/` — authentication, domain rules, and AWS adapters
 - `infra/` — CloudFormation generators, Lambda entry point, and deploy inputs
-- `scripts/` — deterministic build, validation, and recovery commands
+- `scripts/` — deterministic build, validation, and refresh commands
 - `tests/` — cloud-free contract and behavior tests
 
 ## Canonical documentation

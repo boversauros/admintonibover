@@ -23,7 +23,6 @@
     "reader:validate": "node --import tsx scripts/build-reader-lambda.ts --check",
     "reader:prod:synth": "node --import tsx scripts/synthesize-production-site-reader.ts",
     "reader:prod:validate": "pnpm reader:prod:synth -- --check",
-    "backup:restore": "node --import tsx scripts/restore-dynamodb-backup.ts",
     "dev:refresh": "node --import tsx scripts/refresh-dev-from-prod.ts",
     "infra:synth": "node --import tsx scripts/synthesize-infrastructure.ts",
     "infra:validate": "node --import tsx scripts/synthesize-infrastructure.ts --check",

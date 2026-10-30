@@ -88,8 +88,8 @@ Current state and procedures are in [site-build-reader.md](site-build-reader.md)
 - The 229 historical image records did not include recoverable binaries. S3
   object recovery is separate from the DynamoDB JSON archive.
 - AWS backup v2 excludes transient idempotency and upload-intent records by
-  design and is point-in-time only at download. There is no scheduled backup,
-  continuous cross-Region copy, or DynamoDB PITR in the current cost posture.
+  design and is point-in-time only at download. DynamoDB PITR provides 35 days
+  of continuous restore; there is no cross-Region copy.
 
 ## Repository cleanup audit
 

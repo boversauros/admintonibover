@@ -195,7 +195,8 @@ variables are non-empty and use the deployment prefix.
    the 34-resource production contract or 39-resource development contract
    after the reader rollout.
 2. Verify DynamoDB is active, on-demand, deletion-protected in production,
-   string `PK`/`SK`, with no unexpected indexes, streams, or paid features.
+   PITR-enabled, string `PK`/`SK`, with no unexpected indexes, streams, or paid
+   features.
 3. Verify S3 Block Public Access, owner enforcement, exact CORS, TLS policy,
    encryption, and temporary-upload lifecycle.
 4. Verify Lambda Node.js 24/arm64, 256 MiB, 30-second timeout, 14-day logs, no
@@ -217,77 +218,60 @@ variables are non-empty and use the deployment prefix.
 Trigger: before a release or incident repair, after a meaningful content
 change, and before restoring writes following an outage.
 
+DynamoDB point-in-time recovery (PITR) is the primary recovery path; see
+[Restore rehearsal](#restore-rehearsal). The JSON download is a portable,
+operator-owned copy for anything older than the 35-day PITR window.
+
 1. Sign in and use the admin backup action. Preserve the downloaded file
    unchanged in approved private storage.
 2. Require a filename of
-   `admintonibover-aws-backup-<dev|prod>-<timestamp>.json` and validate it
-   offline without AWS access:
-
-   ```bash
-   pnpm backup:restore -- \
-     --input /absolute/private/path/admintonibover-aws-backup-prod-<timestamp>.json \
-     --manifest .artifacts/backup-validation-private.json
-   ```
-
-3. Require schema v2, normalized UTC export time, environment/filename match,
-   unique keys, exact item/entity/page/exclusion counts, revision, and embedded
-   item digest. Store the archive hash privately.
-4. Remember that JSON excludes transient idempotency/upload-intent items and
+   `admintonibover-aws-backup-<dev|prod>-<timestamp>.json`. The browser already
+   refuses a download whose schema v2 shape, counts, revision, or embedded item
+   digest do not validate. Store the archive hash privately.
+3. Remember that JSON excludes transient idempotency/upload-intent items and
    contains S3 keys but no image objects. Protect the S3 objects separately.
+   There is no automated restore from the JSON archive.
 
 ## Restore rehearsal
 
-Trigger: periodic recovery verification or an explicitly approved incident
-recovery rehearsal. This procedure never targets the active production or
-development table.
+Trigger: acceptance of a PITR change, periodic recovery verification, or an
+explicitly approved incident recovery. A point-in-time restore always creates
+a new table; it never writes to the active production or development table.
 
-Choose a unique `recovery-...` run ID and create exactly one disposable stack:
-
-```bash
-aws cloudformation create-stack \
-  --region eu-west-1 \
-  --stack-name <unique-disposable-stack-name> \
-  --template-body file://infra/backup-recovery-disposable-table.template.json \
-  --parameters \
-    ParameterKey=PurposeConfirmation,ParameterValue=AWS-BACKUP-RESTORE \
-    ParameterKey=RecoveryRunId,ParameterValue=<recovery-run-id> \
-  --tags \
-    Key=Project,Value=admintonibover \
-    Key=Environment,Value=dev \
-    Key=Purpose,Value=AWS-BACKUP-RESTORE \
-    Key=RecoveryRunId,Value=<recovery-run-id> \
-  --on-failure DELETE
-
-aws cloudformation wait stack-create-complete \
-  --region eu-west-1 \
-  --stack-name <unique-disposable-stack-name>
-```
-
-Verify that the stack is `CREATE_COMPLETE` with only one table. Resolve the
-current 12-digit account ID and generated table name privately. The table must
-be active, empty under a strongly consistent scan, on-demand, unprotected,
-string `PK`/`SK`, and carry the exact project/environment/purpose/run tags.
+Confirm the restorable window, then restore into a new, uniquely named table:
 
 ```bash
-pnpm backup:restore -- \
-  --execute \
-  --input /absolute/private/path/admintonibover-aws-backup-prod-<timestamp>.json \
-  --manifest .artifacts/recovery-private.json \
-  --run-id <recovery-run-id> \
-  --account-id <12-digit-account-id> \
+aws dynamodb describe-continuous-backups \
   --region eu-west-1 \
-  --table <generated-disposable-table-name> \
-  --confirmation "RESTORE <recovery-run-id> <account-id>/eu-west-1/<table-name> <manifest-items-sha256>"
+  --table-name <content-table-name>
+
+aws dynamodb restore-table-to-point-in-time \
+  --region eu-west-1 \
+  --source-table-name <content-table-name> \
+  --target-table-name <unique-recovery-table-name> \
+  --restore-date-time <utc-time-inside-the-window> \
+  --billing-mode-override PAY_PER_REQUEST
+
+aws dynamodb wait table-exists \
+  --region eu-west-1 \
+  --table-name <unique-recovery-table-name>
 ```
 
-Require `completed`, exact counts and revisions, equal canonical digests, zero
-missing/mismatched/extra records, and successful representative aggregate/list
-reads. If verification fails, retain the private manifest and do not edit the
-archive or try a shared table.
+Require `PointInTimeRecoveryStatus` `ENABLED` and a restore time between
+`EarliestRestorableDateTime` and `LatestRestorableDateTime`; nothing before
+PITR was enabled can be restored. Use `--use-latest-restorable-time` instead of
+`--restore-date-time` for a rehearsal.
 
-After acceptance, re-read stack parameters, tags, and its sole table resource;
-delete that exact stack, wait for deletion, and independently confirm the stack
-and table are absent. Cleanup is stack deletion, never item-level deletes.
+Verify the copy with `aws dynamodb scan --select COUNT --consistent-read` on
+the restored table and compare it with the expected item count (for a
+rehearsal, the source table). Spot-check the `SYSTEM`/`REVISION` item and a
+representative post with `get-item`.
+
+The restored table is outside CloudFormation and has no tags, TTL, or PITR. For
+an incident, repair only the affected items from it under the approved incident
+plan; never point a stack or the app at it. Afterwards, re-check the exact
+restored table name and delete it with `aws dynamodb delete-table`, then
+confirm it is absent.
 
 ## Refresh dev from prod
 
@@ -479,10 +463,10 @@ Trigger: a release, infrastructure change, or data operation fails acceptance.
    reviewed build. For infrastructure, use a separately reviewed CloudFormation
    change set and reject protected-resource replacement/deletion.
 5. Repair or restore data only into a new verified target under an approved
-   incident plan. The rehearsal command deliberately refuses production.
+   incident plan; see [Restore rehearsal](#restore-rehearsal).
 6. Repeat read-only login, content, image, backup, authorization, logs, and cost
    acceptance before restoring writes.
 
 Bucket versioning is off, so an image deleted after a successful replacement
-is not recoverable from S3. The DynamoDB post revision and private backups are
-the content audit/recovery record.
+is not recoverable from S3. DynamoDB PITR, the post revision, and private
+backups are the content audit/recovery record.

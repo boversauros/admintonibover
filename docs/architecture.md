@@ -17,7 +17,7 @@ flowchart LR
   L --> S[(Private S3 content bucket)]
   N -->|short-lived signed PUT or GET| S
   N -->|validated JSON download| B[Private operator backup]
-  B -->|guarded restore only| R[(Disposable development table)]
+  D -->|PITR restore only| R[(New recovery table)]
   V[Astro site build on Vercel] -->|OIDC role; Invoke only| RL[Read-only build reader Lambda]
   RL -->|published content and image grants| D
   RL --> S
@@ -190,13 +190,10 @@ entity counts, revision, page count, and SHA-256 digest. Lambda validates the
 document; the browser validates it again and binds the filename to environment
 and export time.
 
-Recovery accepts only a new, empty, tagged, on-demand development table with
-the exact string `PK`/`SK` schema. The command requires a confirmation bound to
-the archive digest, run ID, AWS account, Region, and table; production-looking
-targets are refused. Writes use batches of at most 25 with bounded retry of
-unprocessed items, followed by a strong full scan, digest/count/revision
-comparison, and representative repository reads. It never merges into the
-active table or restores S3 objects.
+Recovery uses DynamoDB point-in-time recovery: 35 days of continuous restore,
+always into a new table, never into the active table. The JSON download is a
+portable copy for anything older than that window; there is no automated
+restore from it. Neither path covers S3 image objects.
 
 ## Deployment inputs and validation
 
