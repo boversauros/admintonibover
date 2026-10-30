@@ -286,12 +286,13 @@ precedence over nonnumeric IDs.
 Reader code is packaged as a separate zip, so the templates stay below
 CloudFormation's 1 MB limit. CloudFormation reads it from the **existing**
 private content bucket of the target environment, under a content-addressed
-`deployment/build-reader/<sha256>.zip` key. Buckets have versioning disabled,
-so never overwrite a key: changing the bytes requires a new key and an updated
+`deployment/build-reader/<sha256>.zip` key. Never overwrite a key: changing the
+bytes requires a new key and an updated
 `ReaderCodeObjectKey` parameter, because changing an object in place does not
 make [CloudFormation update the function](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-function-code.html).
-Keep previous code objects through the rollback window; the bucket's only
-expiration rule applies to `temporary/`, not `deployment/`.
+Keep previous code objects through the rollback window. Current objects under
+`deployment/` never expire; lifecycle removes only `temporary/` uploads and
+previous versions older than 35 days.
 
 Lambda uses its [default `COPY` storage mode](https://docs.aws.amazon.com/lambda/latest/dg/configuration-self-managed-storage.html):
 it keeps its own copy of the deployed zip, so a running function does not need

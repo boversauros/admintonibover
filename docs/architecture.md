@@ -193,7 +193,8 @@ and export time.
 Recovery uses DynamoDB point-in-time recovery: 35 days of continuous restore,
 always into a new table, never into the active table. The JSON download is a
 portable copy for anything older than that window; there is no automated
-restore from it. Neither path covers S3 image objects.
+restore from it. Neither path covers S3 image objects; bucket versioning keeps
+each previous object version for 35 days (temporary uploads for one day).
 
 ## Deployment inputs and validation
 

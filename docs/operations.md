@@ -198,7 +198,8 @@ variables are non-empty and use the deployment prefix.
    PITR-enabled, string `PK`/`SK`, with no unexpected indexes, streams, or paid
    features.
 3. Verify S3 Block Public Access, owner enforcement, exact CORS, TLS policy,
-   encryption, and temporary-upload lifecycle.
+   encryption, versioning `Enabled`, and the temporary-upload and
+   previous-version lifecycle rules.
 4. Verify Lambda Node.js 24/arm64, 256 MiB, 30-second timeout, 14-day logs, no
    VPC/reserved/provisioned concurrency, and exact table/bucket IAM scope.
 5. Verify every API route has the Cognito JWT authorizer without a route scope,
@@ -229,7 +230,8 @@ operator-owned copy for anything older than the 35-day PITR window.
    refuses a download whose schema v2 shape, counts, revision, or embedded item
    digest do not validate. Store the archive hash privately.
 3. Remember that JSON excludes transient idempotency/upload-intent items and
-   contains S3 keys but no image objects. Protect the S3 objects separately.
+   contains S3 keys but no image objects. Images rely on S3 versioning; see
+   [Restore a deleted or replaced image](#restore-a-deleted-or-replaced-image).
    There is no automated restore from the JSON archive.
 
 ## Restore rehearsal
@@ -341,6 +343,46 @@ must be replaced or detached.
 5. For cleanup warnings, compare one exact candidate key to the post's current
    key. Delete only a proven unreferenced object under that post/role prefix;
    never bulk-delete `images/`. Leave abandoned temporary uploads to lifecycle.
+
+### Restore a deleted or replaced image
+
+Trigger: an image object was deleted or overwritten by mistake, or a replaced
+image is wanted back, within 35 days. Bucket versioning keeps each previous
+object version for 35 days (temporary uploads for one day). Nothing older, and
+nothing deleted or overwritten before versioning was enabled, can be recovered
+from S3.
+
+List the versions under the exact post/role prefix and pick the wanted
+`VersionId` (a deleted object shows a newer `DeleteMarker`):
+
+```bash
+aws s3api list-object-versions \
+  --region eu-west-1 \
+  --bucket <content-bucket-name> \
+  --prefix images/posts/<post-id>/<role>/
+```
+
+- **The post still references the key** (the object alone is gone or wrong):
+  copy that version back over the same key, then confirm the private preview
+  loads.
+
+  ```bash
+  aws s3api copy-object \
+    --region eu-west-1 \
+    --bucket <content-bucket-name> \
+    --key <exact-key> \
+    --copy-source "<content-bucket-name>/<exact-key>?versionId=<version-id>" \
+    --checksum-algorithm SHA256 \
+    --metadata-directive COPY
+  ```
+
+  Then require `head-object --checksum-mode ENABLED` to return the post's
+  stored SHA-256; a display alone is not proof.
+
+- **The post now references a different image** (a replacement to undo):
+  download that version with `aws s3api get-object --version-id`, then upload
+  it again through the admin as in [Image repair](#image-repair). Never edit
+  the post's image key in DynamoDB by hand.
 
 ## Site rebuilds after content changes
 
@@ -482,6 +524,7 @@ Trigger: a release, infrastructure change, or data operation fails acceptance.
 6. Repeat read-only login, content, image, backup, authorization, logs, and cost
    acceptance before restoring writes.
 
-Bucket versioning is off, so an image deleted after a successful replacement
-is not recoverable from S3. DynamoDB PITR, the post revision, and private
-backups are the content audit/recovery record.
+S3 versioning keeps previous image versions for 35 days; see
+[Restore a deleted or replaced image](#restore-a-deleted-or-replaced-image).
+DynamoDB PITR, the post revision, and private backups are the content
+audit/recovery record.
