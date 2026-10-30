@@ -5,11 +5,7 @@ import test from 'node:test';
 
 import {
   EXACT_ADMIN_ORIGIN_PATTERN,
-  EXACT_CALLBACK_URL_PATTERN,
-  EXACT_LOGOUT_URL_PATTERN,
   EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN,
-  EXACT_PRODUCTION_CALLBACK_URL_PATTERN,
-  EXACT_PRODUCTION_LOGOUT_URL_PATTERN,
   EXPECTED_RESOURCE_TYPE_COUNTS,
   EXPECTED_DEV_RESOURCE_TYPE_COUNTS,
   FOUNDATION_LAMBDA_CODE,
@@ -35,7 +31,7 @@ test('development foundation passes the offline safety contract', () => {
   const template = createDevFoundationTemplate();
   const summary = validateDevFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 41);
+  assert.equal(summary.resourceCount, 39);
   assert.deepEqual(summary.resourceTypes, EXPECTED_DEV_RESOURCE_TYPE_COUNTS);
   assert.deepEqual(template.Resources.ReaderFunction.Properties!.Code, {
     S3Bucket: { Ref: 'ContentBucket' },
@@ -83,7 +79,7 @@ test('production foundation is isolated and retains data-bearing resources', () 
   const template = createProductionFoundationTemplate();
   const summary = validateProductionFoundationTemplate(template);
 
-  assert.equal(summary.resourceCount, 36);
+  assert.equal(summary.resourceCount, 34);
   assert.deepEqual(summary.resourceTypes, EXPECTED_RESOURCE_TYPE_COUNTS);
   assert.deepEqual(template.Parameters.Environment.AllowedValues, ['prod']);
   assert.equal(template.Parameters.EnableTableDeletionProtection, undefined);
@@ -188,7 +184,7 @@ test('committed CloudFormation syntheses are deterministic and current', async (
   }
 });
 
-test('example Cognito URLs use exact callback paths and matching origins', async () => {
+test('development example uses exact admin origins', async () => {
   const parameters = JSON.parse(
     await readFile(
       new URL('../infra/parameters/dev.example.json', import.meta.url),
@@ -201,44 +197,19 @@ test('example Cognito URLs use exact callback paths and matching origins', async
       ParameterValue,
     ])
   );
-  const callbackUrls = parameterValues.CallbackUrls?.split(',') ?? [];
-  const logoutUrls = parameterValues.LogoutUrls?.split(',') ?? [];
   const allowedOrigins = parameterValues.AllowedOrigins?.split(',') ?? [];
   const originPattern = new RegExp(EXACT_ADMIN_ORIGIN_PATTERN);
-  const callbackPattern = new RegExp(EXACT_CALLBACK_URL_PATTERN);
-  const logoutPattern = new RegExp(EXACT_LOGOUT_URL_PATTERN);
 
-  assert.equal(logoutUrls.length, callbackUrls.length);
-  assert.equal(allowedOrigins.length, callbackUrls.length);
-  assert.equal(callbackUrls.length > 0, true);
+  assert.equal(allowedOrigins.length > 0, true);
   assert.equal(
     allowedOrigins.every(value => originPattern.test(value)),
     true
   );
-  assert.equal(
-    callbackUrls.every(value => callbackPattern.test(value)),
-    true
-  );
-  assert.equal(
-    logoutUrls.every(value => logoutPattern.test(value)),
-    true
-  );
-  assert.equal(
-    callbackUrls.every(
-      (value, index) =>
-        new URL(value).pathname === '/auth/callback' &&
-        new URL(value).origin === new URL(logoutUrls[index]).origin &&
-        new URL(logoutUrls[index]).pathname === '/'
-    ),
-    true
-  );
   assert.equal(originPattern.test('https://*.example.com'), false);
   assert.equal(originPattern.test('https://admin.example.com/path'), false);
-  assert.equal(callbackPattern.test('https://admin.example.com/other'), false);
-  assert.equal(logoutPattern.test('https://admin.example.com/*'), false);
 });
 
-test('production example requires HTTPS-only exact matching origins', async () => {
+test('production example requires HTTPS-only exact origins', async () => {
   const parameters = JSON.parse(
     await readFile(
       new URL('../infra/parameters/prod.example.json', import.meta.url),
@@ -252,39 +223,18 @@ test('production example requires HTTPS-only exact matching origins', async () =
     ])
   );
   const allowedOrigins = values.AllowedOrigins?.split(',') ?? [];
-  const callbackUrls = values.CallbackUrls?.split(',') ?? [];
-  const logoutUrls = values.LogoutUrls?.split(',') ?? [];
   const originPattern = new RegExp(EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN);
-  const callbackPattern = new RegExp(EXACT_PRODUCTION_CALLBACK_URL_PATTERN);
-  const logoutPattern = new RegExp(EXACT_PRODUCTION_LOGOUT_URL_PATTERN);
 
   assert.equal(values.Environment, 'prod');
-  assert.equal(allowedOrigins.length, callbackUrls.length);
-  assert.equal(callbackUrls.length, logoutUrls.length);
+  assert.equal(allowedOrigins.length > 0, true);
   assert.equal(
     allowedOrigins.every(value => originPattern.test(value)),
-    true
-  );
-  assert.equal(
-    callbackUrls.every(value => callbackPattern.test(value)),
-    true
-  );
-  assert.equal(
-    logoutUrls.every(value => logoutPattern.test(value)),
     true
   );
   assert.equal(originPattern.test('http://localhost:3000'), false);
   assert.equal(originPattern.test('https://localhost:3000'), false);
   assert.equal(originPattern.test('https://127.0.0.1'), false);
   assert.equal(originPattern.test('https://*.example.com'), false);
-  assert.equal(
-    callbackUrls.every(
-      (value, index) =>
-        new URL(value).pathname === '/auth/callback' &&
-        new URL(value).origin === new URL(logoutUrls[index]).origin
-    ),
-    true
-  );
 });
 
 test('production validation rejects destructive retention or relaxed isolation', () => {
@@ -295,6 +245,10 @@ test('production validation rejects destructive retention or relaxed isolation',
   const disabledProtection = createProductionFoundationTemplate();
   disabledProtection.Resources.ContentTable.Properties!.DeletionProtectionEnabled = false;
   assert.throws(() => validateProductionFoundationTemplate(disabledProtection));
+
+  const hostedLogin = createProductionFoundationTemplate();
+  hostedLogin.Resources.UserPoolClient.Properties!.AllowedOAuthFlows = ['code'];
+  assert.throws(() => validateProductionFoundationTemplate(hostedLogin));
 
   const developmentEnvironment = createProductionFoundationTemplate();
   developmentEnvironment.Parameters.Environment.AllowedValues = ['dev'];

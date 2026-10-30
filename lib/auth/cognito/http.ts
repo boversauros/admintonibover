@@ -1,9 +1,5 @@
 import type { CognitoConfig } from './config';
 
-export function getApplicationOrigin(config: CognitoConfig): string {
-  return new URL(config.callbackUrl).origin;
-}
-
 export function safeReturnTo(
   candidate: string | null,
   config: CognitoConfig
@@ -11,7 +7,7 @@ export function safeReturnTo(
   if (!candidate) return '/';
 
   try {
-    const applicationOrigin = getApplicationOrigin(config);
+    const applicationOrigin = config.appOrigin;
     const resolved = new URL(candidate, `${applicationOrigin}/`);
     if (
       resolved.origin !== applicationOrigin ||
@@ -31,7 +27,7 @@ export function isSameOriginMutation(
   config: CognitoConfig
 ): boolean {
   const origin = request.headers.get('origin');
-  if (origin !== getApplicationOrigin(config)) return false;
+  if (origin !== config.appOrigin) return false;
 
   const fetchSite = request.headers.get('sec-fetch-site');
   return fetchSite === null || fetchSite === 'same-origin';
@@ -45,13 +41,4 @@ export function isJsonRequest(request: Request): boolean {
       .trim()
       .toLowerCase() === 'application/json'
   );
-}
-
-export function buildManagedLogoutUrl(config: CognitoConfig): string {
-  const managedLogout = new URL('/logout', `${config.loginUrl}/`);
-  managedLogout.search = new URLSearchParams({
-    client_id: config.clientId,
-    logout_uri: config.logoutUrl,
-  }).toString();
-  return managedLogout.toString();
 }

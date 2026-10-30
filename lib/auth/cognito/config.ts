@@ -2,16 +2,11 @@ import { getCognitoSessionKey } from './seal';
 
 export type CognitoConfig = {
   apiUrl: string;
-  callbackUrl: string;
+  appOrigin: string;
   clientId: string;
-  hostedAdminScope: string;
   issuer: string;
-  loginUrl: string;
-  logoutUrl: string;
   region: string;
 };
-
-const REQUIRED_SCOPE = 'admintonibover-api/admin';
 
 function cognitoRegion(issuer: string): string {
   const hostname = new URL(issuer).hostname;
@@ -46,7 +41,7 @@ function requireHttpsUrl(name: string): string {
   return url.toString().replace(/\/$/, '');
 }
 
-function requireCallbackUrl(name: string): string {
+function requireApplicationOrigin(name: string): string {
   const value = requireEnvironmentValue(name);
   const url = new URL(value);
   const isLocalhost =
@@ -63,43 +58,25 @@ function requireCallbackUrl(name: string): string {
     value.includes('*') ||
     url.username !== '' ||
     url.password !== '' ||
+    url.pathname !== '/' ||
     url.search !== '' ||
     url.hash !== ''
   ) {
-    throw new Error(`${name} must not contain credentials, a query, or a hash`);
+    throw new Error(`${name} must be a bare origin without a path or wildcard`);
   }
 
-  return url.toString();
+  return url.origin;
 }
 
 export function getCognitoConfig(): CognitoConfig {
   const issuer = requireHttpsUrl('AWS_COGNITO_ISSUER');
   const config = {
     apiUrl: requireHttpsUrl('AWS_ADMIN_API_URL'),
-    callbackUrl: requireCallbackUrl('AWS_COGNITO_CALLBACK_URL'),
+    appOrigin: requireApplicationOrigin('ADMIN_APP_ORIGIN'),
     clientId: requireEnvironmentValue('AWS_COGNITO_CLIENT_ID'),
-    hostedAdminScope: REQUIRED_SCOPE,
     issuer,
-    loginUrl: requireHttpsUrl('AWS_COGNITO_LOGIN_URL'),
-    logoutUrl: requireCallbackUrl('AWS_COGNITO_LOGOUT_URL'),
     region: cognitoRegion(issuer),
   };
-
-  if (new URL(config.callbackUrl).pathname !== '/auth/callback') {
-    throw new Error(
-      'AWS_COGNITO_CALLBACK_URL must use the exact /auth/callback path'
-    );
-  }
-  if (new URL(config.callbackUrl).origin !== new URL(config.logoutUrl).origin) {
-    throw new Error(
-      'AWS_COGNITO_CALLBACK_URL and AWS_COGNITO_LOGOUT_URL must share an origin'
-    );
-  }
-  if (new URL(config.logoutUrl).pathname !== '/') {
-    throw new Error(
-      'AWS_COGNITO_LOGOUT_URL must use the exact application root'
-    );
-  }
   getCognitoSessionKey();
 
   return config;

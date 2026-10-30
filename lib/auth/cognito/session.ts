@@ -12,7 +12,7 @@ import {
   accessTokenNeedsRefresh,
   verifyCognitoSession,
   type VerifiedCognitoSession,
-} from './oauth';
+} from './tokens';
 import { refreshCognitoTokens, verifyCognitoTokenActive } from './user-pool';
 
 export type CognitoSessionResult = VerifiedCognitoSession & {

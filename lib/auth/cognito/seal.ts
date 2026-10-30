@@ -9,7 +9,6 @@ const SESSION_SECRET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 export type CognitoCookiePurpose =
   | 'access-token'
   | 'identity-token'
-  | 'oauth-request'
   | 'new-password-challenge'
   | 'refresh-token';
 

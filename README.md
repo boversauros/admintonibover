@@ -23,13 +23,11 @@ pnpm install --frozen-lockfile
 Create an ignored `.env.local` with the development stack outputs:
 
 ```env
+ADMIN_APP_ORIGIN=http://localhost:3000
 ADMIN_CSP_MODE=enforce
 AWS_ADMIN_API_URL=<ApiUrl>
 AWS_COGNITO_CLIENT_ID=<UserPoolClientId>
 AWS_COGNITO_ISSUER=<UserPoolIssuer>
-AWS_COGNITO_LOGIN_URL=<CognitoLoginUrl>
-AWS_COGNITO_CALLBACK_URL=http://localhost:3000/auth/callback
-AWS_COGNITO_LOGOUT_URL=http://localhost:3000/
 AWS_COGNITO_SESSION_SECRET=<base64url-encoded-32-byte-secret>
 AWS_CONTENT_BUCKET_ORIGIN=https://<BucketName>.s3.eu-west-1.amazonaws.com
 ```
@@ -41,9 +39,9 @@ Sign in on the application page with an invited account's email and password.
 On first sign-in, enter the temporary password and set a permanent password
 (14+ characters with uppercase, lowercase, number, and symbol). **Forgot
 password?** sends a recovery code to a verified email; confirmation also stays
-inside the application. There is no self-registration. The Cognito login URL
-and callback settings remain configured only for the existing rollout fallback
-until the new flow has been verified against the deployed user pool.
+inside the application. There is no self-registration and no hosted Cognito
+login page. `ADMIN_APP_ORIGIN` is the exact origin the browser uses; requests
+that change state must come from it.
 
 A super-administrator can open **Usuaris** from the avatar menu to see current
 accounts, invite an editor, resend a pending invitation, request password

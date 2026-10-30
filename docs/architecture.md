@@ -10,7 +10,7 @@ migration decisions are intentionally kept in
 ```mermaid
 flowchart LR
   A[Private super-admin and editors] -->|HTTPS| N[Next.js admin on Vercel]
-  N -->|User-pool API; transitional hosted fallback| C[Amazon Cognito]
+  N -->|User-pool API| C[Amazon Cognito]
   N -->|server-held access token| G[API Gateway HTTP API]
   G -->|JWT authorizer| L[Lambda group authorization]
   L --> D[(DynamoDB content table)]
@@ -56,9 +56,6 @@ Authentication route handlers are dynamic and uncached:
 - `POST /auth/new-password` completes the invitation challenge and issues the
   same session cookies. `POST /auth/forgot-password` and
   `POST /auth/confirm-password` provide in-app recovery with generic outcomes.
-- `GET /auth/login` and `GET /auth/callback` remain as a transitional operator
-  fallback until the replacement is verified in a deployed environment; the
-  application UI does not link to them.
 - `GET /auth/session` returns only the subject, verified email, normalized group
   memberships, and access expiry; it also rotates refreshed cookies.
 - `POST /auth/logout` requires the same origin, revokes the refresh token,
@@ -94,13 +91,11 @@ triggers the site's Vercel Deploy Hook and reports the outcome in
 
 ## Authentication and authorization
 
-Cognito self-sign-up is disabled. The public client has no secret, supports
-Authorization Code with PKCE for the transitional fallback, and permits
-`USER_PASSWORD_AUTH` plus refresh-token authentication for the in-app flow.
-The `super-admins` and `editors` groups can perform content operations; only
-`super-admins` are eligible for user-management operations. The legacy
-`admintonibover-api/admin` scope remains available to the hosted login during
-the transition but is not an authorization requirement.
+Cognito self-sign-up is disabled. The public client has no secret, no OAuth
+flows and no managed-login domain; it permits only `USER_PASSWORD_AUTH` plus
+refresh-token authentication for the in-app flow. The `super-admins` and
+`editors` groups can perform content operations; only `super-admins` are
+eligible for user-management operations.
 
 User administration is enforced in the Lambda after JWT validation. The
 browser-facing Next.js routes hold no AWS credentials. The Lambda role grants

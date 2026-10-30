@@ -32,12 +32,9 @@ import {
 
 const config: CognitoConfig = {
   apiUrl: 'https://api.example.invalid',
-  callbackUrl: 'https://admin.example.invalid/auth/callback',
+  appOrigin: 'https://admin.example.invalid',
   clientId: 'public-client',
-  hostedAdminScope: 'admintonibover-api/admin',
   issuer: 'https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_example',
-  loginUrl: 'https://login.example.invalid',
-  logoutUrl: 'https://admin.example.invalid/',
   region: 'eu-west-1',
 };
 

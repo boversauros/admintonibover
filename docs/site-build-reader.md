@@ -17,7 +17,7 @@ back. The decisions that led here are in
 The `tonibover/dev` Preview reads published production content through the
 production reader. The public site stays on its existing release until the
 owner accepts that Preview and site #16 cuts it over. The development
-foundation template has 41 resources; the production foundation stays at 36
+foundation template has 39 resources; the production foundation stays at 34
 and contains no reader, role, or OIDC provider.
 
 The development foundation adds the reader Lambda, its execution role, a

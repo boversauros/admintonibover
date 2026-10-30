@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import type { CognitoConfig } from './config';
 import {
-  clearCognitoTransientCookies,
+  clearNewPasswordChallengeCookie,
   clearCognitoSessionCookies,
   readNewPasswordChallengeCookie,
   setCognitoSessionCookies,
@@ -10,7 +10,7 @@ import {
   type CognitoTokenSet,
 } from './cookies';
 import { isJsonRequest, isSameOriginMutation, safeReturnTo } from './http';
-import { verifyCognitoSession } from './oauth';
+import { verifyCognitoSession } from './tokens';
 import {
   completeNewPasswordChallenge,
   confirmCognitoPasswordReset,
@@ -133,7 +133,7 @@ async function authenticated(
     returnTo: safeReturnTo(returnTo, config),
   });
   await setCognitoSessionCookies(response, tokens);
-  clearCognitoTransientCookies(response);
+  clearNewPasswordChallengeCookie(response);
   return response;
 }
 
