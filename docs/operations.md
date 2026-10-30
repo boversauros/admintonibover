@@ -192,7 +192,7 @@ variables are non-empty and use the deployment prefix.
 ### Post-deployment verification
 
 1. Verify stack status, drift, outputs, tags, protected-resource retention, and
-   the 36-resource production contract or 41-resource development contract
+   the 34-resource production contract or 39-resource development contract
    after the reader rollout.
 2. Verify DynamoDB is active, on-demand, deletion-protected in production,
    string `PK`/`SK`, with no unexpected indexes, streams, or paid features.
