@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
+import { ADMIN_API_VERSION } from '@/lib/api/adminContract';
 import { getCognitoConfig } from '@/lib/auth/cognito/config';
 import {
   clearCognitoSessionCookies,
@@ -15,6 +16,7 @@ import {
 } from '@/lib/site-rebuild';
 
 export const MAX_PROXY_BODY_BYTES = 256 * 1024;
+const UPSTREAM_TIMEOUT_MS = 12_000;
 const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
 
 class RequestBodyTooLargeError extends Error {}
@@ -72,7 +74,7 @@ function jsonError(
   requestId: string
 ): NextResponse {
   return NextResponse.json(
-    { version: 1, error: { code, message }, requestId },
+    { version: ADMIN_API_VERSION, error: { code, message }, requestId },
     {
       status,
       headers: {
@@ -83,10 +85,108 @@ function jsonError(
   );
 }
 
+export type AdminApiMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+
+const FORWARDED_RESPONSE_HEADERS = [
+  'content-disposition',
+  'etag',
+  'retry-after',
+] as const;
+
+/**
+ * Sends one request to the AWS admin API and returns its answer unchanged.
+ * The Lambda validates input and the browser validates output, so nothing is
+ * parsed here. Reads forward the caller's query string as is.
+ */
+export async function forwardToAdminApi({
+  accessToken,
+  apiUrl,
+  body,
+  fetchImplementation = fetch,
+  method,
+  path,
+  request,
+  requestId,
+  siteRebuild,
+}: {
+  accessToken: string;
+  apiUrl: string;
+  body?: string;
+  fetchImplementation?: typeof fetch;
+  method: AdminApiMethod;
+  path: string;
+  request: NextRequest;
+  requestId: string;
+  siteRebuild?: SiteRebuildPolicy;
+}): Promise<NextResponse> {
+  const url = new URL(apiUrl);
+  url.pathname = `${url.pathname.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+  if (method === 'GET') url.search = request.nextUrl.search;
+  const idempotencyKey = request.headers.get('idempotency-key');
+  const expectedVersion = request.headers.get('if-match');
+
+  let upstream: Response;
+  let responseBody: string;
+  try {
+    upstream = await fetchImplementation(url, {
+      method,
+      body,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      headers: {
+        accept: 'application/json',
+        authorization: `Bearer ${accessToken}`,
+        'x-correlation-id': requestId,
+        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+        ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}),
+        ...(expectedVersion ? { 'if-match': expectedVersion } : {}),
+      },
+    });
+    responseBody = await upstream.text();
+  } catch (error) {
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      return jsonError(
+        504,
+        'UPSTREAM_TIMEOUT',
+        'The AWS admin API timed out',
+        requestId
+      );
+    }
+    return jsonError(
+      502,
+      'UPSTREAM_UNAVAILABLE',
+      'The AWS admin API is unavailable',
+      requestId
+    );
+  }
+
+  // The AWS write has committed; the hook outcome is reported beside it.
+  const rebuild = await siteRebuildForMutation(
+    siteRebuild,
+    { ok: upstream.ok, body: responseBody },
+    `${method} ${path}`
+  );
+  const headers = new Headers({
+    'cache-control': 'no-store',
+    'content-type': 'application/json',
+    'x-correlation-id': upstream.headers.get('x-correlation-id') ?? requestId,
+  });
+  for (const name of FORWARDED_RESPONSE_HEADERS) {
+    const value = upstream.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  if (rebuild) headers.set(SITE_REBUILD_HEADER, rebuild);
+  return new NextResponse(responseBody, { status: upstream.status, headers });
+}
+
+/**
+ * The one way the browser reaches the AWS admin API: checks the same-origin
+ * and body rules, attaches the signed-in user's token, and forwards.
+ */
 export async function proxyAwsAdminApi(
   request: NextRequest,
   path: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: AdminApiMethod,
   { siteRebuild }: { siteRebuild?: SiteRebuildPolicy } = {}
 ): Promise<Response> {
   const requestId = correlationId(request);
@@ -152,68 +252,20 @@ export async function proxyAwsAdminApi(
     }
   }
 
-  try {
-    const apiUrl = new URL(config.apiUrl);
-    const [pathname, search] = path.split('?', 2);
-    apiUrl.pathname = `${apiUrl.pathname.replace(/\/$/, '')}/${pathname.replace(/^\//, '')}`;
-    if (search) apiUrl.search = search;
-    const idempotencyKey = request.headers.get('idempotency-key');
-    const expectedVersion = request.headers.get('if-match');
-    const upstream = await fetch(apiUrl, {
-      method,
-      body,
-      cache: 'no-store',
-      signal: AbortSignal.timeout(12_000),
-      headers: {
-        accept: 'application/json',
-        authorization: `Bearer ${session.accessToken}`,
-        'x-correlation-id': requestId,
-        ...(hasJsonBody ? { 'content-type': 'application/json' } : {}),
-        ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}),
-        ...(expectedVersion ? { 'if-match': expectedVersion } : {}),
-      },
-    });
-    const responseBody = await upstream.text();
-    // The AWS write has committed; the hook outcome is reported beside it.
-    const rebuild = await siteRebuildForMutation(
-      siteRebuild,
-      { ok: upstream.ok, body: responseBody },
-      `${method} ${path.split('?', 1)[0]}`
-    );
-    const response = new NextResponse(responseBody, {
-      status: upstream.status,
-      headers: {
-        'cache-control': 'no-store',
-        'content-type': 'application/json',
-        'x-correlation-id':
-          upstream.headers.get('x-correlation-id') ?? requestId,
-        ...(upstream.headers.get('etag')
-          ? { etag: upstream.headers.get('etag') ?? '' }
-          : {}),
-        ...(upstream.headers.get('retry-after')
-          ? { 'retry-after': upstream.headers.get('retry-after') ?? '' }
-          : {}),
-        ...(upstream.headers.get('content-disposition')
-          ? {
-              'content-disposition':
-                upstream.headers.get('content-disposition') ?? '',
-            }
-          : {}),
-        ...(rebuild ? { [SITE_REBUILD_HEADER]: rebuild } : {}),
-      },
-    });
-    if (upstream.status === 401) {
-      clearCognitoSessionCookies(response);
-    } else if (session.refreshedTokens) {
-      await setCognitoSessionCookies(response, session.refreshedTokens);
-    }
-    return response;
-  } catch {
-    return jsonError(
-      502,
-      'UPSTREAM_UNAVAILABLE',
-      'The AWS admin API is unavailable',
-      requestId
-    );
+  const response = await forwardToAdminApi({
+    accessToken: session.accessToken,
+    apiUrl: config.apiUrl,
+    body,
+    method,
+    path,
+    request,
+    requestId,
+    siteRebuild,
+  });
+  if (response.status === 401) {
+    clearCognitoSessionCookies(response);
+  } else if (session.refreshedTokens) {
+    await setCognitoSessionCookies(response, session.refreshedTokens);
   }
+  return response;
 }

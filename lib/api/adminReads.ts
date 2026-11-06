@@ -6,6 +6,8 @@ import {
   type ImageInventoryStatus,
 } from '@/lib/domain/media/contracts';
 import type { Post } from '@/lib/domain/posts/types';
+import { redirectIfSessionExpired } from '@/lib/auth/client-session';
+
 import {
   parseAdminApiErrorEnvelope,
   parseCategoriesEnvelope,
@@ -14,9 +16,8 @@ import {
   parsePostListEnvelope,
   type AdminApiSuccessEnvelope,
   type AdminPostListItem,
-} from '@/lib/aws/admin-read-contract';
-
-import { redirectIfSessionExpired } from '../auth/client-session';
+  type EnvelopeParser,
+} from './adminContract';
 
 export const AWS_ADMIN_POST_PAGE_LIMIT = 50;
 
@@ -88,8 +89,6 @@ export class AdminReadError extends Error {
     this.name = 'AdminReadError';
   }
 }
-
-type EnvelopeParser<T> = (value: unknown) => AdminApiSuccessEnvelope<T>;
 
 function friendlyErrorMessage(status: number, fallback: string): string {
   if (status === 401) return 'La sessió ha caducat. Torna a iniciar sessió.';

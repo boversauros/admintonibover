@@ -1,14 +1,9 @@
 import { NextRequest } from 'next/server';
 
-import { handleAwsAdminRead } from '@/lib/aws/admin-read-route';
+import { proxyAwsAdminApi } from '@/lib/aws/admin-api-proxy';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest): Promise<Response> {
-  const language = request.nextUrl.searchParams.get('language');
-  return handleAwsAdminRead(request, client =>
-    client.listKeywords(
-      language === 'ca' || language === 'en' ? language : undefined
-    )
-  );
+  return proxyAwsAdminApi(request, 'keywords', 'GET');
 }
