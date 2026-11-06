@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
   AdminMutationError,
-  buildAwsPost,
   countAdminPosts,
   countDraftPosts,
   createAwsPost,
@@ -15,7 +14,6 @@ import {
   uploadAwsPostImage,
 } from '../lib/api/adminMutations';
 import type { Post } from '../lib/domain/posts/types';
-import type { StoredPost } from '../lib/types/post';
 
 const NOW = '2026-08-22T10:00:00.000Z';
 
@@ -72,52 +70,6 @@ function postFixture(): Post {
   };
 }
 
-function storedFixture(post = postFixture()): StoredPost {
-  return {
-    id: post.id,
-    user_id: '',
-    category_id: post.category.id,
-    sort_order: post.sortOrder,
-    thumbnail_id: null,
-    image_id: post.mainImage?.key ?? null,
-    is_published: post.published,
-    date: post.date,
-    author: post.author,
-    created_at: post.createdAt,
-    updated_at: post.updatedAt,
-    version: post.version,
-    aws_post: post,
-    translations: {
-      ca: {
-        language: 'ca',
-        post_id: post.id,
-        title: 'Títol actualitzat',
-        content: 'Contingut actualitzat',
-        slug: 'titol-actualitzat',
-        keywords: ['filosofia', 'arquitectura'],
-        references: [
-          {
-            id: 'reference-ca',
-            type: 'text',
-            reference: 'Font catalana',
-            blockquote: 'Cita actualitzada',
-            sort_order: 0,
-          },
-        ],
-      },
-      en: {
-        language: 'en',
-        post_id: post.id,
-        title: post.translations.en.title,
-        content: post.translations.en.content,
-        slug: post.translations.en.slug,
-        keywords: ['philosophy'],
-        references: [],
-      },
-    },
-  };
-}
-
 function postEnvelope(post: Post, replayed = false): Record<string, unknown> {
   return {
     version: 1,
@@ -125,52 +77,6 @@ function postEnvelope(post: Post, replayed = false): Record<string, unknown> {
     requestId: 'request-1',
   };
 }
-
-test('AWS post adapter preserves canonical IDs, images, migration state, and every editable field', () => {
-  const current = postFixture();
-  const stored = storedFixture(current);
-  const adapted = buildAwsPost(stored, {
-    categorySlug: 'reflexions',
-    now: '2026-08-22T11:00:00.000Z',
-  });
-
-  assert.equal(adapted.id, current.id);
-  assert.deepEqual(adapted.category, current.category);
-  assert.equal(adapted.version, 7);
-  assert.equal(adapted.published, false);
-  assert.deepEqual(adapted.mainImage, current.mainImage);
-  assert.deepEqual(adapted.migration, current.migration);
-  assert.equal(adapted.translations.ca.id, 'translation-ca');
-  assert.equal(adapted.translations.ca.keywords[0]?.id, 'keyword-ca');
-  assert.equal(adapted.translations.ca.keywords[1]?.value, 'arquitectura');
-  assert.match(
-    adapted.translations.ca.keywords[1]?.id ?? '',
-    /^keyword-ca-[0-9a-f-]{36}$/
-  );
-  assert.equal(adapted.translations.ca.references[0]?.id, 'reference-ca');
-  assert.equal(adapted.translations.ca.title, 'Títol actualitzat');
-  assert.equal(adapted.translations.ca.content, 'Contingut actualitzat');
-  assert.equal(adapted.translations.ca.slug, 'titol-actualitzat');
-});
-
-test('new AWS posts are constructed as drafts with null images before upload', () => {
-  const stored = storedFixture();
-  delete stored.aws_post;
-  stored.id = '';
-  stored.image_id = null;
-  const created = buildAwsPost(stored, {
-    categorySlug: 'reflexions',
-    postId: 'post-new',
-    published: false,
-    now: NOW,
-  });
-
-  assert.equal(created.id, 'post-new');
-  assert.equal(created.published, false);
-  assert.equal(created.mainImage, null);
-  assert.equal(created.thumbImage, null);
-  assert.equal(created.migration, null);
-});
 
 test('create retries a transient gateway failure with the same idempotency key', async () => {
   const post = postFixture();

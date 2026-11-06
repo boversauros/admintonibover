@@ -1,13 +1,14 @@
 import { Controller, useFormContext } from 'react-hook-form';
 import { ReferencesInput } from './ReferencesInput';
-import { Language } from '@/lib/types/post';
+import type { PostLanguage } from '@/lib/domain/posts/types';
+import type { PostFormValues } from '@/lib/forms/postForm';
 
 interface ReferencesSectionProps {
-  language: Language;
+  language: PostLanguage;
 }
 
 export function ReferencesSection({ language }: ReferencesSectionProps) {
-  const { control } = useFormContext();
+  const { control } = useFormContext<PostFormValues>();
 
   const fieldName = `translations.${language}.references` as const;
 
@@ -17,7 +18,7 @@ export function ReferencesSection({ language }: ReferencesSectionProps) {
       name={fieldName}
       control={control}
       render={({ field }) => (
-        <ReferencesInput value={field.value || []} onChange={field.onChange} />
+        <ReferencesInput value={field.value} onChange={field.onChange} />
       )}
     />
   );

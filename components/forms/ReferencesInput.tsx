@@ -1,11 +1,11 @@
 'use client';
 
-import { Reference } from '@/lib/types/post';
+import { newPostFormId, type PostFormReference } from '@/lib/forms/postForm';
 import { Icon, Input, Select, Textarea, Button } from '@/components/ui';
 
 interface ReferencesInputProps {
-  value: Reference[];
-  onChange: (references: Reference[]) => void;
+  value: PostFormReference[];
+  onChange: (references: PostFormReference[]) => void;
 }
 
 const referenceTypeOptions = [
@@ -15,20 +15,20 @@ const referenceTypeOptions = [
 
 export function ReferencesInput({ value, onChange }: ReferencesInputProps) {
   const handleAdd = () => {
-    const newRef: Reference = {
-      id: `ref-${Date.now()}`,
+    const newRef: PostFormReference = {
+      id: newPostFormId('reference'),
       type: 'text',
       reference: '',
       blockquote: '',
-      sort_order: value.length,
+      sortOrder: value.length,
     };
     onChange([...value, newRef]);
   };
 
-  const handleUpdate = <Field extends keyof Reference>(
+  const handleUpdate = <Field extends keyof PostFormReference>(
     id: string,
     field: Field,
-    newValue: Reference[Field]
+    newValue: PostFormReference[Field]
   ) => {
     onChange(
       value.map(ref => (ref.id === id ? { ...ref, [field]: newValue } : ref))

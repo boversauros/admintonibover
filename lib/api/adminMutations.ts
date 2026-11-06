@@ -15,20 +15,12 @@ import {
   type PresignedImageUpload,
 } from '@/lib/domain/media/contracts';
 import { validateUploadDescriptor } from '@/lib/domain/media/validation';
-import type {
-  Post,
-  PostImage,
-  PostLanguage,
-  PostReference,
-  PostTranslation,
-} from '@/lib/domain/posts/types';
-import type { StoredPost } from '@/lib/types/post';
+import type { Post, PostImage } from '@/lib/domain/posts/types';
 
 import { AWS_ADMIN_POST_PAGE_LIMIT, getAdminPostsPage } from './adminReads';
 import { reportSiteRebuild } from './siteRebuild';
 
 const RETRYABLE_GATEWAY_STATUSES = new Set([502, 503, 504]);
-const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const MAX_BULK_POSTS = 100;
 
 type AwsMutationMethod = 'POST' | 'PUT' | 'DELETE';
@@ -443,88 +435,6 @@ function parseConfirmedEnvelope(
       replayed: booleanValue(confirmed.replayed, 'response.data.replayed'),
     };
   });
-}
-
-function generatedId(prefix: string): string {
-  return `${prefix}-${crypto.randomUUID()}`;
-}
-
-function retainedId(value: string | undefined, prefix: string): string {
-  return value && SAFE_ID_PATTERN.test(value) ? value : generatedId(prefix);
-}
-
-function buildTranslation(
-  language: PostLanguage,
-  stored: StoredPost['translations'][PostLanguage],
-  current?: PostTranslation
-): PostTranslation {
-  return {
-    id: retainedId(current?.id, `translation-${language}`),
-    title: stored.title,
-    content: stored.content,
-    slug: stored.slug,
-    keywords: stored.keywords.map(value => ({
-      id: retainedId(
-        current?.keywords.find(keyword => keyword.value === value)?.id,
-        `keyword-${language}`
-      ),
-      value,
-    })),
-    references: stored.references.map(
-      (reference, index): PostReference => ({
-        id: retainedId(reference.id, `reference-${language}`),
-        type: reference.type,
-        reference: reference.reference,
-        ...(reference.blockquote ? { blockquote: reference.blockquote } : {}),
-        sortOrder: Number.isSafeInteger(reference.sort_order)
-          ? reference.sort_order
-          : index,
-      })
-    ),
-    translationStatus: 'complete',
-  };
-}
-
-export function buildAwsPost(
-  stored: StoredPost,
-  options: {
-    categorySlug: string;
-    now?: string;
-    postId?: string;
-    published?: boolean;
-  }
-): Post {
-  const current = stored.aws_post;
-  const now = options.now ?? new Date().toISOString();
-  return {
-    id: current?.id ?? options.postId ?? generatedId('post'),
-    category: {
-      id: stored.category_id,
-      slug: options.categorySlug,
-    },
-    sortOrder: Number.isSafeInteger(stored.sort_order) ? stored.sort_order : 0,
-    published: options.published ?? current?.published ?? stored.is_published,
-    date: stored.date,
-    author: stored.author,
-    createdAt: current?.createdAt ?? now,
-    updatedAt: now,
-    translations: {
-      ca: buildTranslation(
-        'ca',
-        stored.translations.ca,
-        current?.translations.ca
-      ),
-      en: buildTranslation(
-        'en',
-        stored.translations.en,
-        current?.translations.en
-      ),
-    },
-    mainImage: current?.mainImage ?? null,
-    thumbImage: current?.thumbImage ?? null,
-    version: current?.version ?? stored.version ?? 1,
-    migration: current?.migration ?? null,
-  };
 }
 
 export function mutationKey(scope: string): string {

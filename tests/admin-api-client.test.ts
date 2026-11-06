@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  adaptAwsPost,
   getAdminCategories,
   getAdminImageInventory,
   getAdminPostsPage,
@@ -15,7 +14,7 @@ import type {
   AdminPostListPage,
 } from '../lib/aws/admin-read-contract';
 import { parseAdminPostListSearchParams } from '../lib/aws/admin-post-list-query';
-import type { Post, PostImage } from '../lib/domain/posts/types';
+import type { PostImage } from '../lib/domain/posts/types';
 
 const NOW = '2026-08-22T10:00:00.000Z';
 const ACCESS_TOKEN = 'private-access-token-that-must-not-leak';
@@ -48,50 +47,6 @@ function listItem(id: string, sortOrder: number): AdminPostListItem {
     mainImage: null,
     thumbImage: null,
     thumbPreviewUrl: null,
-  };
-}
-
-function postFixture(withImages: boolean): Post {
-  return {
-    id: 'post-1',
-    category: { id: 'category-1', slug: 'reflexions' },
-    sortOrder: 4,
-    published: true,
-    date: '2026-08-22',
-    author: 'Toni Bover',
-    createdAt: NOW,
-    updatedAt: NOW,
-    translations: {
-      ca: {
-        id: 'translation-ca',
-        title: 'Una reflexió',
-        content: 'Contingut complet',
-        slug: 'una-reflexio',
-        keywords: [{ id: 'keyword-ca', value: 'filosofia' }],
-        references: [
-          {
-            id: 'reference-ca',
-            type: 'text',
-            reference: 'Una font',
-            sortOrder: 0,
-          },
-        ],
-        translationStatus: 'complete',
-      },
-      en: {
-        id: 'translation-en',
-        title: 'A reflection',
-        content: 'Complete content',
-        slug: 'a-reflection',
-        keywords: [{ id: 'keyword-en', value: 'philosophy' }],
-        references: [],
-        translationStatus: 'complete',
-      },
-    },
-    mainImage: withImages ? image('main') : null,
-    thumbImage: withImages ? image('thumb') : null,
-    version: 3,
-    migration: null,
   };
 }
 
@@ -464,31 +419,4 @@ test('malformed success responses fail closed with a correlation id', async () =
   assert.equal(result.envelope.error.code, 'INVALID_UPSTREAM_RESPONSE');
   assert.equal(result.envelope.requestId, 'gateway-request');
   assert.doesNotMatch(JSON.stringify(result), /unexpected|content/);
-});
-
-test('detail adapter preserves canonical fields and never fabricates image URLs', () => {
-  const withImages = adaptAwsPost(postFixture(true));
-  assert.equal(withImages.id, 'post-1');
-  assert.equal(withImages.category_id, 'category-1');
-  assert.equal(withImages.version, 3);
-  assert.equal(withImages.image_id, 'images/post-1/main.webp');
-  assert.equal(withImages.image?.key, 'images/post-1/main.webp');
-  assert.equal(withImages.image?.url, undefined);
-  assert.equal(withImages.thumbnail?.url, undefined);
-  assert.deepEqual(withImages.translations.ca.keywords, ['filosofia']);
-  assert.deepEqual(withImages.translations.ca.references, [
-    {
-      id: 'reference-ca',
-      type: 'text',
-      reference: 'Una font',
-      blockquote: '',
-      sort_order: 0,
-    },
-  ]);
-
-  const withoutImages = adaptAwsPost(postFixture(false));
-  assert.equal(withoutImages.image, null);
-  assert.equal(withoutImages.thumbnail, null);
-  assert.equal(withoutImages.image_id, null);
-  assert.equal(withoutImages.thumbnail_id, null);
 });

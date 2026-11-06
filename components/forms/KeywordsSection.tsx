@@ -1,9 +1,10 @@
 import { Controller, useFormContext } from 'react-hook-form';
 import { KeywordsInput } from './KeywordsInput';
-import { Language } from '@/lib/types/post';
+import type { PostLanguage } from '@/lib/domain/posts/types';
+import type { PostFormValues } from '@/lib/forms/postForm';
 
 interface KeywordsSectionProps {
-  language: Language;
+  language: PostLanguage;
   suggestions?: string[];
   isLoading?: boolean;
 }
@@ -13,7 +14,7 @@ export function KeywordsSection({
   suggestions = [],
   isLoading = false,
 }: KeywordsSectionProps) {
-  const { control } = useFormContext();
+  const { control } = useFormContext<PostFormValues>();
 
   const fieldName = `translations.${language}.keywords` as const;
 
@@ -24,7 +25,7 @@ export function KeywordsSection({
       control={control}
       render={({ field }) => (
         <KeywordsInput
-          value={field.value || []}
+          value={field.value}
           onChange={field.onChange}
           language={language}
           suggestions={isLoading ? [] : suggestions}
