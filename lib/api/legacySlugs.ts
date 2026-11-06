@@ -263,7 +263,7 @@ export const legacySlugDependencies: LegacySlugDependencies = {
     return ids;
   },
   async getPost(id) {
-    return (await paced(() => getAdminPostById(id)))?.aws_post ?? null;
+    return paced(() => getAdminPostById(id));
   },
   updatePost(post, expectedVersion, idempotencyKey) {
     return paced(() => updateAwsPost(post, expectedVersion, idempotencyKey));

@@ -1,16 +1,17 @@
 import { useFormContext } from 'react-hook-form';
-import { Language, type PostFormData } from '@/lib/types/post';
+import type { PostLanguage } from '@/lib/domain/posts/types';
+import type { PostFormValues } from '@/lib/forms/postForm';
 import { Input, Textarea } from '@/components/ui';
 
 interface TranslationSectionProps {
-  language: Language;
+  language: PostLanguage;
 }
 
 export function TranslationSection({ language }: TranslationSectionProps) {
   const {
     register,
     formState: { errors },
-  } = useFormContext<PostFormData>();
+  } = useFormContext<PostFormValues>();
 
   const titleField = `translations.${language}.title` as const;
   const contentField = `translations.${language}.content` as const;

@@ -16,12 +16,10 @@ import {
 } from 'react-hook-form';
 import { Button, Select, Input, Modal, Text } from '@/components/ui';
 import { useKeywords } from '@/lib/hooks/useKeywords';
-import { PostFormData, StoredPost, Language } from '@/lib/types/post';
 import { slugify } from '@/lib/utils/slugify';
 import { isLegacyNumericSlug } from '@/lib/domain/posts/public-slugs';
 import {
   AdminMutationError,
-  buildAwsPost,
   countAdminPosts,
   createAwsPost,
   detachAwsPostImage,
@@ -30,12 +28,13 @@ import {
   updateAwsPost,
   uploadAwsPostImage,
 } from '@/lib/api/adminMutations';
+import { getAdminCategories, type AdminCategory } from '@/lib/api/adminReads';
+import type { Post, PostLanguage } from '@/lib/domain/posts/types';
 import {
-  adaptAwsPost,
-  getAdminCategories,
-  type AdminCategory,
-} from '@/lib/api/adminReads';
-import type { Post } from '@/lib/domain/posts/types';
+  postFormValues,
+  postFromForm,
+  type PostFormValues,
+} from '@/lib/forms/postForm';
 import type { ImagePreview, ImageRole } from '@/lib/domain/media/contracts';
 import {
   postFormWithSlugsResolver,
@@ -51,28 +50,16 @@ import { TranslationStatusPanel } from './TranslationStatusPanel';
 import { PublicationStatusPanel } from './PublicationStatusPanel';
 import { CollapsibleSection } from './CollapsibleSection';
 
-function convertToMarkdownParagraphs(content: string): string {
-  return content.trim().replace(/\n+/g, '\n\n');
+function fileSummary(file: File | null) {
+  return file ? { name: file.name, size: file.size, type: file.type } : null;
 }
 
-function recoveryDraft(data: PostFormData): string {
+function recoveryDraft(data: PostFormValues): string {
   return JSON.stringify(
     {
       ...data,
-      thumbnail_file: data.thumbnail_file
-        ? {
-            name: data.thumbnail_file.name,
-            size: data.thumbnail_file.size,
-            type: data.thumbnail_file.type,
-          }
-        : null,
-      main_image_file: data.main_image_file
-        ? {
-            name: data.main_image_file.name,
-            size: data.main_image_file.size,
-            type: data.main_image_file.type,
-          }
-        : null,
+      mainImageFile: fileSummary(data.mainImageFile),
+      thumbImageFile: fileSummary(data.thumbImageFile),
     },
     null,
     2
@@ -86,7 +73,7 @@ type ConflictState = {
 };
 
 interface PostFormProps {
-  initialData?: StoredPost;
+  initialData?: Post;
   onSuccess?: () => void;
   readOnly?: boolean;
 }
@@ -102,40 +89,34 @@ export function PostForm({
     error: keywordsError,
     refetch: refetchKeywords,
   } = useKeywords();
-  const [activeLanguage, setActiveLanguage] = useState<Language>('ca');
+  const [activeLanguage, setActiveLanguage] = useState<PostLanguage>('ca');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [categoryRetry, setCategoryRetry] = useState(0);
   const [savedAwsPost, setSavedAwsPost] = useState<Post | null>(
-    initialData?.aws_post ?? null
+    initialData ?? null
   );
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ConflictState | null>(null);
   const [recoveryCopied, setRecoveryCopied] = useState(false);
   const [newAwsPostId, setNewAwsPostId] = useState<string | null>(null);
-  const [existingThumbnailId, setExistingThumbnailId] = useState<string | null>(
-    initialData?.thumbnail_id || null
-  );
-  const [existingMainImageId, setExistingMainImageId] = useState<string | null>(
-    initialData?.image_id || null
-  );
   const [awsMainImage, setAwsMainImage] = useState<ImagePreview | null>(() =>
-    initialData?.aws_post?.mainImage
+    initialData?.mainImage
       ? {
-          image: initialData.aws_post.mainImage,
-          previewUrl: initialData.image?.url ?? null,
+          image: initialData.mainImage,
+          previewUrl: null,
           previewExpiresAt: null,
         }
       : null
   );
   const [awsThumbnailImage, setAwsThumbnailImage] =
     useState<ImagePreview | null>(() =>
-      initialData?.aws_post?.thumbImage
+      initialData?.thumbImage
         ? {
-            image: initialData.aws_post.thumbImage,
-            previewUrl: initialData.thumbnail?.url ?? null,
+            image: initialData.thumbImage,
+            previewUrl: null,
             previewExpiresAt: null,
           }
         : null
@@ -178,8 +159,6 @@ export function PostForm({
       const thumb = inspection.images.thumb;
       setAwsMainImage(main);
       setAwsThumbnailImage(thumb);
-      setExistingMainImageId(main?.image.key ?? null);
-      setExistingThumbnailId(thumb?.image.key ?? null);
       setSavedAwsPost(current =>
         current
           ? {
@@ -221,7 +200,7 @@ export function PostForm({
   useEffect(() => {
     categorySlugsRef.current = categories.map(category => category.slug);
   }, [categories]);
-  const methods = useForm<PostFormData, PostFormSlugContext>({
+  const methods = useForm<PostFormValues, PostFormSlugContext>({
     resolver: (values, context, options) =>
       postFormWithSlugsResolver(
         values,
@@ -233,63 +212,7 @@ export function PostForm({
         options
       ),
     context: { requireCompleteTranslations: true },
-    defaultValues: initialData
-      ? {
-          category_id: initialData.category_id,
-          sort_order: initialData.sort_order ?? 0,
-          date: initialData.date,
-          author: initialData.author,
-          thumbnail_file: null,
-          main_image_file: null,
-          main_image_alt: initialData?.image?.alt || '',
-          is_published: initialData.is_published,
-          translations: {
-            ca: {
-              language: 'ca',
-              title: initialData.translations.ca.title,
-              content: initialData.translations.ca.content,
-              slug: initialData.translations.ca.slug,
-              keywords: initialData.translations.ca.keywords,
-              references: initialData.translations.ca.references,
-            },
-            en: {
-              language: 'en',
-              title: initialData.translations.en.title,
-              content: initialData.translations.en.content,
-              slug: initialData.translations.en.slug,
-              keywords: initialData.translations.en.keywords,
-              references: initialData.translations.en.references,
-            },
-          },
-        }
-      : {
-          category_id: '',
-          sort_order: 0,
-          date: '',
-          author: '',
-          thumbnail_file: null,
-          main_image_file: null,
-          main_image_alt: '',
-          is_published: false,
-          translations: {
-            ca: {
-              language: 'ca',
-              title: '',
-              content: '',
-              slug: '',
-              keywords: [],
-              references: [],
-            },
-            en: {
-              language: 'en',
-              title: '',
-              content: '',
-              slug: '',
-              keywords: [],
-              references: [],
-            },
-          },
-        },
+    defaultValues: postFormValues(initialData),
     mode: 'onSubmit',
     reValidateMode: 'onBlur',
     shouldFocusError: false,
@@ -309,7 +232,7 @@ export function PostForm({
     if (initialData || readOnly) return;
     const controller = new AbortController();
     void countAdminPosts(controller.signal)
-      .then(count => setValue('sort_order', count + 1))
+      .then(count => setValue('sortOrder', count + 1))
       .catch(error => {
         if (error instanceof Error && error.name === 'AbortError') return;
         setSubmissionError('No s’ha pogut calcular l’ordre inicial.');
@@ -326,12 +249,12 @@ export function PostForm({
       'translations.en.title',
       'translations.ca.slug',
       'translations.en.slug',
-      'is_published',
+      'published',
     ],
   });
   const [mainImageFile, thumbnailFile] = useWatch({
     control: methods.control,
-    name: ['main_image_file', 'thumbnail_file'],
+    name: ['mainImageFile', 'thumbImageFile'],
   });
   const previousAutoSlugCA = useRef(
     initialData ? slugify(initialData.translations.ca.title) : ''
@@ -368,54 +291,10 @@ export function PostForm({
     }
   }, [setValue, slugEN, titleEN]);
 
-  function formStoredPost(
-    data: PostFormData,
-    base: StoredPost | undefined,
-    now: string,
-    slugs: { ca: string; en: string }
-  ): StoredPost {
-    const postId = base?.id ?? '';
-    return {
-      id: postId,
-      user_id: base?.user_id ?? '',
-      category_id: data.category_id,
-      sort_order:
-        typeof data.sort_order === 'number' && Number.isFinite(data.sort_order)
-          ? data.sort_order
-          : 0,
-      thumbnail_id: base?.thumbnail_id ?? existingThumbnailId,
-      thumbnail: base?.thumbnail,
-      image_id: base?.image_id ?? existingMainImageId,
-      image: base?.image,
-      is_published: data.is_published,
-      date: base?.date ?? now.split('T')[0],
-      author: base?.author ?? (data.author || 'Admin'),
-      created_at: base?.created_at ?? now,
-      updated_at: now,
-      version: base?.version,
-      aws_post: base?.aws_post,
-      translations: {
-        ca: {
-          ...data.translations.ca,
-          content: convertToMarkdownParagraphs(data.translations.ca.content),
-          slug: slugs.ca,
-          post_id: postId,
-        },
-        en: {
-          ...data.translations.en,
-          content: convertToMarkdownParagraphs(data.translations.en.content),
-          slug: slugs.en,
-          post_id: postId,
-        },
-      },
-    };
-  }
-
-  async function submitAws(data: PostFormData): Promise<void> {
+  async function submitAws(data: PostFormValues): Promise<void> {
     const now = new Date().toISOString();
-    const current = savedAwsPost ?? initialData?.aws_post;
-    const base = current ? adaptAwsPost(current) : initialData;
-    const category = categories.find(item => item.id === data.category_id);
+    const current = savedAwsPost ?? initialData;
+    const category = categories.find(item => item.id === data.categoryId);
     if (!category) {
       throw new AdminMutationError(
         'Selecciona una categoria vàlida abans de desar.',
@@ -423,33 +302,22 @@ export function PostForm({
         'INVALID_CATEGORY'
       );
     }
-    const storedPost = formStoredPost(data, base, now, {
-      ca: data.translations.ca.slug,
-      en: data.translations.en.slug,
-    });
     const stablePostId = newAwsPostId ?? `post-${crypto.randomUUID()}`;
     if (!newAwsPostId) setNewAwsPostId(stablePostId);
-    let canonical = buildAwsPost(storedPost, {
-      categorySlug: category.slug,
+    let canonical = postFromForm(data, {
+      category,
+      current,
       postId: stablePostId,
-      published: current?.published ?? false,
       now,
     });
-    // The alt text is saved with the post, independently of the image file.
-    const mainImageAlt = data.main_image_alt ?? '';
-    if (canonical.mainImage) {
-      canonical = {
-        ...canonical,
-        mainImage: { ...canonical.mainImage, alt: mainImageAlt },
-      };
-    }
+    const mainImageAlt = data.mainImageAlt;
 
     let altNotSaved = false;
     if (current) {
       canonical = await updateAwsPost(canonical, current.version);
       // An old admin Lambda silently keeps the stored alt; surface that.
       altNotSaved =
-        !data.main_image_file &&
+        !data.mainImageFile &&
         !pendingRemoval.main &&
         canonical.mainImage !== null &&
         canonical.mainImage.alt !== mainImageAlt;
@@ -472,7 +340,7 @@ export function PostForm({
       'El text ja està desat. Si una imatge falla, podràs tornar a desar des d’aquest article.'
     );
 
-    if (!data.is_published && canonical.published) {
+    if (!data.published && canonical.published) {
       canonical = await setAwsPostPublication(
         canonical.id,
         canonical.version,
@@ -483,12 +351,12 @@ export function PostForm({
 
     const postTitle =
       data.translations.ca.title || data.translations.en.title || 'post';
-    if (data.main_image_file) {
+    if (data.mainImageFile) {
       const confirmed = await uploadAwsPostImage({
         postId: canonical.id,
         postVersion: canonical.version,
         role: 'main',
-        file: data.main_image_file,
+        file: data.mainImageFile,
         title: 'Post Main Image',
         alt: mainImageAlt,
       });
@@ -500,17 +368,16 @@ export function PostForm({
       };
       setSavedAwsPost(canonical);
       setAwsMainImage(confirmed.image);
-      setExistingMainImageId(confirmed.image.image.key);
-      setValue('main_image_file', null);
+      setValue('mainImageFile', null);
       setPendingRemoval(state => ({ ...state, main: false }));
     }
 
-    if (data.thumbnail_file) {
+    if (data.thumbImageFile) {
       const confirmed = await uploadAwsPostImage({
         postId: canonical.id,
         postVersion: canonical.version,
         role: 'thumb',
-        file: data.thumbnail_file,
+        file: data.thumbImageFile,
         title: 'Post Thumbnail',
         alt: `Miniatura per a ${postTitle}`,
       });
@@ -522,8 +389,7 @@ export function PostForm({
       };
       setSavedAwsPost(canonical);
       setAwsThumbnailImage(confirmed.image);
-      setExistingThumbnailId(confirmed.image.image.key);
-      setValue('thumbnail_file', null);
+      setValue('thumbImageFile', null);
       setPendingRemoval(state => ({ ...state, thumb: false }));
     }
 
@@ -541,17 +407,12 @@ export function PostForm({
         version: detached.postVersion,
       };
       setSavedAwsPost(canonical);
-      if (role === 'main') {
-        setAwsMainImage(null);
-        setExistingMainImageId(null);
-      } else {
-        setAwsThumbnailImage(null);
-        setExistingThumbnailId(null);
-      }
+      if (role === 'main') setAwsMainImage(null);
+      else setAwsThumbnailImage(null);
       setPendingRemoval(state => ({ ...state, [role]: false }));
     }
 
-    if (data.is_published && !canonical.published) {
+    if (data.published && !canonical.published) {
       canonical = await setAwsPostPublication(
         canonical.id,
         canonical.version,
@@ -569,7 +430,7 @@ export function PostForm({
     }
   }
 
-  const onSubmit = async (data: PostFormData, event?: BaseSyntheticEvent) => {
+  const onSubmit = async (data: PostFormValues, event?: BaseSyntheticEvent) => {
     const form =
       event?.currentTarget instanceof HTMLFormElement
         ? event.currentTarget
@@ -607,7 +468,7 @@ export function PostForm({
     }
   };
 
-  const onInvalid: SubmitErrorHandler<PostFormData> = validationErrors => {
+  const onInvalid: SubmitErrorHandler<PostFormValues> = validationErrors => {
     const caErrors = validationErrors.translations?.ca;
     const enErrors = validationErrors.translations?.en;
     const language = caErrors ? 'ca' : enErrors ? 'en' : null;
@@ -622,8 +483,8 @@ export function PostForm({
       window.requestAnimationFrame(() =>
         setFocus(`translations.${language}.${field}`)
       );
-    } else if (validationErrors.category_id) {
-      setFocus('category_id');
+    } else if (validationErrors.categoryId) {
+      setFocus('categoryId');
     }
 
     setSubmissionError(
@@ -637,11 +498,11 @@ export function PostForm({
   }));
 
   const handlePublishToggle = (checked: boolean) => {
-    setValue('is_published', checked);
+    setValue('published', checked);
   };
 
   const handleImageSelect = (role: ImageRole, file: File | null) => {
-    setValue(role === 'main' ? 'main_image_file' : 'thumbnail_file', file);
+    setValue(role === 'main' ? 'mainImageFile' : 'thumbImageFile', file);
     setPendingRemoval(state => ({ ...state, [role]: false }));
   };
 
@@ -649,7 +510,7 @@ export function PostForm({
   // it to be detached on save so the slot ends up empty.
   const handleImageRemove = (role: ImageRole) => {
     const hasSaved = role === 'main' ? !!awsMainImage : !!awsThumbnailImage;
-    setValue(role === 'main' ? 'main_image_file' : 'thumbnail_file', null);
+    setValue(role === 'main' ? 'mainImageFile' : 'thumbImageFile', null);
     setPendingRemoval(state => ({ ...state, [role]: hasSaved }));
   };
 
@@ -803,7 +664,7 @@ export function PostForm({
                   step={1}
                   helperText="Nombre més baix = més amunt al lloc públic (ordenació ascendent)"
                   className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
-                  {...register('sort_order', { valueAsNumber: true })}
+                  {...register('sortOrder', { valueAsNumber: true })}
                 />
 
                 {/* Publication Status Panel */}
@@ -822,18 +683,18 @@ export function PostForm({
                   savedUrl={awsMainImage?.previewUrl ?? null}
                   removalPending={pendingRemoval.main}
                   disabled={readOnly || isSubmitting}
-                  error={errors.main_image_file?.message as string}
+                  error={errors.mainImageFile?.message as string}
                   onSelect={file => handleImageSelect('main', file)}
                   onRemove={() => handleImageRemove('main')}
                   onUndoRemove={() => handleImageSelect('main', null)}
                   onPreviewError={() => void refreshAwsMedia()}
                 />
                 <Input
-                  {...register('main_image_alt')}
+                  {...register('mainImageAlt')}
                   label="Text alternatiu de la imatge destacada"
                   placeholder="Descriu la imatge per a l'accessibilitat"
                   helperText="Es mostra sota la imatge a l’article publicat. Es desa amb l’article."
-                  error={errors.main_image_alt?.message as string}
+                  error={errors.mainImageAlt?.message as string}
                 />
 
                 {/* Thumbnail */}
@@ -846,7 +707,7 @@ export function PostForm({
                   savedUrl={awsThumbnailImage?.previewUrl ?? null}
                   removalPending={pendingRemoval.thumb}
                   disabled={readOnly || isSubmitting}
-                  error={errors.thumbnail_file?.message as string}
+                  error={errors.thumbImageFile?.message as string}
                   onSelect={file => handleImageSelect('thumb', file)}
                   onRemove={() => handleImageRemove('thumb')}
                   onUndoRemove={() => handleImageSelect('thumb', null)}
@@ -860,7 +721,7 @@ export function PostForm({
                   </label>
                   <Controller
                     control={control}
-                    name="category_id"
+                    name="categoryId"
                     render={({ field, fieldState }) => (
                       <Select
                         {...field}

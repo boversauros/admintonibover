@@ -7,13 +7,13 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { PostForm } from '@/components/forms/PostForm';
 import { Badge, Button, Container, Heading, Text, Link } from '@/components/ui';
 import { AdminReadError, getAdminPostById } from '@/lib/api/adminReads';
-import type { StoredPost } from '@/lib/types/post';
+import type { Post } from '@/lib/domain/posts/types';
 
 type EditLoadState =
   | { status: 'loading' }
   | { status: 'not-found' }
   | { status: 'error'; error: AdminReadError }
-  | { status: 'ready'; post: StoredPost };
+  | { status: 'ready'; post: Post };
 
 function EditReflexionContent() {
   const params = useParams<{ id: string }>();

@@ -1,7 +1,8 @@
 import type { FieldErrors, Resolver } from 'react-hook-form';
 
 import { isReservedPostSlug } from '@/lib/domain/posts/public-slugs';
-import type { Language, PostFormData } from '@/lib/types/post';
+import type { PostLanguage } from '@/lib/domain/posts/types';
+import type { PostFormValues } from '@/lib/forms/postForm';
 
 import { postFormResolver, type PostFormValidationContext } from './postSchema';
 
@@ -12,18 +13,18 @@ export type PostFormSlugContext = PostFormValidationContext & {
   categorySlugs?: readonly string[];
 };
 
-const LANGUAGE_LABELS: Record<Language, string> = {
+const LANGUAGE_LABELS: Record<PostLanguage, string> = {
   ca: 'català',
   en: 'anglès',
 };
 
 /** Title errors for slugs that a public-site listing page would hide. */
 export function validatePostSlugs(
-  values: PostFormData,
+  values: PostFormValues,
   categorySlugs: readonly string[]
-): FieldErrors<PostFormData> {
+): FieldErrors<PostFormValues> {
   const translations: Partial<
-    Record<Language, { title: { type: string; message: string } }>
+    Record<PostLanguage, { title: { type: string; message: string } }>
   > = {};
   for (const language of ['ca', 'en'] as const) {
     const { slug } = values.translations[language];
@@ -40,13 +41,13 @@ export function validatePostSlugs(
 }
 
 export const postFormWithSlugsResolver: Resolver<
-  PostFormData,
+  PostFormValues,
   PostFormSlugContext
 > = async (values, context, options) => {
   const result = await postFormResolver(values, context, options);
   const slugErrors = validatePostSlugs(values, context?.categorySlugs ?? []);
   if (!slugErrors.translations) return result;
-  const errors = result.errors as FieldErrors<PostFormData>;
+  const errors = result.errors as FieldErrors<PostFormValues>;
   return {
     values: {},
     errors: {

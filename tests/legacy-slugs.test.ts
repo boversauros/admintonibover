@@ -16,7 +16,7 @@ import {
   isReservedPostSlug,
 } from '../lib/domain/posts/public-slugs';
 import type { Post } from '../lib/domain/posts/types';
-import type { PostFormData } from '../lib/types/post';
+import { postFormValues } from '../lib/forms/postForm';
 import { validatePostSlugs } from '../lib/validation/postSlugRules';
 
 const NOW = '2026-08-22T10:00:00.000Z';
@@ -245,30 +245,19 @@ test('bulk publication counts only drafts that still need a new slug', async () 
 });
 
 test('the form rejects a title whose slug is a site listing address', () => {
-  const values: PostFormData = {
-    category_id: '1',
-    sort_order: 1,
-    date: '2026-08-26',
-    author: 'Admin',
-    is_published: false,
-    translations: {
-      ca: {
-        language: 'ca',
-        title: 'Vivències',
-        content: 'Contingut',
-        slug: 'vivencies',
-        keywords: [],
-        references: [],
-      },
-      en: {
-        language: 'en',
-        title: 'Index',
-        content: 'Content',
-        slug: 'index',
-        keywords: [],
-        references: [],
-      },
-    },
+  const values = postFormValues();
+  values.categoryId = '1';
+  values.translations.ca = {
+    ...values.translations.ca,
+    title: 'Vivències',
+    content: 'Contingut',
+    slug: 'vivencies',
+  };
+  values.translations.en = {
+    ...values.translations.en,
+    title: 'Index',
+    content: 'Content',
+    slug: 'index',
   };
   const errors = validatePostSlugs(values, CATEGORIES);
   assert.match(

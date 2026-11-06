@@ -5,7 +5,7 @@ import {
   type ImageInventoryCounts,
   type ImageInventoryStatus,
 } from '@/lib/domain/media/contracts';
-import type { Post, PostImage } from '@/lib/domain/posts/types';
+import type { Post } from '@/lib/domain/posts/types';
 import {
   parseAdminApiErrorEnvelope,
   parseCategoriesEnvelope,
@@ -15,7 +15,6 @@ import {
   type AdminApiSuccessEnvelope,
   type AdminPostListItem,
 } from '@/lib/aws/admin-read-contract';
-import type { StoredPost } from '@/lib/types/post';
 
 import { redirectIfSessionExpired } from '../auth/client-session';
 
@@ -205,70 +204,6 @@ function awsSummary(post: AdminPostListItem): AdminPostSummary {
   };
 }
 
-function awsImage(image: PostImage | null): StoredPost['image'] {
-  if (!image) return null;
-  return {
-    id: image.key,
-    key: image.key,
-    title: image.title,
-    alt: image.alt,
-    created_at: image.createdAt,
-    updated_at: image.updatedAt,
-  };
-}
-
-export function adaptAwsPost(post: Post): StoredPost {
-  return {
-    id: post.id,
-    user_id: '',
-    category_id: post.category.id,
-    sort_order: post.sortOrder,
-    thumbnail_id: post.thumbImage?.key ?? null,
-    thumbnail: awsImage(post.thumbImage),
-    image_id: post.mainImage?.key ?? null,
-    image: awsImage(post.mainImage),
-    is_published: post.published,
-    date: post.date,
-    author: post.author,
-    created_at: post.createdAt,
-    updated_at: post.updatedAt,
-    version: post.version,
-    aws_post: structuredClone(post),
-    translations: {
-      ca: {
-        language: 'ca',
-        post_id: post.id,
-        title: post.translations.ca.title,
-        content: post.translations.ca.content,
-        slug: post.translations.ca.slug,
-        keywords: post.translations.ca.keywords.map(keyword => keyword.value),
-        references: post.translations.ca.references.map(reference => ({
-          id: reference.id,
-          type: reference.type,
-          reference: reference.reference,
-          blockquote: reference.blockquote ?? '',
-          sort_order: reference.sortOrder,
-        })),
-      },
-      en: {
-        language: 'en',
-        post_id: post.id,
-        title: post.translations.en.title,
-        content: post.translations.en.content,
-        slug: post.translations.en.slug,
-        keywords: post.translations.en.keywords.map(keyword => keyword.value),
-        references: post.translations.en.references.map(reference => ({
-          id: reference.id,
-          type: reference.type,
-          reference: reference.reference,
-          blockquote: reference.blockquote ?? '',
-          sort_order: reference.sortOrder,
-        })),
-      },
-    },
-  };
-}
-
 export async function getAdminPostsPage(
   options: AdminPostListOptions
 ): Promise<AdminPostPage> {
@@ -334,14 +269,14 @@ export async function getAdminImageInventory(
 export async function getAdminPostById(
   postId: string,
   signal?: AbortSignal
-): Promise<StoredPost | null> {
+): Promise<Post | null> {
   try {
     const response = await requestAwsRead(
       `/api/aws/posts/${encodeURIComponent(postId)}`,
       parsePostDetailEnvelope,
       signal
     );
-    return adaptAwsPost(response.data.post);
+    return response.data.post;
   } catch (error) {
     if (error instanceof AdminReadError && error.status === 404) return null;
     throw error;

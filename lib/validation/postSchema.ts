@@ -1,6 +1,7 @@
 import type { FieldError, FieldErrors, Resolver } from 'react-hook-form';
 
-import type { Language, PostFormData, PostTranslation } from '@/lib/types/post';
+import type { PostLanguage } from '@/lib/domain/posts/types';
+import type { PostFormTranslation, PostFormValues } from '@/lib/forms/postForm';
 
 export const POST_LIMITS = {
   title: 200,
@@ -21,7 +22,7 @@ export type PostFormValidationContext = {
   requireCompleteTranslations: boolean;
 };
 
-const LANGUAGE_LABELS: Record<Language, string> = {
+const LANGUAGE_LABELS: Record<PostLanguage, string> = {
   ca: 'català',
   en: 'anglès',
 };
@@ -31,8 +32,8 @@ function fieldError(type: string, message: string): FieldError {
 }
 
 function validateTranslation(
-  language: Language,
-  translation: PostTranslation
+  language: PostLanguage,
+  translation: PostFormTranslation
 ): TranslationFieldErrors {
   const errors: TranslationFieldErrors = {};
   const languageLabel = LANGUAGE_LABELS[language];
@@ -65,13 +66,13 @@ function validateTranslation(
 }
 
 export function validatePostForm(
-  values: PostFormData,
+  values: PostFormValues,
   context: PostFormValidationContext
-): FieldErrors<PostFormData> {
-  const errors: FieldErrors<PostFormData> = {};
+): FieldErrors<PostFormValues> {
+  const errors: FieldErrors<PostFormValues> = {};
 
-  if (values.category_id.length === 0) {
-    errors.category_id = fieldError('required', 'Selecciona una categoria.');
+  if (values.categoryId.length === 0) {
+    errors.categoryId = fieldError('required', 'Selecciona una categoria.');
   }
 
   if (context.requireCompleteTranslations) {
@@ -89,7 +90,7 @@ export function validatePostForm(
 }
 
 export const postFormResolver: Resolver<
-  PostFormData,
+  PostFormValues,
   PostFormValidationContext
 > = async (values, context) => {
   const errors = validatePostForm(values, {

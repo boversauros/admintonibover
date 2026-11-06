@@ -1,12 +1,12 @@
 'use client';
 
-import { Language } from '@/lib/types/post';
+import type { PostLanguage } from '@/lib/domain/posts/types';
 import { Button } from '@/components/ui/Button';
 import { Text } from '@/components/ui/Text';
 
 interface LanguageTabsProps {
-  active: Language;
-  onChange: (language: Language) => void;
+  active: PostLanguage;
+  onChange: (language: PostLanguage) => void;
   hasCAContent?: boolean;
   hasENContent?: boolean;
 }

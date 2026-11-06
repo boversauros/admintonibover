@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
-import { Language } from '@/lib/types/post';
+import type { PostKeyword, PostLanguage } from '@/lib/domain/posts/types';
+import { newPostFormId } from '@/lib/forms/postForm';
 import { Icon, Text, Button, Input } from '@/components/ui';
 
 interface KeywordsInputProps {
-  value: string[];
-  onChange: (keywords: string[]) => void;
+  value: PostKeyword[];
+  onChange: (keywords: PostKeyword[]) => void;
   label?: string;
   placeholder?: string;
-  language?: Language;
+  language?: PostLanguage;
   suggestions?: string[];
 }
 
@@ -37,8 +38,9 @@ export function KeywordsInput({
         : 'Add more...';
 
   // Filter suggestions based on input and already selected keywords
+  const selected = new Set(value.map(keyword => keyword.value.toLowerCase()));
   const filteredSuggestions = suggestions
-    .filter(kw => !value.includes(kw))
+    .filter(kw => !selected.has(kw.toLowerCase()))
     .filter(
       kw =>
         inputValue === '' || kw.toLowerCase().includes(inputValue.toLowerCase())
@@ -49,17 +51,17 @@ export function KeywordsInput({
     const trimmed = keyword.trim();
     const lowercaseTrimmed = trimmed.toLowerCase();
 
-    if (
-      trimmed &&
-      !value.map(k => k.toLowerCase()).includes(lowercaseTrimmed)
-    ) {
-      onChange([...value, trimmed]);
+    if (trimmed && !selected.has(lowercaseTrimmed)) {
+      onChange([
+        ...value,
+        { id: newPostFormId(`keyword-${language}`), value: trimmed },
+      ]);
       setInputValue('');
     }
   };
 
-  const handleRemove = (keyword: string) => {
-    onChange(value.filter(k => k !== keyword));
+  const handleRemove = (id: string) => {
+    onChange(value.filter(keyword => keyword.id !== id));
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -106,19 +108,19 @@ export function KeywordsInput({
         {/* Selected keywords */}
         {value.length > 0 && (
           <div className="flex flex-wrap gap-2 p-3 pb-0">
-            {value.map((kw, i) => (
+            {value.map(kw => (
               <Text
-                key={i}
+                key={kw.id}
                 as="span"
                 variant="small"
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-overlay-5 border border-strong text-primary/80"
               >
-                {kw}
+                {kw.value}
                 <Button
                   type="button"
                   variant="icon"
                   size="icon"
-                  onClick={() => handleRemove(kw)}
+                  onClick={() => handleRemove(kw.id)}
                   className="text-primary/40 hover:text-danger transition-colors h-auto w-auto p-0"
                 >
                   <Icon name="x" />

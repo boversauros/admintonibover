@@ -1,35 +1,26 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { PostFormData } from '../lib/types/post';
+import { postFormValues, type PostFormValues } from '../lib/forms/postForm';
 import { validatePostForm } from '../lib/validation/postSchema';
 
-function formData(): PostFormData {
-  return {
-    category_id: '1',
-    sort_order: 1,
-    date: '2026-08-26',
-    author: 'Admin',
-    is_published: false,
-    translations: {
-      ca: {
-        language: 'ca',
-        title: 'Títol en català',
-        content: 'Contingut en català',
-        slug: 'titol-en-catala',
-        keywords: [],
-        references: [],
-      },
-      en: {
-        language: 'en',
-        title: 'English title',
-        content: 'English content',
-        slug: 'english-title',
-        keywords: [],
-        references: [],
-      },
-    },
+function formData(): PostFormValues {
+  const values = postFormValues();
+  values.categoryId = '1';
+  values.sortOrder = 1;
+  values.translations.ca = {
+    ...values.translations.ca,
+    title: 'Títol en català',
+    content: 'Contingut en català',
+    slug: 'titol-en-catala',
   };
+  values.translations.en = {
+    ...values.translations.en,
+    title: 'English title',
+    content: 'English content',
+    slug: 'english-title',
+  };
+  return values;
 }
 
 test('post form validation accepts a complete bilingual post', () => {
@@ -59,13 +50,13 @@ test('post form validation identifies the missing translation before AWS submit'
 
 test('post form validation enforces the category and server title limit', () => {
   const values = formData();
-  values.category_id = '';
+  values.categoryId = '';
   values.translations.ca.title = 'a'.repeat(201);
 
   const errors = validatePostForm(values, {
     requireCompleteTranslations: true,
   });
-  assert.equal(errors.category_id?.message, 'Selecciona una categoria.');
+  assert.equal(errors.categoryId?.message, 'Selecciona una categoria.');
   assert.match(
     String(errors.translations?.ca?.title?.message),
     /no pot superar els 200 caràcters/
