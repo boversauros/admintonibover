@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 
-import { handleAwsAdminRead } from '@/lib/aws/admin-read-route';
 import { proxyAwsAdminApi } from '@/lib/aws/admin-api-proxy';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +13,7 @@ export async function GET(
   { params }: RouteContext
 ): Promise<Response> {
   const { id } = await params;
-  return handleAwsAdminRead(request, client => client.getPost(id));
+  return proxyAwsAdminApi(request, `posts/${encodeURIComponent(id)}`, 'GET');
 }
 
 export async function PUT(

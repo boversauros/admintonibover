@@ -1,22 +1,30 @@
 'use client';
 
 import { redirectIfSessionExpired } from '@/lib/auth/client-session';
-import {
-  parseAdminApiErrorEnvelope,
-  parsePostDetailEnvelope,
-  type AdminApiSuccessEnvelope,
-} from '@/lib/aws/admin-read-contract';
-import {
-  type ConfirmedImageUpload,
-  type DetachedImage,
-  type ImagePreview,
-  type ImageRole,
-  type MediaInspection,
-  type PresignedImageUpload,
+import type {
+  ConfirmedImageUpload,
+  DetachedImage,
+  ImageRole,
+  MediaInspection,
+  PresignedImageUpload,
 } from '@/lib/domain/media/contracts';
 import { validateUploadDescriptor } from '@/lib/domain/media/validation';
-import type { Post, PostImage } from '@/lib/domain/posts/types';
+import type { Post } from '@/lib/domain/posts/types';
 
+import {
+  parseAdminApiErrorEnvelope,
+  parseBulkEnvelope,
+  parseConfirmedEnvelope,
+  parseDeleteEnvelope,
+  parseDetachedImageEnvelope,
+  parseMediaInspectionEnvelope,
+  parsePostDetailEnvelope,
+  parsePresignEnvelope,
+  type AdminApiSuccessEnvelope,
+  type BulkPublicationResult,
+  type DeletePostMutationResult,
+  type EnvelopeParser,
+} from './adminContract';
 import { AWS_ADMIN_POST_PAGE_LIMIT, getAdminPostsPage } from './adminReads';
 import { reportSiteRebuild } from './siteRebuild';
 
@@ -24,7 +32,6 @@ const RETRYABLE_GATEWAY_STATUSES = new Set([502, 503, 504]);
 const MAX_BULK_POSTS = 100;
 
 type AwsMutationMethod = 'POST' | 'PUT' | 'DELETE';
-type SuccessParser<T> = (value: unknown) => AdminApiSuccessEnvelope<T>;
 
 type MutationRequest<T> = {
   body?: unknown;
@@ -32,7 +39,7 @@ type MutationRequest<T> = {
   fetchImplementation?: typeof fetch;
   idempotencyKey: string;
   method: AwsMutationMethod;
-  parseSuccess: SuccessParser<T>;
+  parseSuccess: EnvelopeParser<T>;
   path: string;
   signal?: AbortSignal;
 };
@@ -50,21 +57,6 @@ export type PresignedUploadTransport = (input: {
   upload: PresignedImageUpload;
 }) => Promise<void>;
 
-export type DeletePostMutationResult = {
-  postId: string;
-  cleanup: {
-    pending: boolean;
-    failedCount: number;
-    retryWithSameIdempotencyKey: boolean;
-  };
-  replayed: boolean;
-};
-
-export type BulkPublicationResult = {
-  publishedCount: number;
-  replayed: boolean;
-};
-
 export class AdminMutationError extends Error {
   constructor(
     message: string,
@@ -76,53 +68,6 @@ export class AdminMutationError extends Error {
     super(message);
     this.name = 'AdminMutationError';
   }
-}
-
-function recordValue(value: unknown, path: string): Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError(`${path} must be an object`);
-  }
-  return value as Record<string, unknown>;
-}
-
-function stringValue(value: unknown, path: string): string {
-  if (typeof value !== 'string')
-    throw new TypeError(`${path} must be a string`);
-  return value;
-}
-
-function booleanValue(value: unknown, path: string): boolean {
-  if (typeof value !== 'boolean') {
-    throw new TypeError(`${path} must be a boolean`);
-  }
-  return value;
-}
-
-function integerValue(value: unknown, path: string): number {
-  if (!Number.isSafeInteger(value)) {
-    throw new TypeError(`${path} must be an integer`);
-  }
-  return value as number;
-}
-
-function nullableStringValue(value: unknown, path: string): string | null {
-  if (value === null) return null;
-  return stringValue(value, path);
-}
-
-function parseSuccessEnvelope<T>(
-  value: unknown,
-  parseData: (data: unknown) => T
-): AdminApiSuccessEnvelope<T> {
-  const envelope = recordValue(value, 'response');
-  if (envelope.version !== 1) {
-    throw new TypeError('response.version is invalid');
-  }
-  return {
-    version: 1,
-    data: parseData(envelope.data),
-    requestId: stringValue(envelope.requestId, 'response.requestId'),
-  };
 }
 
 function friendlyMutationMessage(
@@ -251,190 +196,6 @@ async function requestAwsMutation<T>({
     0,
     lastNetworkError ? 'NETWORK_ERROR' : 'UPSTREAM_UNAVAILABLE'
   );
-}
-
-function parseDeleteEnvelope(
-  value: unknown
-): AdminApiSuccessEnvelope<DeletePostMutationResult> {
-  return parseSuccessEnvelope(value, data => {
-    const result = recordValue(data, 'response.data');
-    const cleanup = recordValue(result.cleanup, 'response.data.cleanup');
-    return {
-      postId: stringValue(result.postId, 'response.data.postId'),
-      cleanup: {
-        pending: booleanValue(cleanup.pending, 'response.data.cleanup.pending'),
-        failedCount: integerValue(
-          cleanup.failedCount,
-          'response.data.cleanup.failedCount'
-        ),
-        retryWithSameIdempotencyKey: booleanValue(
-          cleanup.retryWithSameIdempotencyKey,
-          'response.data.cleanup.retryWithSameIdempotencyKey'
-        ),
-      },
-      replayed: booleanValue(result.replayed, 'response.data.replayed'),
-    };
-  });
-}
-
-function parseDetachedImageEnvelope(
-  value: unknown
-): AdminApiSuccessEnvelope<DetachedImage> {
-  return parseSuccessEnvelope(value, data => {
-    const result = recordValue(data, 'response.data');
-    const cleanup = recordValue(result.cleanup, 'response.data.cleanup');
-    const role = stringValue(result.role, 'response.data.role');
-    if (role !== 'main' && role !== 'thumb') {
-      throw new TypeError('response.data.role is invalid');
-    }
-    return {
-      postId: stringValue(result.postId, 'response.data.postId'),
-      postVersion: integerValue(
-        result.postVersion,
-        'response.data.postVersion'
-      ),
-      role,
-      detached: booleanValue(result.detached, 'response.data.detached'),
-      cleanup: {
-        pending: booleanValue(cleanup.pending, 'response.data.cleanup.pending'),
-        failedCount: integerValue(
-          cleanup.failedCount,
-          'response.data.cleanup.failedCount'
-        ),
-        retryWithSameIdempotencyKey: booleanValue(
-          cleanup.retryWithSameIdempotencyKey,
-          'response.data.cleanup.retryWithSameIdempotencyKey'
-        ),
-      },
-      replayed: booleanValue(result.replayed, 'response.data.replayed'),
-    };
-  });
-}
-
-function parseBulkEnvelope(
-  value: unknown
-): AdminApiSuccessEnvelope<BulkPublicationResult> {
-  return parseSuccessEnvelope(value, data => {
-    const result = recordValue(data, 'response.data');
-    return {
-      publishedCount: integerValue(
-        result.publishedCount,
-        'response.data.publishedCount'
-      ),
-      replayed: booleanValue(result.replayed, 'response.data.replayed'),
-    };
-  });
-}
-
-function parsePostImage(value: unknown, path: string): PostImage {
-  const image = recordValue(value, path);
-  return {
-    key: stringValue(image.key, `${path}.key`),
-    title: stringValue(image.title, `${path}.title`),
-    alt: stringValue(image.alt, `${path}.alt`),
-    contentType: stringValue(image.contentType, `${path}.contentType`),
-    sizeBytes: integerValue(image.sizeBytes, `${path}.sizeBytes`),
-    createdAt: stringValue(image.createdAt, `${path}.createdAt`),
-    updatedAt: stringValue(image.updatedAt, `${path}.updatedAt`),
-  };
-}
-
-function parseImagePreview(value: unknown, path: string): ImagePreview {
-  const preview = recordValue(value, path);
-  return {
-    image: parsePostImage(preview.image, `${path}.image`),
-    previewUrl: nullableStringValue(preview.previewUrl, `${path}.previewUrl`),
-    previewExpiresAt: nullableStringValue(
-      preview.previewExpiresAt,
-      `${path}.previewExpiresAt`
-    ),
-  };
-}
-
-function parseMediaInspectionEnvelope(
-  value: unknown
-): AdminApiSuccessEnvelope<MediaInspection> {
-  return parseSuccessEnvelope(value, data => {
-    const inspection = recordValue(data, 'response.data');
-    const titles = recordValue(inspection.titles, 'response.data.titles');
-    const images = recordValue(inspection.images, 'response.data.images');
-    return {
-      postId: stringValue(inspection.postId, 'response.data.postId'),
-      postVersion: integerValue(
-        inspection.postVersion,
-        'response.data.postVersion'
-      ),
-      titles: {
-        ca: stringValue(titles.ca, 'response.data.titles.ca'),
-        en: stringValue(titles.en, 'response.data.titles.en'),
-      },
-      images: {
-        main:
-          images.main === null
-            ? null
-            : parseImagePreview(images.main, 'response.data.images.main'),
-        thumb:
-          images.thumb === null
-            ? null
-            : parseImagePreview(images.thumb, 'response.data.images.thumb'),
-      },
-    };
-  });
-}
-
-function parsePresignEnvelope(
-  value: unknown
-): AdminApiSuccessEnvelope<PresignedImageUpload> {
-  return parseSuccessEnvelope(value, data => {
-    const upload = recordValue(data, 'response.data');
-    const headers = recordValue(upload.headers, 'response.data.headers');
-    return {
-      uploadId: stringValue(upload.uploadId, 'response.data.uploadId'),
-      objectKey: stringValue(upload.objectKey, 'response.data.objectKey'),
-      uploadUrl: stringValue(upload.uploadUrl, 'response.data.uploadUrl'),
-      headers: {
-        'content-type': stringValue(
-          headers['content-type'],
-          'response.data.headers.content-type'
-        ) as PresignedImageUpload['headers']['content-type'],
-        'x-amz-checksum-sha256': stringValue(
-          headers['x-amz-checksum-sha256'],
-          'response.data.headers.x-amz-checksum-sha256'
-        ),
-      },
-      expiresAt: stringValue(upload.expiresAt, 'response.data.expiresAt'),
-      postVersion: integerValue(
-        upload.postVersion,
-        'response.data.postVersion'
-      ),
-    };
-  });
-}
-
-function parseConfirmedEnvelope(
-  value: unknown
-): AdminApiSuccessEnvelope<ConfirmedImageUpload> {
-  return parseSuccessEnvelope(value, data => {
-    const confirmed = recordValue(data, 'response.data');
-    const role = stringValue(confirmed.role, 'response.data.role');
-    if (role !== 'main' && role !== 'thumb') {
-      throw new TypeError('response.data.role is invalid');
-    }
-    return {
-      postId: stringValue(confirmed.postId, 'response.data.postId'),
-      postVersion: integerValue(
-        confirmed.postVersion,
-        'response.data.postVersion'
-      ),
-      role,
-      image: parseImagePreview(confirmed.image, 'response.data.image'),
-      cleanupPending: booleanValue(
-        confirmed.cleanupPending,
-        'response.data.cleanupPending'
-      ),
-      replayed: booleanValue(confirmed.replayed, 'response.data.replayed'),
-    };
-  });
 }
 
 export function mutationKey(scope: string): string {

@@ -1,3 +1,17 @@
+/**
+ * The browser's view of the AWS admin API: envelope and payload types plus the
+ * parsers that check every response before the UI trusts it. The Next.js
+ * server forwards responses unchanged, so this is the only place they are
+ * checked outside the Lambda.
+ */
+import type {
+  ConfirmedImageUpload,
+  DetachedImage,
+  ImagePreview,
+  ImageRole,
+  MediaInspection,
+  PresignedImageUpload,
+} from '@/lib/domain/media/contracts';
 import type {
   Post,
   PostImage,
@@ -38,6 +52,23 @@ export type AdminPostListPage = {
   nextCursor: string | null;
 };
 
+export type ImageCleanup = {
+  pending: boolean;
+  failedCount: number;
+  retryWithSameIdempotencyKey: boolean;
+};
+
+export type DeletePostMutationResult = {
+  postId: string;
+  cleanup: ImageCleanup;
+  replayed: boolean;
+};
+
+export type BulkPublicationResult = {
+  publishedCount: number;
+  replayed: boolean;
+};
+
 export type AdminApiSuccessEnvelope<T> = {
   version: typeof ADMIN_API_VERSION;
   data: T;
@@ -53,6 +84,8 @@ export type AdminApiErrorEnvelope = {
   requestId: string;
 };
 
+export type EnvelopeParser<T> = (value: unknown) => AdminApiSuccessEnvelope<T>;
+
 function recordValue(value: unknown, path: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError(`${path} must be an object`);
@@ -65,6 +98,10 @@ function stringValue(value: unknown, path: string): string {
     throw new TypeError(`${path} must be a string`);
   }
   return value;
+}
+
+function nullableStringValue(value: unknown, path: string): string | null {
+  return value === null ? null : stringValue(value, path);
 }
 
 function numberValue(value: unknown, path: string): number {
@@ -96,6 +133,14 @@ function arrayValue(value: unknown, path: string): unknown[] {
   return value;
 }
 
+function roleValue(value: unknown, path: string): ImageRole {
+  const role = stringValue(value, path);
+  if (role !== 'main' && role !== 'thumb') {
+    throw new TypeError(`${path} is invalid`);
+  }
+  return role;
+}
+
 function languageRecord<T>(
   value: unknown,
   path: string,
@@ -108,17 +153,44 @@ function languageRecord<T>(
   };
 }
 
-function parseImage(value: unknown, path: string): PostImage | null {
-  if (value === null) return null;
+function parseImage(value: unknown, path: string): PostImage {
   const image = recordValue(value, path);
   return {
     key: stringValue(image.key, `${path}.key`),
     title: stringValue(image.title, `${path}.title`),
     alt: stringValue(image.alt, `${path}.alt`),
     contentType: stringValue(image.contentType, `${path}.contentType`),
-    sizeBytes: numberValue(image.sizeBytes, `${path}.sizeBytes`),
+    sizeBytes: integerValue(image.sizeBytes, `${path}.sizeBytes`),
     createdAt: stringValue(image.createdAt, `${path}.createdAt`),
     updatedAt: stringValue(image.updatedAt, `${path}.updatedAt`),
+  };
+}
+
+function parseNullableImage(value: unknown, path: string): PostImage | null {
+  return value === null ? null : parseImage(value, path);
+}
+
+function parseImagePreview(value: unknown, path: string): ImagePreview {
+  const preview = recordValue(value, path);
+  return {
+    image: parseImage(preview.image, `${path}.image`),
+    previewUrl: nullableStringValue(preview.previewUrl, `${path}.previewUrl`),
+    previewExpiresAt: nullableStringValue(
+      preview.previewExpiresAt,
+      `${path}.previewExpiresAt`
+    ),
+  };
+}
+
+function parseCleanup(value: unknown, path: string): ImageCleanup {
+  const cleanup = recordValue(value, path);
+  return {
+    pending: booleanValue(cleanup.pending, `${path}.pending`),
+    failedCount: integerValue(cleanup.failedCount, `${path}.failedCount`),
+    retryWithSameIdempotencyKey: booleanValue(
+      cleanup.retryWithSameIdempotencyKey,
+      `${path}.retryWithSameIdempotencyKey`
+    ),
   };
 }
 
@@ -204,8 +276,8 @@ export function parseAdminPost(value: unknown, path = 'data.post'): Post {
       `${path}.translations`,
       parseTranslation
     ),
-    mainImage: parseImage(post.mainImage, `${path}.mainImage`),
-    thumbImage: parseImage(post.thumbImage, `${path}.thumbImage`),
+    mainImage: parseNullableImage(post.mainImage, `${path}.mainImage`),
+    thumbImage: parseNullableImage(post.thumbImage, `${path}.thumbImage`),
     version: integerValue(post.version, `${path}.version`),
     migration,
   };
@@ -236,12 +308,12 @@ function parseListItem(value: unknown, path: string): AdminPostListItem {
           stringValue(keyword, `${entryPath}.${index}`)
         )
     ),
-    mainImage: parseImage(post.mainImage, `${path}.mainImage`),
-    thumbImage: parseImage(post.thumbImage, `${path}.thumbImage`),
+    mainImage: parseNullableImage(post.mainImage, `${path}.mainImage`),
+    thumbImage: parseNullableImage(post.thumbImage, `${path}.thumbImage`),
     thumbPreviewUrl:
-      post.thumbPreviewUrl === undefined || post.thumbPreviewUrl === null
+      post.thumbPreviewUrl === undefined
         ? null
-        : stringValue(post.thumbPreviewUrl, `${path}.thumbPreviewUrl`),
+        : nullableStringValue(post.thumbPreviewUrl, `${path}.thumbPreviewUrl`),
   };
 }
 
@@ -273,77 +345,158 @@ function parseAdminKeyword(value: unknown, path: string): AdminKeywordRead {
   };
 }
 
-function parseSuccessEnvelope<T>(
-  value: unknown,
-  parseData: (data: unknown) => T
-): AdminApiSuccessEnvelope<T> {
-  const envelope = recordValue(value, 'response');
-  if (envelope.version !== ADMIN_API_VERSION) {
-    throw new TypeError('response.version is invalid');
-  }
-  return {
-    version: ADMIN_API_VERSION,
-    data: parseData(envelope.data),
-    requestId: stringValue(envelope.requestId, 'response.requestId'),
+/** Checks the envelope and hands its `data` record to the payload parser. */
+function successEnvelope<T>(
+  parseData: (data: Record<string, unknown>) => T
+): EnvelopeParser<T> {
+  return value => {
+    const envelope = recordValue(value, 'response');
+    if (envelope.version !== ADMIN_API_VERSION) {
+      throw new TypeError('response.version is invalid');
+    }
+    return {
+      version: ADMIN_API_VERSION,
+      data: parseData(recordValue(envelope.data, 'response.data')),
+      requestId: stringValue(envelope.requestId, 'response.requestId'),
+    };
   };
 }
 
-export function parsePostListEnvelope(
-  value: unknown
-): AdminApiSuccessEnvelope<AdminPostListPage> {
-  return parseSuccessEnvelope(value, data => {
-    const page = recordValue(data, 'response.data');
-    const nextCursor = page.nextCursor;
-    if (nextCursor !== null && typeof nextCursor !== 'string') {
-      throw new TypeError('response.data.nextCursor is invalid');
-    }
-    return {
-      items: arrayValue(page.items, 'response.data.items').map((entry, index) =>
-        parseListItem(entry, `response.data.items.${index}`)
-      ),
-      nextCursor,
-    };
-  });
-}
+export const parsePostListEnvelope = successEnvelope<AdminPostListPage>(
+  page => ({
+    items: arrayValue(page.items, 'response.data.items').map((entry, index) =>
+      parseListItem(entry, `response.data.items.${index}`)
+    ),
+    nextCursor: nullableStringValue(
+      page.nextCursor,
+      'response.data.nextCursor'
+    ),
+  })
+);
 
-export function parsePostDetailEnvelope(
-  value: unknown
-): AdminApiSuccessEnvelope<{ post: Post; replayed: boolean }> {
-  return parseSuccessEnvelope(value, data => {
-    const detail = recordValue(data, 'response.data');
-    return {
-      post: parseAdminPost(detail.post),
-      replayed: booleanValue(detail.replayed, 'response.data.replayed'),
-    };
-  });
-}
+export const parsePostDetailEnvelope = successEnvelope<{
+  post: Post;
+  replayed: boolean;
+}>(detail => ({
+  post: parseAdminPost(detail.post),
+  replayed: booleanValue(detail.replayed, 'response.data.replayed'),
+}));
 
-export function parseCategoriesEnvelope(
-  value: unknown
-): AdminApiSuccessEnvelope<{ items: AdminCategoryRead[] }> {
-  return parseSuccessEnvelope(value, data => {
-    const result = recordValue(data, 'response.data');
+export const parseCategoriesEnvelope = successEnvelope<{
+  items: AdminCategoryRead[];
+}>(result => ({
+  items: arrayValue(result.items, 'response.data.items').map((entry, index) =>
+    parseCategory(entry, `response.data.items.${index}`)
+  ),
+}));
+
+export const parseKeywordsEnvelope = successEnvelope<{
+  items: AdminKeywordRead[];
+}>(result => ({
+  items: arrayValue(result.items, 'response.data.items').map((entry, index) =>
+    parseAdminKeyword(entry, `response.data.items.${index}`)
+  ),
+}));
+
+export const parseDeleteEnvelope = successEnvelope<DeletePostMutationResult>(
+  result => ({
+    postId: stringValue(result.postId, 'response.data.postId'),
+    cleanup: parseCleanup(result.cleanup, 'response.data.cleanup'),
+    replayed: booleanValue(result.replayed, 'response.data.replayed'),
+  })
+);
+
+export const parseDetachedImageEnvelope = successEnvelope<DetachedImage>(
+  result => ({
+    postId: stringValue(result.postId, 'response.data.postId'),
+    postVersion: integerValue(result.postVersion, 'response.data.postVersion'),
+    role: roleValue(result.role, 'response.data.role'),
+    detached: booleanValue(result.detached, 'response.data.detached'),
+    cleanup: parseCleanup(result.cleanup, 'response.data.cleanup'),
+    replayed: booleanValue(result.replayed, 'response.data.replayed'),
+  })
+);
+
+export const parseBulkEnvelope = successEnvelope<BulkPublicationResult>(
+  result => ({
+    publishedCount: integerValue(
+      result.publishedCount,
+      'response.data.publishedCount'
+    ),
+    replayed: booleanValue(result.replayed, 'response.data.replayed'),
+  })
+);
+
+export const parseMediaInspectionEnvelope = successEnvelope<MediaInspection>(
+  inspection => {
+    const images = recordValue(inspection.images, 'response.data.images');
     return {
-      items: arrayValue(result.items, 'response.data.items').map(
-        (entry, index) => parseCategory(entry, `response.data.items.${index}`)
+      postId: stringValue(inspection.postId, 'response.data.postId'),
+      postVersion: integerValue(
+        inspection.postVersion,
+        'response.data.postVersion'
+      ),
+      titles: languageRecord(
+        inspection.titles,
+        'response.data.titles',
+        stringValue
+      ),
+      images: {
+        main:
+          images.main === null
+            ? null
+            : parseImagePreview(images.main, 'response.data.images.main'),
+        thumb:
+          images.thumb === null
+            ? null
+            : parseImagePreview(images.thumb, 'response.data.images.thumb'),
+      },
+    };
+  }
+);
+
+export const parsePresignEnvelope = successEnvelope<PresignedImageUpload>(
+  upload => {
+    const headers = recordValue(upload.headers, 'response.data.headers');
+    return {
+      uploadId: stringValue(upload.uploadId, 'response.data.uploadId'),
+      objectKey: stringValue(upload.objectKey, 'response.data.objectKey'),
+      uploadUrl: stringValue(upload.uploadUrl, 'response.data.uploadUrl'),
+      headers: {
+        'content-type': stringValue(
+          headers['content-type'],
+          'response.data.headers.content-type'
+        ) as PresignedImageUpload['headers']['content-type'],
+        'x-amz-checksum-sha256': stringValue(
+          headers['x-amz-checksum-sha256'],
+          'response.data.headers.x-amz-checksum-sha256'
+        ),
+      },
+      expiresAt: stringValue(upload.expiresAt, 'response.data.expiresAt'),
+      postVersion: integerValue(
+        upload.postVersion,
+        'response.data.postVersion'
       ),
     };
-  });
-}
+  }
+);
 
-export function parseKeywordsEnvelope(
-  value: unknown
-): AdminApiSuccessEnvelope<{ items: AdminKeywordRead[] }> {
-  return parseSuccessEnvelope(value, data => {
-    const result = recordValue(data, 'response.data');
-    return {
-      items: arrayValue(result.items, 'response.data.items').map(
-        (entry, index) =>
-          parseAdminKeyword(entry, `response.data.items.${index}`)
-      ),
-    };
-  });
-}
+export const parseConfirmedEnvelope = successEnvelope<ConfirmedImageUpload>(
+  confirmed => ({
+    postId: stringValue(confirmed.postId, 'response.data.postId'),
+    postVersion: integerValue(
+      confirmed.postVersion,
+      'response.data.postVersion'
+    ),
+    role: roleValue(confirmed.role, 'response.data.role'),
+    image: parseImagePreview(confirmed.image, 'response.data.image'),
+    cleanupPending: booleanValue(
+      confirmed.cleanupPending,
+      'response.data.cleanupPending'
+    ),
+    replayed: booleanValue(confirmed.replayed, 'response.data.replayed'),
+  })
+);
 
 export function parseAdminApiErrorEnvelope(
   value: unknown
