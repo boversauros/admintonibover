@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { ADMIN_API_VERSION } from '@/lib/api/adminContract';
 import { getCognitoConfig } from '@/lib/auth/cognito/config';
+import { isCorrelationId } from '@/lib/contract/correlation';
 import {
   clearCognitoSessionCookies,
   setCognitoSessionCookies,
@@ -17,7 +18,6 @@ import {
 
 export const MAX_PROXY_BODY_BYTES = 256 * 1024;
 const UPSTREAM_TIMEOUT_MS = 12_000;
-const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
 
 class RequestBodyTooLargeError extends Error {}
 
@@ -62,9 +62,7 @@ export async function readBoundedRequestBody(
 
 function correlationId(request: NextRequest): string {
   const supplied = request.headers.get('x-correlation-id');
-  return supplied && CORRELATION_ID_PATTERN.test(supplied)
-    ? supplied
-    : randomUUID();
+  return supplied && isCorrelationId(supplied) ? supplied : randomUUID();
 }
 
 function jsonError(

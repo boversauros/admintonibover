@@ -1,3 +1,4 @@
+import { isRecord } from '@/lib/contract/values';
 import {
   ALLOWED_IMAGE_MIME_TYPES,
   IMAGE_ROLES,
@@ -54,7 +55,7 @@ export function validateUploadDescriptor(
   value: unknown
 ): ImageUploadDescriptor {
   const issues: MediaValidationIssue[] = [];
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+  if (!isRecord(value)) {
     throw new MediaValidationError([
       {
         path: 'body',

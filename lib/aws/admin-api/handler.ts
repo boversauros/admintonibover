@@ -1,3 +1,4 @@
+import { isRecord } from '@/lib/contract/values';
 import {
   MediaUploadConflictError,
   MediaUploadExpiredError,
@@ -27,7 +28,7 @@ import {
   ApiUnauthorizedError,
   ApiValidationError,
 } from './errors';
-import { correlationId, errorResponse, isRecord } from './http';
+import { correlationId, errorResponse } from './http';
 import { findRoute } from './routes';
 import { AdminStoreConflictError } from './store';
 import { UserManagementError } from './users';

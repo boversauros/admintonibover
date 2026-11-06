@@ -1,3 +1,5 @@
+import { isRecord } from '@/lib/contract/values';
+
 export const DYNAMODB_BACKUP_SCHEMA =
   'https://github.com/boversauros/admintonibover/blob/main/docs/schemas/dynamodb-backup-v2.schema.json' as const;
 
@@ -89,10 +91,6 @@ const FORBIDDEN_FIELD_NAMES = new Set([
   'downloadurl',
   'accountid',
 ]);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function isJsonValue(value: unknown): value is BackupJsonValue {
   if (

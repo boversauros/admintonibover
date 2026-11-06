@@ -6,6 +6,8 @@
  * into responses. Hook failures never change a committed mutation's result.
  */
 
+import { isRecord } from '@/lib/contract/values';
+
 export const SITE_REBUILD_HOOK_ENV = 'SITE_REBUILD_HOOK_URL';
 export const SITE_REBUILD_HEADER = 'x-site-rebuild';
 export const SITE_REBUILD_TIMEOUT_MS = 5_000;
@@ -114,10 +116,6 @@ export async function triggerSiteRebuild(
     });
     return 'failed';
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** Decides from a successful upstream body whether the site can have changed. */

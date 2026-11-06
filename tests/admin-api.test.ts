@@ -1008,3 +1008,50 @@ test('internal errors and throttling keep stable safe envelopes and redact bodie
     'BODY_TOO_LARGE'
   );
 });
+
+test('an invalid post body is rejected with the failing field and nothing is stored', async () => {
+  const { handler, port } = setup();
+  const valid = postFixture('post-invalid');
+  const cases: { body: unknown; code: string }[] = [
+    { body: ['not', 'an', 'object'], code: 'INVALID_OBJECT' },
+    {
+      body: {
+        ...valid,
+        translations: {
+          ...valid.translations,
+          ca: { ...valid.translations.ca, title: 42 },
+        },
+      },
+      code: 'INVALID_STRING',
+    },
+    { body: { ...valid, version: 1.5 }, code: 'INVALID_INTEGER' },
+    { body: { ...valid, id: 'has spaces' }, code: 'INVALID_ID' },
+    {
+      body: {
+        ...valid,
+        translations: {
+          ...valid.translations,
+          en: {
+            ...valid.translations.en,
+            keywords: [{ id: 'keyword-long', value: 'x'.repeat(500) }],
+          },
+        },
+      },
+      code: 'INVALID_LENGTH',
+    },
+  ];
+  for (const [index, { body: input, code }] of cases.entries()) {
+    const rejected = await handler(
+      event('POST /posts', {
+        body: input,
+        headers: { 'idempotency-key': `invalid-post-${index}-key` },
+      })
+    );
+    assert.equal(rejected.statusCode, 400, code);
+    assert.equal((body(rejected).error as { code: string }).code, code);
+  }
+  assert.equal(
+    port.snapshot().filter(item => item.entityType === 'POST').length,
+    0
+  );
+});

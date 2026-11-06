@@ -1,3 +1,4 @@
+import { integerValue, stringValue } from '@/lib/contract/values';
 import {
   MediaUploadConflictError,
   MediaUploadNotFoundError,
@@ -34,45 +35,29 @@ function toItem(intent: UploadIntent): DynamoItem {
   };
 }
 
-function stringValue(item: DynamoItem, attribute: string): string {
-  const value = item[attribute];
-  if (typeof value !== 'string') {
-    throw new TypeError(`Media upload intent has invalid ${attribute}`);
-  }
-  return value;
-}
-
-function numberValue(item: DynamoItem, attribute: string): number {
-  const value = item[attribute];
-  if (typeof value !== 'number' || !Number.isSafeInteger(value)) {
-    throw new TypeError(`Media upload intent has invalid ${attribute}`);
-  }
-  return value;
-}
-
 function fromItem(item: DynamoItem): UploadIntent {
   if (item.entityType !== 'MEDIA_UPLOAD' || item.schemaVersion !== 1) {
     throw new TypeError('DynamoDB item is not a media upload intent');
   }
   const base: PendingUploadIntent = {
-    uploadId: stringValue(item, 'uploadId'),
-    requestDigest: stringValue(item, 'requestDigest'),
-    postId: stringValue(item, 'postId'),
-    role: stringValue(item, 'role') as PendingUploadIntent['role'],
-    temporaryKey: stringValue(item, 'temporaryKey'),
-    permanentKey: stringValue(item, 'permanentKey'),
+    uploadId: stringValue(item.uploadId, 'uploadId'),
+    requestDigest: stringValue(item.requestDigest, 'requestDigest'),
+    postId: stringValue(item.postId, 'postId'),
+    role: stringValue(item.role, 'role') as PendingUploadIntent['role'],
+    temporaryKey: stringValue(item.temporaryKey, 'temporaryKey'),
+    permanentKey: stringValue(item.permanentKey, 'permanentKey'),
     contentType: stringValue(
-      item,
+      item.contentType,
       'contentType'
     ) as PendingUploadIntent['contentType'],
-    sizeBytes: numberValue(item, 'sizeBytes'),
-    checksumSha256: stringValue(item, 'checksumSha256'),
-    expectedVersion: numberValue(item, 'expectedVersion'),
-    createdAt: stringValue(item, 'createdAt'),
-    expiresAt: numberValue(item, 'expiresAt'),
+    sizeBytes: integerValue(item.sizeBytes, 'sizeBytes'),
+    checksumSha256: stringValue(item.checksumSha256, 'checksumSha256'),
+    expectedVersion: integerValue(item.expectedVersion, 'expectedVersion'),
+    createdAt: stringValue(item.createdAt, 'createdAt'),
+    expiresAt: integerValue(item.expiresAt, 'expiresAt'),
     status: 'pending',
   };
-  const status = stringValue(item, 'status');
+  const status = stringValue(item.status, 'status');
   if (status === 'pending') return base;
   if (status !== 'confirmed') {
     throw new TypeError('Media upload intent has invalid status');
@@ -80,11 +65,11 @@ function fromItem(item: DynamoItem): UploadIntent {
   return {
     ...base,
     status,
-    confirmDigest: stringValue(item, 'confirmDigest'),
-    confirmedAt: stringValue(item, 'confirmedAt'),
-    resultVersion: numberValue(item, 'resultVersion'),
-    title: stringValue(item, 'title'),
-    alt: stringValue(item, 'alt'),
+    confirmDigest: stringValue(item.confirmDigest, 'confirmDigest'),
+    confirmedAt: stringValue(item.confirmedAt, 'confirmedAt'),
+    resultVersion: integerValue(item.resultVersion, 'resultVersion'),
+    title: stringValue(item.title, 'title'),
+    alt: stringValue(item.alt, 'alt'),
   };
 }
 
