@@ -2,19 +2,14 @@
 
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/layout/AppHeader';
-import { Badge, Button, Icon, Text } from '@/components/ui';
+import { Button, Icon, Text } from '@/components/ui';
 
 interface FormHeaderProps {
   isSubmitting: boolean;
   isEditMode: boolean;
-  readOnly?: boolean;
 }
 
-export function FormHeader({
-  isSubmitting,
-  isEditMode,
-  readOnly = false,
-}: FormHeaderProps) {
+export function FormHeader({ isSubmitting, isEditMode }: FormHeaderProps) {
   const router = useRouter();
 
   const handleBack = () => {
@@ -32,18 +27,14 @@ export function FormHeader({
         </Button>
       }
       actions={
-        readOnly ? (
-          <Badge size="md">Només lectura</Badge>
-        ) : (
-          <Button
-            type="submit"
-            variant="primary"
-            loading={isSubmitting}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (isEditMode ? 'Desant...' : 'Creant...') : 'Desar'}
-          </Button>
-        )
+        <Button
+          type="submit"
+          variant="primary"
+          loading={isSubmitting}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (isEditMode ? 'Desant...' : 'Creant...') : 'Desar'}
+        </Button>
       }
     />
   );

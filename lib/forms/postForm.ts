@@ -1,3 +1,4 @@
+import type { ImageRole } from '@/lib/domain/media/contracts';
 import type {
   Post,
   PostCategory,
@@ -31,6 +32,8 @@ export type PostFormValues = {
   mainImageAlt: string;
   mainImageFile: File | null;
   thumbImageFile: File | null;
+  /** A saved image the editor removed; it is detached on the next save. */
+  removeImage: Record<ImageRole, boolean>;
   translations: Record<PostLanguage, PostFormTranslation>;
 };
 
@@ -61,6 +64,7 @@ export function postFormValues(post?: Post): PostFormValues {
     mainImageAlt: post?.mainImage?.alt ?? '',
     mainImageFile: null,
     thumbImageFile: null,
+    removeImage: { main: false, thumb: false },
     translations: {
       ca: formTranslation(post?.translations.ca),
       en: formTranslation(post?.translations.en),
