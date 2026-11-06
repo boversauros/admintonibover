@@ -1,3 +1,5 @@
+import { isCorrelationId } from '@/lib/contract/correlation';
+import { isRecord } from '@/lib/contract/values';
 import { MediaValidationError } from '@/lib/domain/media/errors';
 import { validateIdempotencyKey } from '@/lib/domain/media/validation';
 import type { Post } from '@/lib/domain/posts/types';
@@ -7,12 +9,7 @@ import { ApiValidationError, validation } from './errors';
 
 const API_VERSION = 1;
 const MAX_JSON_BODY_BYTES = 256 * 1024;
-const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
 export const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 export function header(event: AdminApiEvent, name: string): string | undefined {
   const expected = name.toLowerCase();
@@ -24,7 +21,7 @@ export function header(event: AdminApiEvent, name: string): string | undefined {
 
 export function correlationId(event: AdminApiEvent): string {
   const supplied = header(event, 'x-correlation-id');
-  if (supplied && CORRELATION_ID_PATTERN.test(supplied)) return supplied;
+  if (supplied && isCorrelationId(supplied)) return supplied;
   return event.requestContext?.requestId ?? 'unknown';
 }
 

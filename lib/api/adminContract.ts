@@ -12,14 +12,25 @@ import type {
   MediaInspection,
   PresignedImageUpload,
 } from '@/lib/domain/media/contracts';
+import {
+  parseNullablePostImage,
+  parsePost,
+  parsePostImage,
+} from '@/lib/contract/post';
+import {
+  arrayValue,
+  booleanValue,
+  integerValue,
+  nullableStringValue,
+  numberValue,
+  oneOf,
+  recordValue,
+  stringValue,
+} from '@/lib/contract/values';
 import type {
   Post,
-  PostImage,
-  PostKeyword,
   PostLanguage,
   PostListItem,
-  PostReference,
-  PostTranslation,
 } from '@/lib/domain/posts/types';
 
 export const ADMIN_API_VERSION = 1 as const;
@@ -86,59 +97,8 @@ export type AdminApiErrorEnvelope = {
 
 export type EnvelopeParser<T> = (value: unknown) => AdminApiSuccessEnvelope<T>;
 
-function recordValue(value: unknown, path: string): Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError(`${path} must be an object`);
-  }
-  return value as Record<string, unknown>;
-}
-
-function stringValue(value: unknown, path: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`${path} must be a string`);
-  }
-  return value;
-}
-
-function nullableStringValue(value: unknown, path: string): string | null {
-  return value === null ? null : stringValue(value, path);
-}
-
-function numberValue(value: unknown, path: string): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new TypeError(`${path} must be a finite number`);
-  }
-  return value;
-}
-
-function integerValue(value: unknown, path: string): number {
-  const parsed = numberValue(value, path);
-  if (!Number.isSafeInteger(parsed)) {
-    throw new TypeError(`${path} must be an integer`);
-  }
-  return parsed;
-}
-
-function booleanValue(value: unknown, path: string): boolean {
-  if (typeof value !== 'boolean') {
-    throw new TypeError(`${path} must be a boolean`);
-  }
-  return value;
-}
-
-function arrayValue(value: unknown, path: string): unknown[] {
-  if (!Array.isArray(value)) {
-    throw new TypeError(`${path} must be an array`);
-  }
-  return value;
-}
-
 function roleValue(value: unknown, path: string): ImageRole {
-  const role = stringValue(value, path);
-  if (role !== 'main' && role !== 'thumb') {
-    throw new TypeError(`${path} is invalid`);
-  }
-  return role;
+  return oneOf(value, path, ['main', 'thumb']);
 }
 
 function languageRecord<T>(
@@ -153,27 +113,10 @@ function languageRecord<T>(
   };
 }
 
-function parseImage(value: unknown, path: string): PostImage {
-  const image = recordValue(value, path);
-  return {
-    key: stringValue(image.key, `${path}.key`),
-    title: stringValue(image.title, `${path}.title`),
-    alt: stringValue(image.alt, `${path}.alt`),
-    contentType: stringValue(image.contentType, `${path}.contentType`),
-    sizeBytes: integerValue(image.sizeBytes, `${path}.sizeBytes`),
-    createdAt: stringValue(image.createdAt, `${path}.createdAt`),
-    updatedAt: stringValue(image.updatedAt, `${path}.updatedAt`),
-  };
-}
-
-function parseNullableImage(value: unknown, path: string): PostImage | null {
-  return value === null ? null : parseImage(value, path);
-}
-
 function parseImagePreview(value: unknown, path: string): ImagePreview {
   const preview = recordValue(value, path);
   return {
-    image: parseImage(preview.image, `${path}.image`),
+    image: parsePostImage(preview.image, `${path}.image`),
     previewUrl: nullableStringValue(preview.previewUrl, `${path}.previewUrl`),
     previewExpiresAt: nullableStringValue(
       preview.previewExpiresAt,
@@ -191,95 +134,6 @@ function parseCleanup(value: unknown, path: string): ImageCleanup {
       cleanup.retryWithSameIdempotencyKey,
       `${path}.retryWithSameIdempotencyKey`
     ),
-  };
-}
-
-function parseKeyword(value: unknown, path: string): PostKeyword {
-  const keyword = recordValue(value, path);
-  return {
-    id: stringValue(keyword.id, `${path}.id`),
-    value: stringValue(keyword.value, `${path}.value`),
-  };
-}
-
-function parseReference(value: unknown, path: string): PostReference {
-  const reference = recordValue(value, path);
-  const type = stringValue(reference.type, `${path}.type`);
-  if (type !== 'image' && type !== 'text') {
-    throw new TypeError(`${path}.type is invalid`);
-  }
-  const blockquote = reference.blockquote;
-  if (blockquote !== undefined && typeof blockquote !== 'string') {
-    throw new TypeError(`${path}.blockquote must be a string`);
-  }
-  return {
-    id: stringValue(reference.id, `${path}.id`),
-    type,
-    reference: stringValue(reference.reference, `${path}.reference`),
-    ...(blockquote === undefined ? {} : { blockquote }),
-    sortOrder: numberValue(reference.sortOrder, `${path}.sortOrder`),
-  };
-}
-
-function parseTranslation(value: unknown, path: string): PostTranslation {
-  const translation = recordValue(value, path);
-  const translationStatus = stringValue(
-    translation.translationStatus,
-    `${path}.translationStatus`
-  );
-  if (translationStatus !== 'complete' && translationStatus !== 'incomplete') {
-    throw new TypeError(`${path}.translationStatus is invalid`);
-  }
-  return {
-    id: stringValue(translation.id, `${path}.id`),
-    title: stringValue(translation.title, `${path}.title`),
-    content: stringValue(translation.content, `${path}.content`),
-    slug: stringValue(translation.slug, `${path}.slug`),
-    keywords: arrayValue(translation.keywords, `${path}.keywords`).map(
-      (entry, index) => parseKeyword(entry, `${path}.keywords.${index}`)
-    ),
-    references: arrayValue(translation.references, `${path}.references`).map(
-      (entry, index) => parseReference(entry, `${path}.references.${index}`)
-    ),
-    translationStatus,
-  };
-}
-
-export function parseAdminPost(value: unknown, path = 'data.post'): Post {
-  const post = recordValue(value, path);
-  const category = recordValue(post.category, `${path}.category`);
-  let migration: Post['migration'] = null;
-  if (post.migration !== null) {
-    const metadata = recordValue(post.migration, `${path}.migration`);
-    if (metadata.source !== 'legacy-backup') {
-      throw new TypeError(`${path}.migration.source is invalid`);
-    }
-    migration = {
-      source: 'legacy-backup',
-      runId: stringValue(metadata.runId, `${path}.migration.runId`),
-    };
-  }
-  return {
-    id: stringValue(post.id, `${path}.id`),
-    category: {
-      id: stringValue(category.id, `${path}.category.id`),
-      slug: stringValue(category.slug, `${path}.category.slug`),
-    },
-    sortOrder: numberValue(post.sortOrder, `${path}.sortOrder`),
-    published: booleanValue(post.published, `${path}.published`),
-    date: stringValue(post.date, `${path}.date`),
-    author: stringValue(post.author, `${path}.author`),
-    createdAt: stringValue(post.createdAt, `${path}.createdAt`),
-    updatedAt: stringValue(post.updatedAt, `${path}.updatedAt`),
-    translations: languageRecord(
-      post.translations,
-      `${path}.translations`,
-      parseTranslation
-    ),
-    mainImage: parseNullableImage(post.mainImage, `${path}.mainImage`),
-    thumbImage: parseNullableImage(post.thumbImage, `${path}.thumbImage`),
-    version: integerValue(post.version, `${path}.version`),
-    migration,
   };
 }
 
@@ -308,8 +162,8 @@ function parseListItem(value: unknown, path: string): AdminPostListItem {
           stringValue(keyword, `${entryPath}.${index}`)
         )
     ),
-    mainImage: parseNullableImage(post.mainImage, `${path}.mainImage`),
-    thumbImage: parseNullableImage(post.thumbImage, `${path}.thumbImage`),
+    mainImage: parseNullablePostImage(post.mainImage, `${path}.mainImage`),
+    thumbImage: parseNullablePostImage(post.thumbImage, `${path}.thumbImage`),
     thumbPreviewUrl:
       post.thumbPreviewUrl === undefined
         ? null
@@ -331,13 +185,9 @@ function parseCategory(value: unknown, path: string): AdminCategoryRead {
 
 function parseAdminKeyword(value: unknown, path: string): AdminKeywordRead {
   const keyword = recordValue(value, path);
-  const language = stringValue(keyword.language, `${path}.language`);
-  if (language !== 'ca' && language !== 'en') {
-    throw new TypeError(`${path}.language is invalid`);
-  }
   return {
     id: stringValue(keyword.id, `${path}.id`),
-    language,
+    language: oneOf(keyword.language, `${path}.language`, ['ca', 'en']),
     value: stringValue(keyword.value, `${path}.value`),
     version: integerValue(keyword.version, `${path}.version`),
     createdAt: stringValue(keyword.createdAt, `${path}.createdAt`),
@@ -378,7 +228,7 @@ export const parsePostDetailEnvelope = successEnvelope<{
   post: Post;
   replayed: boolean;
 }>(detail => ({
-  post: parseAdminPost(detail.post),
+  post: parsePost(detail.post, 'data.post'),
   replayed: booleanValue(detail.replayed, 'response.data.replayed'),
 }));
 

@@ -1,3 +1,4 @@
+import { integerValue, recordValue, stringValue } from '@/lib/contract/values';
 import { createHash } from 'node:crypto';
 
 import type { PostLanguage } from '@/lib/domain/posts/types';
@@ -77,51 +78,24 @@ function revisionAction(updatedAt: string): DynamoTransactionAction {
   };
 }
 
-function stringValue(item: DynamoItem, attribute: string): string {
-  const value = item[attribute];
-  if (typeof value !== 'string') {
-    throw new TypeError(`Stored admin item has invalid ${attribute}`);
-  }
-  return value;
-}
-
-function numberValue(item: DynamoItem, attribute: string): number {
-  const value = item[attribute];
-  if (!Number.isSafeInteger(value)) {
-    throw new TypeError(`Stored admin item has invalid ${attribute}`);
-  }
-  return value as number;
-}
-
-function recordValue(
-  item: DynamoItem,
-  attribute: string
-): Record<string, unknown> {
-  const value = item[attribute];
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError(`Stored admin item has invalid ${attribute}`);
-  }
-  return value as Record<string, unknown>;
-}
-
 function categoryFromItem(item: DynamoItem): AdminCategory {
   if (item.entityType !== 'CATEGORY' || item.schemaVersion !== 1) {
     throw new TypeError('DynamoDB item is not a category');
   }
-  const names = recordValue(item, 'names');
+  const names = recordValue(item.names, 'names');
   if (typeof names.ca !== 'string' || typeof names.en !== 'string') {
     throw new TypeError('Stored category has invalid names');
   }
   return {
-    id: stringValue(item, 'id'),
-    slug: stringValue(item, 'slug'),
+    id: stringValue(item.id, 'id'),
+    slug: stringValue(item.slug, 'slug'),
     names: {
       ca: names.ca,
       en: names.en,
     },
-    version: numberValue(item, 'version'),
-    createdAt: stringValue(item, 'createdAt'),
-    updatedAt: stringValue(item, 'updatedAt'),
+    version: integerValue(item.version, 'version'),
+    createdAt: stringValue(item.createdAt, 'createdAt'),
+    updatedAt: stringValue(item.updatedAt, 'updatedAt'),
   };
 }
 
@@ -129,17 +103,17 @@ function keywordFromItem(item: DynamoItem): AdminKeyword {
   if (item.entityType !== 'KEYWORD' || item.schemaVersion !== 1) {
     throw new TypeError('DynamoDB item is not a keyword');
   }
-  const language = stringValue(item, 'language');
+  const language = stringValue(item.language, 'language');
   if (language !== 'ca' && language !== 'en') {
     throw new TypeError('Stored keyword has invalid language');
   }
   return {
-    id: stringValue(item, 'id'),
+    id: stringValue(item.id, 'id'),
     language,
-    value: stringValue(item, 'value'),
-    version: numberValue(item, 'version'),
-    createdAt: stringValue(item, 'createdAt'),
-    updatedAt: stringValue(item, 'updatedAt'),
+    value: stringValue(item.value, 'value'),
+    version: integerValue(item.version, 'version'),
+    createdAt: stringValue(item.createdAt, 'createdAt'),
+    updatedAt: stringValue(item.updatedAt, 'updatedAt'),
   };
 }
 
@@ -151,7 +125,7 @@ function completedResult(item: DynamoItem): StoredMutationResult {
   ) {
     throw new AdminStoreConflictError('idempotency');
   }
-  return structuredClone(recordValue(item, 'result'));
+  return structuredClone(recordValue(item.result, 'result'));
 }
 
 export class DynamoDbAdminStore {
@@ -390,7 +364,7 @@ export class DynamoDbAdminStore {
         resumed: true,
         ...(item.context === undefined
           ? {}
-          : { context: structuredClone(recordValue(item, 'context')) }),
+          : { context: structuredClone(recordValue(item.context, 'context')) }),
       };
     }
     throw new AdminStoreConflictError('idempotency');

@@ -1,4 +1,5 @@
 import { isOwnedImageKey } from '@/lib/aws/media/service';
+import { isRecord } from '@/lib/contract/values';
 import { PRESIGNED_URL_TTL_SECONDS } from '@/lib/domain/media/contracts';
 import { PostNotFoundError } from '@/lib/domain/posts/errors';
 import type { Post, PostImage } from '@/lib/domain/posts/types';
@@ -10,7 +11,6 @@ import {
   errorResponse,
   expectedVersion,
   ID_PATTERN,
-  isRecord,
   numberField,
   parseBody,
   pathId,
