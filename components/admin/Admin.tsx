@@ -1,505 +1,47 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { AppHeader } from '@/components/layout/AppHeader';
-import {
-  Badge,
-  Button,
-  Icon,
-  Input,
-  Modal,
-  Pagination,
-  Heading,
-  Text,
-} from '@/components/ui';
-import {
-  PostCard,
-  PostsFilters,
-  type FilterStatus,
-  type FilterCategory,
-  type FilterImageStatus,
-  type SortDirection,
-} from '@/components/posts';
-import {
-  AdminReadError,
-  getAdminCategories,
-  getAdminImageInventory,
-  getAdminPostsPage,
-  resolveUnpublishedCount,
-  type AdminCategory,
-  type AdminPostSummary,
-} from '@/lib/api/adminReads';
-import { downloadBackupAsJson } from '@/lib/api/backup';
-import { countDraftsWithLegacySlugs } from '@/lib/api/legacySlugs';
-import {
-  AdminMutationError,
-  countDraftPosts,
-  deleteAdminPost,
-  isExactBulkConfirmation,
-  mutationKey,
-  publishAllAdminPosts,
-} from '@/lib/api/adminMutations';
+import { PostsFilters } from '@/components/posts';
+import { Button, Icon, Text } from '@/components/ui';
 import { useAuth } from '@/lib/auth/AuthContext';
-import type { ImageInventoryCounts } from '@/lib/domain/media/contracts';
+
 import { ImageInventorySummary } from './ImageInventorySummary';
+import { PostActionsModal } from './PostActionsModal';
+import { PostListView } from './PostListView';
+import { useBackup, useCategories, useImageInventory } from './useAdminData';
+import { usePostActions, type ActionMessage } from './usePostActions';
+import { usePostList } from './usePostList';
 
-const POSTS_PER_PAGE = 10;
-
-type ConfirmationState =
-  | {
-      kind: 'delete';
-      post: AdminPostSummary;
-      idempotencyKey: string;
-    }
-  | {
-      kind: 'bulk';
-      count: number;
-      idempotencyKey: string;
-    };
+const MESSAGE_TONES: Record<ActionMessage['type'], string> = {
+  error: 'border-danger/30 bg-danger/5',
+  warning: 'border-warning/30 bg-warning/5',
+  success: 'border-success/30 bg-success/5',
+};
 
 function PostsContent() {
-  const [posts, setPosts] = useState<AdminPostSummary[]>([]);
-  const [categories, setCategories] = useState<AdminCategory[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-  const [filterCategory, setFilterCategory] = useState<FilterCategory>('all');
-  const [filterImageStatus, setFilterImageStatus] =
-    useState<FilterImageStatus>('all');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageCursors, setPageCursors] = useState<Array<string | undefined>>([
-    undefined,
-  ]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>();
-  const [unpublishedCount, setUnpublishedCount] = useState<number>();
-  const [isLoading, setIsLoading] = useState(true);
-  const [readError, setReadError] = useState<AdminReadError | null>(null);
-  const [categoriesError, setCategoriesError] = useState<AdminReadError | null>(
-    null
-  );
-  const [readAttempt, setReadAttempt] = useState(0);
-  const [categoryAttempt, setCategoryAttempt] = useState(0);
-  const [inventoryCounts, setInventoryCounts] =
-    useState<ImageInventoryCounts | null>(null);
-  const [inventoryError, setInventoryError] = useState<string | null>(null);
-  const [inventoryAttempt, setInventoryAttempt] = useState(0);
-  const [isBackingUp, setIsBackingUp] = useState(false);
-  const [isPublishingAll, setIsPublishingAll] = useState(false);
-  const [isCountingDrafts, setIsCountingDrafts] = useState(false);
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(
-    null
-  );
-  const [bulkConfirmationText, setBulkConfirmationText] = useState('');
-  const [mutationMessage, setMutationMessage] = useState<{
-    type: 'error' | 'success' | 'warning';
-    text: string;
-  } | null>(null);
-  const operationLockRef = useRef(false);
-
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const cursor = pageCursors[currentPage - 1];
-
-  useEffect(() => {
-    const nextSearch = searchQuery.trim();
-    if (nextSearch === debouncedSearch) return;
-
-    const timeout = window.setTimeout(() => {
-      setIsLoading(true);
-      setReadError(null);
-      setCurrentPage(1);
-      setPageCursors([undefined]);
-      setNextCursor(null);
-      setDebouncedSearch(nextSearch);
-    }, 250);
-    return () => window.clearTimeout(timeout);
-  }, [debouncedSearch, searchQuery]);
-
-  const resetPagination = useCallback(() => {
-    setCurrentPage(1);
-    setPageCursors([undefined]);
-    setNextCursor(null);
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    void getAdminPostsPage({
-      limit: POSTS_PER_PAGE,
-      cursor,
-      direction: sortDirection === 'desc' ? 'descending' : 'ascending',
-      ...(debouncedSearch ? { title: debouncedSearch } : {}),
-      ...(filterStatus === 'published'
-        ? { published: true }
-        : filterStatus === 'draft'
-          ? { published: false }
-          : {}),
-      ...(filterCategory === 'all' ? {} : { categoryId: filterCategory }),
-      ...(filterImageStatus === 'all'
-        ? {}
-        : { imageStatus: filterImageStatus }),
-      signal: controller.signal,
-    })
-      .then(page => {
-        setPosts(page.items);
-        setNextCursor(page.nextCursor);
-        setTotalCount(page.totalCount);
-        setUnpublishedCount(currentCount =>
-          resolveUnpublishedCount(currentCount, page.unpublishedCount)
-        );
-        setReadError(null);
-      })
-      .catch(error => {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        setPosts([]);
-        setNextCursor(null);
-        setReadError(
-          error instanceof AdminReadError
-            ? error
-            : new AdminReadError(
-                'No s’han pogut carregar els articles.',
-                500,
-                'READ_FAILED'
-              )
-        );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [
-    cursor,
-    debouncedSearch,
-    filterCategory,
-    filterImageStatus,
-    filterStatus,
-    readAttempt,
-    sortDirection,
-  ]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void getAdminCategories(controller.signal)
-      .then(nextCategories => {
-        setCategories(nextCategories);
-        setCategoriesError(null);
-      })
-      .catch(error => {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        setCategoriesError(
-          error instanceof AdminReadError
-            ? error
-            : new AdminReadError(
-                'No s’han pogut carregar les categories.',
-                500,
-                'CATEGORIES_FAILED'
-              )
-        );
-      });
-    return () => controller.abort();
-  }, [categoryAttempt]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void getAdminImageInventory(controller.signal)
-      .then(counts => {
-        setInventoryCounts(counts);
-        setInventoryError(null);
-      })
-      .catch(error => {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        setInventoryCounts(null);
-        setInventoryError(
-          error instanceof Error
-            ? error.message
-            : 'No s’ha pogut calcular l’inventari d’imatges.'
-        );
-      });
-    return () => controller.abort();
-  }, [inventoryAttempt]);
-
-  const categoryLabels = useMemo(
-    () => new Map(categories.map(category => [category.id, category.nameCa])),
-    [categories]
-  );
-  const categoryOptions = useMemo(
-    () =>
-      categories.map(category => ({
-        value: category.id,
-        label: category.nameCa,
-      })),
-    [categories]
-  );
-
-  const beginListChange = useCallback(() => {
-    setIsLoading(true);
-    setReadError(null);
-  }, []);
-
-  const refreshPosts = () => {
-    beginListChange();
-    setReadAttempt(attempt => attempt + 1);
-  };
-
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-  };
-
-  const handleStatusChange = (value: FilterStatus) => {
-    if (value === filterStatus) return;
-    beginListChange();
-    resetPagination();
-    setFilterStatus(value);
-  };
-
-  const handleCategoryChange = (value: FilterCategory) => {
-    if (value === filterCategory) return;
-    beginListChange();
-    resetPagination();
-    setFilterCategory(value);
-  };
-
-  const handleImageStatusChange = (value: FilterImageStatus) => {
-    if (value === filterImageStatus) return;
-    beginListChange();
-    resetPagination();
-    setFilterImageStatus(value);
-  };
-
-  const handleSortChange = (value: SortDirection) => {
-    if (value === sortDirection) return;
-    beginListChange();
-    resetPagination();
-    setSortDirection(value);
-  };
-
-  const handleEdit = (postId: string) => {
-    router.push(`/reflexions/${postId}/edit`);
-  };
-
-  const handleDelete = (post: AdminPostSummary) => {
-    if (deletingPostId) return;
-    setMutationMessage(null);
-    setConfirmation({
-      kind: 'delete',
-      post,
-      idempotencyKey: mutationKey('post-delete'),
-    });
-  };
-
-  const handleCreate = () => router.push('/reflexions/new');
-
-  const handleBackup = async () => {
-    setIsBackingUp(true);
-    try {
-      const result = await downloadBackupAsJson();
-      alert(
-        `Còpia de seguretat descarregada correctament: ${result.filename} (${result.itemCount} registres).`
-      );
-    } catch (error) {
-      alert(
-        error instanceof Error
-          ? error.message
-          : 'No s’ha pogut generar la còpia de seguretat.'
-      );
-    } finally {
-      setIsBackingUp(false);
-    }
-  };
+  const list = usePostList();
+  const categories = useCategories();
+  const inventory = useImageInventory();
+  const { backup, isBackingUp } = useBackup();
+  const actions = usePostActions({
+    onPostsChanged: list.refresh,
+    onImagesChanged: inventory.refresh,
+    onDraftCount: list.setUnpublishedCount,
+  });
+  const { filters, setFilter } = list;
 
   const handleLogout = async () => {
     try {
       await signOut();
     } catch {
       // The authenticated UI remains mounted so the administrator can retry.
-    }
-  };
-
-  const handlePublishAll = async () => {
-    if (operationLockRef.current || isCountingDrafts || isPublishingAll) return;
-    operationLockRef.current = true;
-    setIsCountingDrafts(true);
-    setMutationMessage(null);
-    try {
-      const count = await countDraftPosts();
-      setUnpublishedCount(count);
-      if (count === 0) {
-        setMutationMessage({
-          type: 'success',
-          text: 'No hi ha cap esborrany pendent de publicar.',
-        });
-        return;
-      }
-      const legacy = await countDraftsWithLegacySlugs(
-        undefined,
-        (done, total) =>
-          setMutationMessage({
-            type: 'success',
-            text: `Comprovant les adreces dels esborranys: ${done} de ${total}…`,
-          })
-      );
-      if (legacy > 0) {
-        setMutationMessage({
-          type: 'error',
-          text: `${legacy} esborrany(s) encara tenen una adreça web antiga (un número). Desa’ls abans de publicar-los tots, o demana a un superadministrador que faci servir «Adreces antigues».`,
-        });
-        return;
-      }
-      setMutationMessage(null);
-      setConfirmation({
-        kind: 'bulk',
-        count,
-        idempotencyKey: mutationKey('posts-publish-all'),
-      });
-      setBulkConfirmationText('');
-    } catch (error) {
-      const requestId =
-        error instanceof AdminMutationError ? error.requestId : undefined;
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'No s’ha pogut comptar els esborranys.';
-      setMutationMessage({
-        type: 'error',
-        text: requestId ? `${message} Correlació: ${requestId}` : message,
-      });
-    } finally {
-      operationLockRef.current = false;
-      setIsCountingDrafts(false);
-    }
-  };
-
-  const confirmDelete = async (
-    value: Extract<ConfirmationState, { kind: 'delete' }>
-  ) => {
-    if (operationLockRef.current) return;
-    operationLockRef.current = true;
-    setDeletingPostId(value.post.id);
-    setMutationMessage(null);
-    try {
-      let result = await deleteAdminPost(value.post, value.idempotencyKey);
-      if (result.cleanup.retryWithSameIdempotencyKey) {
-        result = await deleteAdminPost(value.post, value.idempotencyKey);
-      }
-      setConfirmation(null);
-      setMutationMessage({
-        type: result.cleanup.pending ? 'warning' : 'success',
-        text: result.cleanup.pending
-          ? 'L’article s’ha eliminat, però la neteja d’alguna imatge continua pendent.'
-          : 'S’ha eliminat 1 article.',
-      });
-      setInventoryAttempt(attempt => attempt + 1);
-      refreshPosts();
-    } catch (error) {
-      const requestId =
-        error instanceof AdminMutationError ? error.requestId : undefined;
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'No s’ha pogut eliminar l’article.';
-      setConfirmation(null);
-      setMutationMessage({
-        type: 'error',
-        text: requestId ? `${message} Correlació: ${requestId}` : message,
-      });
-      if (error instanceof AdminMutationError && error.status === 409) {
-        refreshPosts();
-      }
-    } finally {
-      operationLockRef.current = false;
-      setDeletingPostId(null);
-    }
-  };
-
-  const confirmPublishAll = async (
-    value: Extract<ConfirmationState, { kind: 'bulk' }>
-  ) => {
-    if (operationLockRef.current) return;
-    operationLockRef.current = true;
-    setIsPublishingAll(true);
-    setMutationMessage(null);
-    try {
-      const result = await publishAllAdminPosts(
-        value.count,
-        value.idempotencyKey
-      );
-      setConfirmation(null);
-      setBulkConfirmationText('');
-      try {
-        const remainingCount = await countDraftPosts();
-        setUnpublishedCount(remainingCount);
-        setMutationMessage({
-          type: remainingCount === 0 ? 'success' : 'warning',
-          text:
-            remainingCount === 0
-              ? `${result.publishedCount} article(s) publicats i recompte reconciliat: 0 esborranys pendents.`
-              : `${result.publishedCount} article(s) publicats. La reconciliació mostra ${remainingCount} esborrany(s) nou(s) o pendents.`,
-        });
-      } catch {
-        setUnpublishedCount(undefined);
-        setMutationMessage({
-          type: 'warning',
-          text: `${result.publishedCount} article(s) publicats, però no s’ha pogut reconciliar el recompte final.`,
-        });
-      }
-      refreshPosts();
-    } catch (error) {
-      const requestId =
-        error instanceof AdminMutationError ? error.requestId : undefined;
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'No s’ha pogut publicar tots els articles.';
-      setConfirmation(null);
-      setMutationMessage({
-        type: 'error',
-        text: requestId ? `${message} Correlació: ${requestId}` : message,
-      });
-      if (
-        error instanceof AdminMutationError &&
-        error.code === 'BULK_COUNT_MISMATCH'
-      ) {
-        try {
-          setUnpublishedCount(await countDraftPosts());
-        } catch {
-          setUnpublishedCount(undefined);
-        }
-      }
-      refreshPosts();
-    } finally {
-      operationLockRef.current = false;
-      setIsPublishingAll(false);
-    }
-  };
-
-  const totalPages =
-    totalCount === undefined
-      ? undefined
-      : Math.max(1, Math.ceil(totalCount / POSTS_PER_PAGE));
-
-  const handlePageChange = (page: number) => {
-    if (page === currentPage - 1 && currentPage > 1) {
-      beginListChange();
-      setCurrentPage(page);
-      return;
-    }
-    if (page === currentPage + 1 && nextCursor) {
-      beginListChange();
-      setPageCursors(previous => {
-        const next = previous.slice(0, currentPage);
-        next[currentPage] = nextCursor;
-        return next;
-      });
-      setCurrentPage(page);
     }
   };
 
@@ -510,12 +52,15 @@ function PostsContent() {
         actions={
           user ? (
             <>
-              <Button onClick={handleCreate} variant="primary">
+              <Button
+                onClick={() => router.push('/reflexions/new')}
+                variant="primary"
+              >
                 <Icon name="plus" size="3" /> Nou article
               </Button>
               <UserMenu
                 user={user}
-                onBackup={handleBackup}
+                onBackup={backup}
                 onLogout={handleLogout}
                 isBackingUp={isBackingUp}
               />
@@ -536,279 +81,74 @@ function PostsContent() {
 
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <ImageInventorySummary
-          counts={inventoryCounts}
-          error={inventoryError}
-          selected={filterImageStatus}
-          onSelect={handleImageStatusChange}
-          onRetry={() => {
-            setInventoryError(null);
-            setInventoryCounts(null);
-            setInventoryAttempt(attempt => attempt + 1);
-          }}
+          counts={inventory.counts}
+          error={inventory.error}
+          selected={filters.imageStatus}
+          onSelect={value => setFilter('imageStatus', value)}
+          onRetry={inventory.retry}
         />
         <div className="flex flex-wrap items-center gap-4">
           <div className="mt-5 min-w-0 flex-1">
             <PostsFilters
-              searchQuery={searchQuery}
-              onSearchChange={handleSearchChange}
-              filterStatus={filterStatus}
-              onFilterChange={handleStatusChange}
-              filterCategory={filterCategory}
-              onCategoryChange={handleCategoryChange}
-              filterImageStatus={filterImageStatus}
-              onImageStatusChange={handleImageStatusChange}
-              sortDirection={sortDirection}
-              onSortChange={handleSortChange}
-              categories={categoryOptions}
+              searchQuery={list.searchQuery}
+              onSearchChange={list.setSearchQuery}
+              filterStatus={filters.status}
+              onFilterChange={value => setFilter('status', value)}
+              filterCategory={filters.category}
+              onCategoryChange={value => setFilter('category', value)}
+              filterImageStatus={filters.imageStatus}
+              onImageStatusChange={value => setFilter('imageStatus', value)}
+              sortDirection={filters.sort}
+              onSortChange={value => setFilter('sort', value)}
+              categories={categories.options}
             />
           </div>
           <Button
             className="mt-5"
-            onClick={() => void handlePublishAll()}
+            onClick={() => void actions.requestPublishAll()}
             variant="secondary"
-            loading={isCountingDrafts || isPublishingAll}
-            disabled={unpublishedCount === 0}
+            loading={actions.isCountingDrafts || actions.isPublishingAll}
+            disabled={list.unpublishedCount === 0}
           >
             <Text as="span" className="flex items-center gap-2">
               <Icon name="check" size="3" /> Publicar tots
             </Text>
           </Button>
         </div>
-        {mutationMessage ? (
+        {actions.message ? (
           <div
-            role={mutationMessage.type === 'error' ? 'alert' : 'status'}
-            className={`mt-4 border px-4 py-3 ${
-              mutationMessage.type === 'error'
-                ? 'border-danger/30 bg-danger/5'
-                : mutationMessage.type === 'warning'
-                  ? 'border-warning/30 bg-warning/5'
-                  : 'border-success/30 bg-success/5'
-            }`}
+            role={actions.message.type === 'error' ? 'alert' : 'status'}
+            className={`mt-4 border px-4 py-3 ${MESSAGE_TONES[actions.message.type]}`}
           >
-            <Text variant="small">{mutationMessage.text}</Text>
+            <Text variant="small">{actions.message.text}</Text>
           </div>
         ) : null}
-        {categoriesError ? (
+        {categories.error ? (
           <div
             role="alert"
             className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-warning/30 bg-warning/5 px-4 py-3"
           >
             <Text variant="small" className="text-body">
-              {categoriesError.message}
-              {categoriesError.requestId
-                ? ` Correlació: ${categoriesError.requestId}`
+              {categories.error.message}
+              {categories.error.requestId
+                ? ` Correlació: ${categories.error.requestId}`
                 : ''}
             </Text>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setCategoriesError(null);
-                setCategoryAttempt(attempt => attempt + 1);
-              }}
-            >
+            <Button variant="ghost" size="sm" onClick={categories.retry}>
               Reintentar categories
             </Button>
           </div>
         ) : null}
       </div>
 
-      <main
-        aria-busy={isLoading}
-        aria-live="polite"
-        className="mx-auto max-w-6xl px-4 pb-12 sm:px-6"
-      >
-        {isLoading && posts.length === 0 ? (
-          <div className="space-y-4" aria-label="Carregant articles">
-            {Array.from({ length: 3 }, (_, index) => (
-              <div
-                key={index}
-                className="h-36 animate-pulse border-b border-default bg-overlay-2 motion-reduce:animate-none"
-              />
-            ))}
-          </div>
-        ) : readError ? (
-          <section
-            role="alert"
-            className="border border-danger/30 bg-danger/5 px-6 py-10 sm:px-10"
-          >
-            <Badge tone="danger" className="mb-5">
-              Lectura interrompuda
-            </Badge>
-            <Heading as="h2" size="2xl" className="mb-3">
-              No s’han pogut carregar els articles
-            </Heading>
-            <Text variant="muted" className="mb-2 max-w-2xl">
-              {readError.message}
-            </Text>
-            {readError.requestId ? (
-              <Text variant="small" className="mb-6 text-subtle">
-                Correlació: {readError.requestId}
-              </Text>
-            ) : null}
-            <Button variant="secondary" onClick={refreshPosts}>
-              <Icon name="arrow-right" size="4" /> Tornar-ho a provar
-            </Button>
-          </section>
-        ) : (
-          <>
-            <div className={`space-y-4 ${isLoading ? 'opacity-50' : ''}`}>
-              {posts.map(post => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  categoryLabel={
-                    categoryLabels.get(post.categoryId) ?? post.categorySlug
-                  }
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                />
-              ))}
-              {posts.length === 0 ? (
-                <div className="py-16 text-center animate-fade-in-up motion-reduce:animate-none">
-                  <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-overlay-5">
-                    <Icon
-                      name="image-placeholder"
-                      size="8"
-                      className="text-muted"
-                    />
-                  </div>
-                  <Text variant="muted" className="mb-2">
-                    No s’han trobat articles
-                  </Text>
-                  <Text variant="small" className="text-subtle">
-                    {searchQuery ||
-                    filterStatus !== 'all' ||
-                    filterCategory !== 'all' ||
-                    filterImageStatus !== 'all'
-                      ? 'Prova una altra cerca o elimina algun filtre'
-                      : 'La font AWS no conté articles per mostrar'}
-                  </Text>
-                </div>
-              ) : null}
-            </div>
+      <PostListView
+        list={list}
+        categoryLabels={categories.labels}
+        onEdit={postId => router.push(`/reflexions/${postId}/edit`)}
+        onDelete={actions.requestDelete}
+      />
 
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              hasNextPage={nextCursor !== null}
-              onPageChange={handlePageChange}
-              className="mt-8"
-            />
-          </>
-        )}
-      </main>
-
-      <Modal
-        isOpen={confirmation !== null}
-        onClose={() => {
-          if (!deletingPostId && !isPublishingAll) {
-            setConfirmation(null);
-            setBulkConfirmationText('');
-          }
-        }}
-        title={
-          confirmation?.kind === 'delete'
-            ? 'Eliminar article'
-            : 'Publicar tots els esborranys'
-        }
-        closeOnBackdropClick={!deletingPostId && !isPublishingAll}
-        showCloseButton={!deletingPostId && !isPublishingAll}
-        footer={
-          confirmation ? (
-            <>
-              <Button
-                variant="ghost"
-                disabled={!!deletingPostId || isPublishingAll}
-                onClick={() => {
-                  setConfirmation(null);
-                  setBulkConfirmationText('');
-                }}
-              >
-                Cancel·lar
-              </Button>
-              <Button
-                variant={
-                  confirmation.kind === 'delete' ? 'destructive' : 'primary'
-                }
-                loading={!!deletingPostId || isPublishingAll}
-                disabled={
-                  confirmation.kind === 'bulk' &&
-                  !isExactBulkConfirmation(
-                    bulkConfirmationText,
-                    confirmation.count
-                  )
-                }
-                onClick={() => {
-                  if (confirmation.kind === 'delete') {
-                    void confirmDelete(confirmation);
-                  } else {
-                    void confirmPublishAll(confirmation);
-                  }
-                }}
-              >
-                {confirmation.kind === 'delete'
-                  ? 'Eliminar 1 article'
-                  : `Publicar ${confirmation.count} article(s)`}
-              </Button>
-            </>
-          ) : null
-        }
-      >
-        {confirmation?.kind === 'delete' ? (
-          <div className="space-y-3">
-            <Text>
-              Eliminaràs definitivament 1 article:{' '}
-              <strong>
-                {confirmation.post.titles.ca || confirmation.post.titles.en}
-              </strong>
-              .
-            </Text>
-            <Text variant="small" className="text-subtle">
-              Si una imatge no es pot netejar al primer intent, es repetirà
-              l’operació amb la mateixa clau segura.
-            </Text>
-          </div>
-        ) : confirmation?.kind === 'bulk' ? (
-          <div className="space-y-3">
-            <Text>
-              Aquesta acció publicarà exactament{' '}
-              <strong>{confirmation.count} article(s)</strong> que ara són
-              esborranys.
-            </Text>
-            <Text variant="small" className="text-subtle">
-              Els articles importats no canvien d’estat fins que confirmis
-              explícitament aquesta operació.
-            </Text>
-            <div className="border-l-2 border-warning/30 bg-warning/5 px-4 py-3">
-              <Input
-                id="bulk-publication-count"
-                label={`Escriu ${confirmation.count} per confirmar`}
-                value={bulkConfirmationText}
-                onChange={event => setBulkConfirmationText(event.target.value)}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                autoComplete="off"
-                aria-describedby="bulk-publication-help"
-                isInvalid={
-                  bulkConfirmationText.length > 0 &&
-                  !isExactBulkConfirmation(
-                    bulkConfirmationText,
-                    confirmation.count
-                  )
-                }
-                className="font-mono tabular-nums"
-              />
-              <div id="bulk-publication-help">
-                <Text variant="small" className="mt-2 text-body">
-                  El recompte queda vinculat a aquesta operació. Si canvia abans
-                  d’executar-la, no es publicarà cap esborrany.
-                </Text>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </Modal>
+      <PostActionsModal actions={actions} />
     </div>
   );
 }
