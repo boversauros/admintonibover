@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { isRecord } from '@/lib/contract/values';
 import {
   CognitoIdentityProviderClient,

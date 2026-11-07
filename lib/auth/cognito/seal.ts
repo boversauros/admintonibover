@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { EncryptJWT, jwtDecrypt } from 'jose';
 
 export const COGNITO_SESSION_SECRET_ENV = 'AWS_COGNITO_SESSION_SECRET';

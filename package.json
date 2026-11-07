@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "node --import ./tests/support/server-only.mjs --import tsx --test tests/*.test.ts",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:browser-artifacts": "node scripts/check-browser-artifacts.mjs",
     "check:design-tokens": "node scripts/check-design-tokens.mjs",
@@ -40,7 +40,8 @@
     "next": "16.4.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-hook-form": "7.69.0"
+    "react-hook-form": "7.69.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@aws-sdk/client-cloudformation": "3.1101.0",

@@ -1,3 +1,5 @@
+import 'server-only';
+
 import type { NextResponse } from 'next/server';
 
 import { sealCognitoCookie, unsealCognitoCookie } from './seal';
