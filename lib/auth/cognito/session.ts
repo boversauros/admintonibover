@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { cookies } from 'next/headers';
 
 import { getCognitoConfig, type CognitoConfig } from './config';

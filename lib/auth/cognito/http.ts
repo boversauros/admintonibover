@@ -1,3 +1,5 @@
+import 'server-only';
+
 import type { CognitoConfig } from './config';
 
 export function safeReturnTo(
