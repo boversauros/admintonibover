@@ -6,6 +6,8 @@
  * into responses. Hook failures never change a committed mutation's result.
  */
 
+import 'server-only';
+
 import { isRecord } from '@/lib/contract/values';
 
 export const SITE_REBUILD_HOOK_ENV = 'SITE_REBUILD_HOOK_URL';

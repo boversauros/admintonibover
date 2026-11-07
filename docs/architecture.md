@@ -45,8 +45,24 @@ The App Router exposes five pages:
 The page entries and root layout are Server Components. `app/layout.tsx` reads
 the encrypted Cognito session and passes only the safe user projection into the
 client `AuthProvider`. Interactive admin, form, authentication, filtering, and
-UI components are Client Components. No Client Component imports a server AWS
-SDK adapter.
+UI components are Client Components.
+
+Three runtimes share `lib/`, and two checks keep them apart:
+
+- **Next.js server (BFF):** `lib/auth/cognito/*` (except `groups.ts`),
+  `lib/aws/admin-api-proxy.ts` and `lib/site-rebuild.ts` import `server-only`,
+  so a Client Component that imports one fails `next build`.
+- **Lambda:** `lib/aws/{admin-api,build-reader,dynamodb,media}/` and
+  `infra/lambda/` are bundled by esbuild and cannot carry that marker. ESLint
+  stops browser code (`components/`, `lib/{api,forms,hooks}/`, the client
+  `lib/auth` files) from importing them, and stops them from importing
+  Next.js, React or BFF modules.
+- **Shared:** `lib/contract/`, `lib/domain/`, `lib/auth/cognito/groups.ts` and
+  `lib/aws/backup-contract.ts` are pure and safe in all three. Type-only
+  imports across a boundary are allowed.
+
+Tests run server modules directly under Node, so `pnpm test` swaps
+`server-only` for an empty module (`tests/support/server-only.mjs`).
 
 Authentication route handlers are dynamic and uncached:
 

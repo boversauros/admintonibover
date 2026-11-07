@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { getCognitoSessionKey } from './seal';
 
 export type CognitoConfig = {
