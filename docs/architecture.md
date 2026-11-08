@@ -99,7 +99,8 @@ Reads and mutations validate the local Cognito session, attach the access token
 server-side, forward a correlation ID, and return `Cache-Control: no-store`.
 Mutations additionally require exact same-origin requests; JSON requests are
 capped at 256 KiB and require `application/json`. Conditional versions and
-idempotency keys prevent lost updates and duplicate retries. After a
+browser-generated post IDs prevent lost updates and duplicates; a retry that
+finds its own earlier write already stored counts as success. After a
 committed content mutation that can change the public site, the server
 triggers the site's Vercel Deploy Hook and reports the outcome in
 `x-site-rebuild`; see [operations.md](operations.md#site-rebuilds-after-content-changes).
@@ -176,14 +177,13 @@ capacity, no GSI/LSI, and no streams. Current item types are:
 | `CATEGORY`      | taxonomy keys                     | Bilingual category catalog                                             |
 | `KEYWORD`       | taxonomy keys                     | Language-specific keyword catalog                                      |
 | `DATA_REVISION` | `SYSTEM` / `REVISION`             | Monotonic backup-consistency marker                                    |
-| `IDEMPOTENCY`   | request digest keys               | 24-hour retry result/progress record                                   |
 | `MEDIA_UPLOAD`  | upload keys                       | Short-lived upload intent                                              |
 
 Reads are strongly consistent and paginated. A post stores its references
 inline. A write whose aggregate serializes to more than 300 KiB fails with a
 413 before reaching AWS; a post already stored above that can still be shortened
-or deleted. Aggregate, summary, slug locks, catalog changes, revision, and
-idempotency state change atomically. Backup v2 keeps a `REFERENCE_SEGMENT` count,
+or deleted. Aggregate, summary, slug locks, catalog changes, and revision
+change atomically. Backup v2 keeps a `REFERENCE_SEGMENT` count,
 now always zero, so existing backup files stay valid.
 
 ## Images

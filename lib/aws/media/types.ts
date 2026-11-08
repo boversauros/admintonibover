@@ -5,7 +5,6 @@ import type {
 
 export type PendingUploadIntent = {
   uploadId: string;
-  requestDigest: string;
   postId: string;
   role: ImageRole;
   temporaryKey: string;

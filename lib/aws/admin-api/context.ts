@@ -35,15 +35,13 @@ export type MediaOperations = {
   inspect(postId: string): Promise<MediaInspection>;
   createUpload(
     postId: string,
-    descriptor: ReturnType<typeof validateUploadDescriptor>,
-    idempotencyKey: string
+    descriptor: ReturnType<typeof validateUploadDescriptor>
   ): Promise<PresignedImageUpload>;
   confirmUpload(input: {
     postId: string;
     uploadId: string;
     title: string;
     alt: string;
-    idempotencyKey: string;
   }): Promise<ConfirmedImageUpload>;
 };
 
@@ -77,7 +75,7 @@ export type AuthenticatedAdmin = {
 /** Everything a route handler needs; built once per request by the dispatcher. */
 export type RouteContext = {
   event: AdminApiEvent;
-  /** The matched API Gateway route key; also the idempotency scope. */
+  /** The matched API Gateway route key. */
   routeKey: string;
   requestId: string;
   admin: AuthenticatedAdmin;

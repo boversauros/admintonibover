@@ -171,15 +171,11 @@ export function usePostActions({
         type: 'error',
         text: errorText(error, 'No s’ha pogut publicar tots els articles.'),
       });
-      if (
-        error instanceof AdminMutationError &&
-        error.code === 'BULK_COUNT_MISMATCH'
-      ) {
-        try {
-          onDraftCount(await countDraftPosts());
-        } catch {
-          onDraftCount(undefined);
-        }
+      // Even a failed run may have published some posts.
+      try {
+        onDraftCount(await countDraftPosts());
+      } catch {
+        onDraftCount(undefined);
       }
       onPostsChanged();
     } finally {

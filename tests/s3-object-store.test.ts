@@ -11,7 +11,6 @@ const CHECKSUM = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
 function pendingIntent(): PendingUploadIntent {
   return {
     uploadId: 'a'.repeat(64),
-    requestDigest: 'b'.repeat(64),
     postId: 'post-1',
     role: 'main',
     temporaryKey: `temporary/${'a'.repeat(64)}.webp`,

@@ -402,11 +402,10 @@ test('super-admins and editors can reach content operations', async () => {
   }
 });
 
-test('concurrent retries with one mutation key cannot create duplicate posts', async () => {
+test('concurrent retries of one create cannot duplicate the post', async () => {
   const { handler, port } = setup();
   const createEvent = event('POST /posts', {
     body: postFixture('post-concurrent'),
-    headers: { 'idempotency-key': 'create-concurrent' },
   });
   const responses = await Promise.all([
     handler(createEvent),
@@ -414,7 +413,7 @@ test('concurrent retries with one mutation key cannot create duplicate posts', a
   ]);
   assert.deepEqual(
     responses.map(response => response.statusCode).sort(),
-    [201, 409]
+    [200, 201]
   );
   assert.equal(
     port.snapshot().filter(item => item.entityType === 'POST').length,
@@ -422,12 +421,11 @@ test('concurrent retries with one mutation key cannot create duplicate posts', a
   );
 });
 
-test('post create is idempotent and list/get/update preserve stable contracts and conflicts', async () => {
+test('a retried create returns the stored post and list/get/update preserve stable contracts and conflicts', async () => {
   const { handler, posts, port } = setup(2);
   const input = postFixture('post-1');
   const createEvent = event('POST /posts', {
     body: input,
-    headers: { 'idempotency-key': 'create-post-0001' },
   });
   const created = await handler(createEvent);
   assert.equal(created.statusCode, 201);
@@ -440,6 +438,12 @@ test('post create is idempotent and list/get/update preserve stable contracts an
     port.snapshot().filter(item => item.entityType === 'POST').length,
     1
   );
+
+  const differentPost = await handler(
+    event('POST /posts', { body: { ...input, author: 'Someone else' } })
+  );
+  assert.equal(differentPost.statusCode, 409);
+  assert.equal((await posts.getById('post-1'))?.author, input.author);
 
   const listed = await handler(
     event('GET /posts', {
@@ -470,7 +474,6 @@ test('post create is idempotent and list/get/update preserve stable contracts an
       body: updateInput,
       headers: {
         'if-match': '"1"',
-        'idempotency-key': 'update-post-0001',
       },
     })
   );
@@ -483,7 +486,6 @@ test('post create is idempotent and list/get/update preserve stable contracts an
       body: { ...updateInput, published: true },
       headers: {
         'if-match': '"2"',
-        'idempotency-key': 'update-publish-bypass',
       },
     })
   );
@@ -499,7 +501,6 @@ test('post create is idempotent and list/get/update preserve stable contracts an
       body: { ...updateInput, author: 'Lost update' },
       headers: {
         'if-match': '"1"',
-        'idempotency-key': 'update-post-stale',
       },
     })
   );
@@ -531,7 +532,6 @@ test('single and bulk publication require explicit confirmation and use conditio
       body: { published: true, confirmation: 'PUBLISH' },
       headers: {
         'if-match': '1',
-        'idempotency-key': 'publish-post-001',
       },
     })
   );
@@ -544,7 +544,6 @@ test('single and bulk publication require explicit confirmation and use conditio
       body: { published: false, confirmation: 'UNPUBLISH' },
       headers: {
         'if-match': '2',
-        'idempotency-key': 'unpublish-post-1',
       },
     })
   );
@@ -553,7 +552,6 @@ test('single and bulk publication require explicit confirmation and use conditio
   const unconfirmed = await handler(
     event('POST /posts/publication/bulk', {
       body: { published: true },
-      headers: { 'idempotency-key': 'bulk-publish-bad' },
     })
   );
   assert.equal(unconfirmed.statusCode, 400);
@@ -568,28 +566,66 @@ test('single and bulk publication require explicit confirmation and use conditio
       confirmation: 'PUBLISH_ALL',
       expectedCount: 2,
     },
-    headers: { 'idempotency-key': 'bulk-publish-all' },
   });
   const bulk = await handler(bulkEvent);
   assert.equal(bulk.statusCode, 200);
   assert.equal(data(bulk).publishedCount, 2);
-  const bulkReplay = await handler(bulkEvent);
-  assert.equal(data(bulkReplay).replayed, true);
+  const repeated = await handler(bulkEvent);
+  assert.equal(repeated.statusCode, 409);
+  assert.equal(
+    (body(repeated).error as { code: string }).code,
+    'BULK_COUNT_MISMATCH'
+  );
+  assert.equal((await posts.getById('post-2'))?.version, 2);
 });
 
-test('bulk publication binds the typed count and resumes the original target set after a partial failure', async () => {
+test('a retry after a lost response counts as success without writing again', async () => {
+  const { handler, posts } = setup();
+  const input = postFixture('post-retry');
+  await posts.create(input);
+  const updateEvent = event('PUT /posts/{id}', {
+    id: 'post-retry',
+    body: { ...input, author: 'Saved once' },
+    headers: { 'if-match': '"1"' },
+  });
+  assert.equal((await handler(updateEvent)).statusCode, 200);
+  const updateRetry = await handler(updateEvent);
+  assert.equal(updateRetry.statusCode, 200);
+  assert.equal(data(updateRetry).replayed, true);
+  assert.equal(updateRetry.headers.etag, '"2"');
+  assert.equal((await posts.getById('post-retry'))?.version, 2);
+
+  const publishEvent = event('PUT /posts/{id}/publication', {
+    id: 'post-retry',
+    body: { published: true, confirmation: 'PUBLISH' },
+    headers: { 'if-match': '"2"' },
+  });
+  assert.equal((await handler(publishEvent)).statusCode, 200);
+  const publishRetry = await handler(publishEvent);
+  assert.equal(publishRetry.statusCode, 200);
+  assert.equal(data(publishRetry).replayed, true);
+  assert.equal((await posts.getById('post-retry'))?.version, 3);
+
+  const staleUnpublish = await handler(
+    event('PUT /posts/{id}/publication', {
+      id: 'post-retry',
+      body: { published: false, confirmation: 'UNPUBLISH' },
+      headers: { 'if-match': '"2"' },
+    })
+  );
+  assert.equal(staleUnpublish.statusCode, 409);
+  assert.equal((await posts.getById('post-retry'))?.published, true);
+});
+
+test('an interrupted bulk publication keeps its progress and the remainder can be confirmed again', async () => {
   const { handler, posts, dependencies } = setup(2);
   await posts.create(postFixture('post-1'));
   await posts.create(postFixture('post-2'));
   await posts.create(postFixture('post-3'));
-  const bulkEvent = event('POST /posts/publication/bulk', {
-    body: {
-      published: true,
-      confirmation: 'PUBLISH_ALL',
-      expectedCount: 3,
-    },
-    headers: { 'idempotency-key': 'bulk-publish-resume' },
-  });
+  const bulkEvent = (expectedCount: number) =>
+    event('POST /posts/publication/bulk', {
+      body: { published: true, confirmation: 'PUBLISH_ALL', expectedCount },
+    });
 
   const update = dependencies.posts.update.bind(dependencies.posts);
   let updateCalls = 0;
@@ -598,23 +634,22 @@ test('bulk publication binds the typed count and resumes the original target set
     if (updateCalls === 2) throw new Error('simulated partial failure');
     return update(...args);
   };
-  const interrupted = await handler(bulkEvent);
+  const interrupted = await handler(bulkEvent(3));
   assert.equal(interrupted.statusCode, 500);
   assert.equal((await posts.getById('post-1'))?.published, true);
   assert.equal((await posts.getById('post-2'))?.published, false);
-
   dependencies.posts.update = update;
-  await posts.create(postFixture('post-4'));
-  const resumed = await handler(bulkEvent);
+
+  const staleCount = await handler(bulkEvent(3));
+  assert.equal(staleCount.statusCode, 409);
+  assert.equal((await posts.getById('post-2'))?.published, false);
+
+  const resumed = await handler(bulkEvent(2));
   assert.equal(resumed.statusCode, 200);
-  assert.equal(data(resumed).publishedCount, 3);
-  assert.equal((await posts.getById('post-1'))?.published, true);
+  assert.equal(data(resumed).publishedCount, 2);
+  assert.equal((await posts.getById('post-1'))?.version, 2);
   assert.equal((await posts.getById('post-2'))?.published, true);
   assert.equal((await posts.getById('post-3'))?.published, true);
-  assert.equal((await posts.getById('post-4'))?.published, false);
-
-  const replay = await handler(bulkEvent);
-  assert.equal(data(replay).replayed, true);
 });
 
 test('bulk publication rejects a stale exact count before changing any post', async () => {
@@ -628,7 +663,6 @@ test('bulk publication rejects a stale exact count before changing any post', as
         confirmation: 'PUBLISH_ALL',
         expectedCount: 3,
       },
-      headers: { 'idempotency-key': 'bulk-publish-stale-count' },
     })
   );
   assert.equal(result.statusCode, 409);
@@ -674,40 +708,44 @@ test('category and keyword routes are read-only', async () => {
       event(routeKey, {
         id: 'category-1',
         body: {},
-        headers: { 'if-match': '1', 'idempotency-key': 'taxonomy-write01' },
+        headers: { 'if-match': '1' },
       })
     );
     assert.equal(result.statusCode, 404, routeKey);
   }
 });
 
-test('delete remains data-atomic and retries observable image cleanup with the same key', async () => {
+test('delete is data-atomic, reports failed image cleanup, and a retry deletes nothing twice', async () => {
   const setupValue = setup();
   const { handler, posts, deletedKeys, dependencies } = setupValue;
   await posts.create(postFixture('post-delete', { images: true }));
-  let failMain = true;
   dependencies.objects.delete = async key => {
     deletedKeys.push(key);
-    if (key.includes('/main/') && failMain) {
-      failMain = false;
-      throw new Error('simulated cleanup failure');
-    }
+    if (key.includes('/main/')) throw new Error('simulated cleanup failure');
   };
+  const stale = await handler(
+    event('DELETE /posts/{id}', {
+      id: 'post-delete',
+      headers: { 'if-match': '2' },
+    })
+  );
+  assert.equal(stale.statusCode, 409);
+  assert.ok(await posts.getById('post-delete'));
+
   const deleteEvent = event('DELETE /posts/{id}', {
     id: 'post-delete',
-    headers: {
-      'if-match': '1',
-      'idempotency-key': 'delete-post-0001',
-    },
+    headers: { 'if-match': '1' },
   });
   const first = await handler(deleteEvent);
   assert.equal(first.statusCode, 200);
   assert.deepEqual(data(first).cleanup, {
     pending: true,
     failedCount: 1,
-    retryWithSameIdempotencyKey: true,
+    retryWithSameIdempotencyKey: false,
   });
+  assert.equal(data(first).replayed, false);
   assert.equal(await posts.getById('post-delete'), null);
+  const attempted = deletedKeys.length;
 
   const retry = await handler(deleteEvent);
   assert.equal(retry.statusCode, 200);
@@ -717,7 +755,7 @@ test('delete remains data-atomic and retries observable image cleanup with the s
     retryWithSameIdempotencyKey: false,
   });
   assert.equal(data(retry).replayed, true);
-  assert.equal(deletedKeys.filter(key => key.includes('/main/')).length, 2);
+  assert.equal(deletedKeys.length, attempted);
 });
 
 test('post list signs a preview only for each post-owned thumbnail', async () => {
@@ -766,7 +804,7 @@ test('post update changes only the alt text of the stored images', async () => {
           alt: 'Forged',
         },
       },
-      headers: { 'if-match': '"1"', 'idempotency-key': 'update-alt-0001' },
+      headers: { 'if-match': '"1"' },
     })
   );
   assert.equal(updated.statusCode, 200);
@@ -779,7 +817,7 @@ test('post update changes only the alt text of the stored images', async () => {
     event('PUT /posts/{id}', {
       id: 'post-alt',
       body: { ...stored, version: 2, mainImage: null, thumbImage: null },
-      headers: { 'if-match': '"2"', 'idempotency-key': 'update-alt-0002' },
+      headers: { 'if-match': '"2"' },
     })
   );
   assert.equal(cleared.statusCode, 200);
@@ -789,25 +827,18 @@ test('post update changes only the alt text of the stored images', async () => {
   );
 });
 
-test('image detach is conditional, idempotent, and retries cleanup after commit', async () => {
+test('image detach is conditional and a retry after commit changes nothing', async () => {
   const setupValue = setup();
   const { handler, posts, deletedKeys, dependencies } = setupValue;
   await posts.create(postFixture('post-delete', { images: true }));
-  let failCleanup = true;
   dependencies.objects.delete = async key => {
     deletedKeys.push(key);
-    if (failCleanup) {
-      failCleanup = false;
-      throw new Error('simulated detach cleanup failure');
-    }
+    throw new Error('simulated detach cleanup failure');
   };
   const detachEvent = event('DELETE /posts/{id}/images/{role}', {
     id: 'post-delete',
     role: 'main',
-    headers: {
-      'if-match': '1',
-      'idempotency-key': 'detach-main-0001',
-    },
+    headers: { 'if-match': '1' },
   });
 
   const first = await handler(detachEvent);
@@ -817,7 +848,7 @@ test('image detach is conditional, idempotent, and retries cleanup after commit'
   assert.deepEqual(data(first).cleanup, {
     pending: true,
     failedCount: 1,
-    retryWithSameIdempotencyKey: true,
+    retryWithSameIdempotencyKey: false,
   });
   const stored = await posts.getById('post-delete');
   assert.equal(stored?.mainImage, null);
@@ -826,21 +857,21 @@ test('image detach is conditional, idempotent, and retries cleanup after commit'
   const retry = await handler(detachEvent);
   assert.equal(retry.statusCode, 200);
   assert.equal(data(retry).replayed, true);
+  assert.equal(data(retry).postVersion, 2);
+  assert.equal(data(retry).detached, true);
   assert.deepEqual(data(retry).cleanup, {
     pending: false,
     failedCount: 0,
     retryWithSameIdempotencyKey: false,
   });
-  assert.equal(deletedKeys.length, 2);
+  assert.equal(deletedKeys.length, 1);
+  assert.equal((await posts.getById('post-delete'))?.version, 2);
 
   const stale = await handler(
     event('DELETE /posts/{id}/images/{role}', {
       id: 'post-delete',
       role: 'thumb',
-      headers: {
-        'if-match': '1',
-        'idempotency-key': 'detach-thumb-stale',
-      },
+      headers: { 'if-match': '1' },
     })
   );
   assert.equal(stale.statusCode, 409);
@@ -942,7 +973,6 @@ test('media routes retain their presign/confirm contracts without logging signed
         checksumSha256: `${'a'.repeat(43)}=`,
         expectedVersion: 1,
       },
-      headers: { 'idempotency-key': 'media-presign-01' },
     })
   );
   assert.equal(presign.statusCode, 201);
@@ -951,7 +981,6 @@ test('media routes retain their presign/confirm contracts without logging signed
     event('POST /posts/{id}/images/confirm', {
       id: 'post-1',
       body: { uploadId: 'a'.repeat(64), title: 'Safe', alt: 'Safe alt' },
-      headers: { 'idempotency-key': 'media-confirm-01' },
     })
   );
   assert.equal(confirm.statusCode, 200);
@@ -997,9 +1026,7 @@ test('internal errors and throttling keep stable safe envelopes and redact bodie
   assert.equal(throttled.statusCode, 429);
   assert.equal(throttled.headers['retry-after'], '1');
 
-  const oversized = event('POST /posts', {
-    headers: { 'idempotency-key': 'oversized-body-1' },
-  });
+  const oversized = event('POST /posts', {});
   oversized.body = 'x'.repeat(256 * 1024 + 1);
   const rejected = await setupValue.handler(oversized);
   assert.equal(rejected.statusCode, 413);

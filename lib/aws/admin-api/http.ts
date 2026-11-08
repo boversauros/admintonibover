@@ -1,11 +1,9 @@
 import { isCorrelationId } from '@/lib/contract/correlation';
 import { isRecord } from '@/lib/contract/values';
-import { MediaValidationError } from '@/lib/domain/media/errors';
-import { validateIdempotencyKey } from '@/lib/domain/media/validation';
 import type { Post } from '@/lib/domain/posts/types';
 
 import type { AdminApiEvent, AdminApiResponse } from './context';
-import { ApiValidationError, validation } from './errors';
+import { validation } from './errors';
 
 const API_VERSION = 1;
 const MAX_JSON_BODY_BYTES = 256 * 1024;
@@ -146,19 +144,6 @@ export function validateId(value: unknown, path = 'id'): string {
 
 export function pathId(event: AdminApiEvent): string {
   return validateId(event.pathParameters?.id, 'id');
-}
-
-export function requireIdempotencyKey(event: AdminApiEvent): string {
-  const value = header(event, 'idempotency-key') ?? '';
-  try {
-    validateIdempotencyKey(value);
-  } catch (error) {
-    if (error instanceof MediaValidationError) {
-      throw new ApiValidationError(error.issues);
-    }
-    throw error;
-  }
-  return value;
 }
 
 export function expectedVersion(event: AdminApiEvent): number {

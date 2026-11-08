@@ -1,13 +1,10 @@
 import { integerValue, recordValue, stringValue } from '@/lib/contract/values';
-import { createHash } from 'node:crypto';
 
 import type { PostLanguage } from '@/lib/domain/posts/types';
-import {
-  DynamoTransactionCanceledError,
-  type DynamoDbPort,
-  type DynamoItem,
-  type DynamoKey,
-  type DynamoTransactionAction,
+import type {
+  DynamoDbPort,
+  DynamoItem,
+  DynamoKey,
 } from '@/lib/aws/dynamodb/port';
 
 export type AdminCategory = {
@@ -28,22 +25,10 @@ export type AdminKeyword = {
   updatedAt: string;
 };
 
-export type StoredMutationResult = Record<string, unknown>;
-
-export type MutationReservation =
-  | {
-      state: 'reserved';
-      key: DynamoKey;
-      requestDigest: string;
-      resumed: boolean;
-      context?: StoredMutationResult;
-    }
-  | { state: 'replay'; result: StoredMutationResult };
-
 export class AdminStoreConflictError extends Error {
   readonly code = 'ADMIN_STORE_CONFLICT';
 
-  constructor(readonly reason: 'idempotency' | 'backup') {
+  constructor() {
     super('The requested change conflicts with current state');
     this.name = 'AdminStoreConflictError';
   }
@@ -52,31 +37,6 @@ export class AdminStoreConflictError extends Error {
 const CATEGORY_PARTITION = 'TAXONOMY#CATEGORIES';
 const KEYWORD_PARTITION = 'TAXONOMY#KEYWORDS';
 const SYSTEM_REVISION_KEY: DynamoKey = { PK: 'SYSTEM', SK: 'REVISION' };
-const IDEMPOTENCY_TTL_SECONDS = 24 * 60 * 60;
-const MAX_STORED_RESULT_BYTES = 32 * 1024;
-
-function mutationKey(scope: string, subject: string, key: string): DynamoKey {
-  const digest = createHash('sha256')
-    .update(`${scope}\u0000${subject}\u0000${key}`, 'utf8')
-    .digest('hex');
-  return { PK: `IDEMPOTENCY#${digest}`, SK: `IDEMPOTENCY#${digest}` };
-}
-
-function revisionAction(updatedAt: string): DynamoTransactionAction {
-  return {
-    type: 'increment',
-    label: 'revision',
-    key: SYSTEM_REVISION_KEY,
-    attribute: 'revision',
-    by: 1,
-    initialValue: 0,
-    set: {
-      entityType: 'DATA_REVISION',
-      schemaVersion: 1,
-      updatedAt,
-    },
-  };
-}
 
 function categoryFromItem(item: DynamoItem): AdminCategory {
   if (item.entityType !== 'CATEGORY' || item.schemaVersion !== 1) {
@@ -117,17 +77,6 @@ function keywordFromItem(item: DynamoItem): AdminKeyword {
   };
 }
 
-function completedResult(item: DynamoItem): StoredMutationResult {
-  if (
-    item.entityType !== 'IDEMPOTENCY' ||
-    item.schemaVersion !== 1 ||
-    item.status !== 'completed'
-  ) {
-    throw new AdminStoreConflictError('idempotency');
-  }
-  return structuredClone(recordValue(item.result, 'result'));
-}
-
 export class DynamoDbAdminStore {
   constructor(
     private readonly dynamodb: DynamoDbPort,
@@ -156,137 +105,6 @@ export class DynamoDbAdminStore {
       .sort((left, right) => left.value.localeCompare(right.value));
   }
 
-  async reserveMutation(input: {
-    scope: string;
-    subject: string;
-    key: string;
-    requestDigest: string;
-    resumePending?: boolean;
-    pendingContext?: StoredMutationResult;
-  }): Promise<MutationReservation> {
-    const key = mutationKey(input.scope, input.subject, input.key);
-    const existing = await this.dynamodb.get(key, true);
-    if (existing) {
-      return this.resolveReservation(
-        existing,
-        input.requestDigest,
-        input.resumePending
-      );
-    }
-
-    if (
-      input.pendingContext &&
-      Buffer.byteLength(JSON.stringify(input.pendingContext), 'utf8') >
-        MAX_STORED_RESULT_BYTES
-    ) {
-      throw new RangeError('Idempotency context exceeds 32 KiB');
-    }
-
-    const now = this.clock();
-    try {
-      await this.dynamodb.transactWrite([
-        {
-          type: 'put',
-          label: 'idempotency:reserve',
-          item: {
-            ...key,
-            entityType: 'IDEMPOTENCY',
-            schemaVersion: 1,
-            requestDigest: input.requestDigest,
-            status: 'pending',
-            ...(input.pendingContext
-              ? { context: structuredClone(input.pendingContext) }
-              : {}),
-            createdAt: now.toISOString(),
-            expiresAt:
-              Math.floor(now.getTime() / 1000) + IDEMPOTENCY_TTL_SECONDS,
-          },
-          condition: { type: 'attributeNotExists', attribute: 'PK' },
-        },
-        revisionAction(now.toISOString()),
-      ]);
-      return {
-        state: 'reserved',
-        key,
-        requestDigest: input.requestDigest,
-        resumed: false,
-        ...(input.pendingContext
-          ? { context: structuredClone(input.pendingContext) }
-          : {}),
-      };
-    } catch (error) {
-      if (!(error instanceof DynamoTransactionCanceledError)) throw error;
-      const raced = await this.dynamodb.get(key, true);
-      if (!raced) throw new AdminStoreConflictError('idempotency');
-      return this.resolveReservation(
-        raced,
-        input.requestDigest,
-        input.resumePending
-      );
-    }
-  }
-
-  async findMutation(input: {
-    scope: string;
-    subject: string;
-    key: string;
-    requestDigest: string;
-    resumePending?: boolean;
-  }): Promise<MutationReservation | null> {
-    const existing = await this.dynamodb.get(
-      mutationKey(input.scope, input.subject, input.key),
-      true
-    );
-    return existing
-      ? this.resolveReservation(
-          existing,
-          input.requestDigest,
-          input.resumePending
-        )
-      : null;
-  }
-
-  async completeMutation(
-    reservation: Extract<MutationReservation, { state: 'reserved' }>,
-    result: StoredMutationResult
-  ): Promise<void> {
-    const bytes = Buffer.byteLength(JSON.stringify(result), 'utf8');
-    if (bytes > MAX_STORED_RESULT_BYTES) {
-      throw new RangeError('Idempotency result exceeds 32 KiB');
-    }
-    const now = this.clock();
-    try {
-      await this.dynamodb.transactWrite([
-        {
-          type: 'put',
-          label: 'idempotency:complete',
-          item: {
-            ...reservation.key,
-            entityType: 'IDEMPOTENCY',
-            schemaVersion: 1,
-            requestDigest: reservation.requestDigest,
-            status: 'completed',
-            result: structuredClone(result),
-            completedAt: now.toISOString(),
-            expiresAt:
-              Math.floor(now.getTime() / 1000) + IDEMPOTENCY_TTL_SECONDS,
-          },
-          condition: {
-            type: 'equals',
-            attribute: 'requestDigest',
-            value: reservation.requestDigest,
-          },
-        },
-        revisionAction(now.toISOString()),
-      ]);
-    } catch (error) {
-      if (error instanceof DynamoTransactionCanceledError) {
-        throw new AdminStoreConflictError('idempotency');
-      }
-      throw error;
-    }
-  }
-
   async scanAll(pageSize = 100): Promise<{
     items: DynamoItem[];
     pageCount: number;
@@ -309,7 +127,7 @@ export class DynamoDbAdminStore {
     } while (exclusiveStartKey !== undefined);
     const revisionAfter = await this.dataRevision();
     if (revisionBefore !== revisionAfter) {
-      throw new AdminStoreConflictError('backup');
+      throw new AdminStoreConflictError();
     }
     return { items, pageCount };
   }
@@ -339,34 +157,5 @@ export class DynamoDbAdminStore {
       exclusiveStartKey = page.lastEvaluatedKey;
     } while (exclusiveStartKey !== undefined);
     return items;
-  }
-
-  private resolveReservation(
-    item: DynamoItem,
-    requestDigest: string,
-    resumePending = false
-  ): MutationReservation {
-    if (
-      item.entityType !== 'IDEMPOTENCY' ||
-      item.schemaVersion !== 1 ||
-      item.requestDigest !== requestDigest
-    ) {
-      throw new AdminStoreConflictError('idempotency');
-    }
-    if (item.status === 'completed') {
-      return { state: 'replay', result: completedResult(item) };
-    }
-    if (item.status === 'pending' && resumePending) {
-      return {
-        state: 'reserved',
-        key: { PK: item.PK, SK: item.SK },
-        requestDigest,
-        resumed: true,
-        ...(item.context === undefined
-          ? {}
-          : { context: structuredClone(recordValue(item.context, 'context')) }),
-      };
-    }
-    throw new AdminStoreConflictError('idempotency');
   }
 }

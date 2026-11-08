@@ -78,6 +78,19 @@ function postEnvelope(post: Post, replayed = false): Record<string, unknown> {
   };
 }
 
+test('bulk publication is not retried after a gateway failure', async () => {
+  let requests = 0;
+  await assert.rejects(
+    publishAllAdminPosts(2, 'posts-publish-all:no-retry', async () => {
+      requests += 1;
+      return new Response(null, { status: 503 });
+    }),
+    (error: unknown) =>
+      error instanceof AdminMutationError && error.status === 503
+  );
+  assert.equal(requests, 1);
+});
+
 test('create retries a transient gateway failure with the same idempotency key', async () => {
   const post = postFixture();
   const keys: string[] = [];

@@ -109,17 +109,12 @@ function mappedError(
     return errorResponse(404, 'NOT_FOUND', 'Resource not found', requestId);
   }
   if (error instanceof AdminStoreConflictError) {
-    const conflict = {
-      idempotency: {
-        code: 'IDEMPOTENCY_CONFLICT',
-        message: 'The idempotency key is already in use',
-      },
-      backup: {
-        code: 'BACKUP_CHANGED_DURING_EXPORT',
-        message: 'Data changed during backup; retry the download',
-      },
-    }[error.reason];
-    return errorResponse(409, conflict.code, conflict.message, requestId);
+    return errorResponse(
+      409,
+      'BACKUP_CHANGED_DURING_EXPORT',
+      'Data changed during backup; retry the download',
+      requestId
+    );
   }
   if (
     error instanceof PostVersionConflictError ||
