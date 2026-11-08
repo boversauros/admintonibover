@@ -37,11 +37,10 @@ test('AWS port maps strong get plus paginated query and scan requests without ne
     entityType: 'POST',
   });
   const page = await port.query({
-    partitionKey: 'POST#1',
-    sortKeyBeginsWith: 'REFS#',
+    partitionKey: 'POSTS',
     consistentRead: true,
     scanIndexForward: true,
-    exclusiveStartKey: { PK: 'POST#1', SK: 'REFS#ca#000001' },
+    exclusiveStartKey: { PK: 'POSTS', SK: 'ORDER#0' },
     limit: 25,
   });
   const scanPage = await port.scan({
@@ -61,12 +60,12 @@ test('AWS port maps strong get plus paginated query and scan requests without ne
   });
   assert.deepEqual(commands[1].input, {
     TableName: 'content-table',
-    KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk)',
-    ExpressionAttributeNames: { '#pk': 'PK', '#sk': 'SK' },
-    ExpressionAttributeValues: { ':pk': 'POST#1', ':sk': 'REFS#' },
+    KeyConditionExpression: '#pk = :pk',
+    ExpressionAttributeNames: { '#pk': 'PK' },
+    ExpressionAttributeValues: { ':pk': 'POSTS' },
     ConsistentRead: true,
     ScanIndexForward: true,
-    ExclusiveStartKey: { PK: 'POST#1', SK: 'REFS#ca#000001' },
+    ExclusiveStartKey: { PK: 'POSTS', SK: 'ORDER#0' },
     Limit: 25,
   });
   assert.deepEqual(commands[2].input, {

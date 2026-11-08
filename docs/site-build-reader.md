@@ -192,8 +192,7 @@ ID is unique across the snapshot and each version is positive.
 ### `post`
 
 Returns one published `PublishedPost` at the expected version, from the
-strongly consistent aggregate lookup (which reconstructs segmented references).
-Its projection exposes only fields needed by Astro:
+strongly consistent aggregate lookup. Its projection exposes only fields needed by Astro:
 
 ```ts
 type PublishedPost = {

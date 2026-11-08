@@ -10,6 +10,7 @@ export const RESTORABLE_ENTITY_TYPES = [
   'DATA_REVISION',
   'POST',
   'POST_SUMMARY',
+  // No longer written. Removing it needs a v3 schema: v2 files list its count.
   'REFERENCE_SEGMENT',
   'SLUG_LOCK',
   'CATEGORY',
