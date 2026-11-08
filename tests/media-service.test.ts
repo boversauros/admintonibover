@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
@@ -186,48 +185,25 @@ test('media validation enforces MIME, extension, checksum, and size', () => {
   );
 });
 
-test('presign is post-version bound, opaque, and idempotent', async () => {
+test('presign is post-version bound and opaque, and a retry gets a new upload', async () => {
   const { objects, service } = await harness();
-  const first = await service.createUpload(
-    'post-1',
-    descriptor(),
-    'presign-request-0001'
-  );
-  const replay = await service.createUpload(
-    'post-1',
-    descriptor(),
-    'presign-request-0001'
-  );
+  const first = await service.createUpload('post-1', descriptor());
+  const retry = await service.createUpload('post-1', descriptor());
 
-  assert.equal(replay.uploadId, first.uploadId);
+  assert.notEqual(retry.uploadId, first.uploadId);
   assert.equal(first.objectKey.includes('post-1'), false);
+  assert.match(first.uploadId, /^[a-f0-9]{64}$/);
   assert.match(first.objectKey, /^temporary\/[a-f0-9]{64}\.webp$/);
   assert.equal(objects.presignedUploads.length, 2);
   await assert.rejects(
-    service.createUpload(
-      'post-1',
-      descriptor({ sizeBytes: 2049 }),
-      'presign-request-0001'
-    ),
-    MediaUploadConflictError
-  );
-  await assert.rejects(
-    service.createUpload(
-      'post-1',
-      descriptor({ expectedVersion: 2 }),
-      'presign-request-0002'
-    ),
+    service.createUpload('post-1', descriptor({ expectedVersion: 2 })),
     PostVersionConflictError
   );
 });
 
 test('valid confirm attaches the image before deleting prior owned objects', async () => {
   const { objects, posts, service } = await harness();
-  const upload = await service.createUpload(
-    'post-1',
-    descriptor(),
-    'presign-request-0003'
-  );
+  const upload = await service.createUpload('post-1', descriptor());
   objects.objects.set(upload.objectKey, {
     contentType: 'image/webp',
     sizeBytes: 2048,
@@ -245,7 +221,6 @@ test('valid confirm attaches the image before deleting prior owned objects', asy
     uploadId: upload.uploadId,
     title: 'New main',
     alt: 'New main image',
-    idempotencyKey: 'confirm-request-0001',
   });
   const stored = await posts.getById('post-1');
 
@@ -260,11 +235,7 @@ test('valid confirm attaches the image before deleting prior owned objects', asy
 
 test('failed conditional confirm preserves the prior image and removes the unattached copy', async () => {
   const { objects, posts, service } = await harness();
-  const upload = await service.createUpload(
-    'post-1',
-    descriptor(),
-    'presign-request-0004'
-  );
+  const upload = await service.createUpload('post-1', descriptor());
   objects.objects.set(upload.objectKey, {
     contentType: 'image/webp',
     sizeBytes: 2048,
@@ -280,7 +251,6 @@ test('failed conditional confirm preserves the prior image and removes the unatt
       uploadId: upload.uploadId,
       title: 'Stale main',
       alt: 'Stale main image',
-      idempotencyKey: 'confirm-request-0002',
     }),
     PostVersionConflictError
   );
@@ -300,11 +270,7 @@ test('failed conditional confirm preserves the prior image and removes the unatt
 
 test('HEAD mismatch fails before copy or post mutation', async () => {
   const { objects, posts, service } = await harness();
-  const upload = await service.createUpload(
-    'post-1',
-    descriptor(),
-    'presign-request-0005'
-  );
+  const upload = await service.createUpload('post-1', descriptor());
   objects.objects.set(upload.objectKey, {
     contentType: 'image/webp',
     sizeBytes: 2049,
@@ -317,7 +283,6 @@ test('HEAD mismatch fails before copy or post mutation', async () => {
       uploadId: upload.uploadId,
       title: '',
       alt: '',
-      idempotencyKey: 'confirm-request-0003',
     }),
     MediaUploadIntegrityError
   );
@@ -327,11 +292,7 @@ test('HEAD mismatch fails before copy or post mutation', async () => {
 
 test('expired upload intent fails before copy or post mutation', async () => {
   const { objects, posts, service, setTime } = await harness();
-  const upload = await service.createUpload(
-    'post-1',
-    descriptor(),
-    'presign-request-expired'
-  );
+  const upload = await service.createUpload('post-1', descriptor());
   objects.objects.set(upload.objectKey, {
     contentType: 'image/webp',
     sizeBytes: 2048,
@@ -346,7 +307,6 @@ test('expired upload intent fails before copy or post mutation', async () => {
       uploadId: upload.uploadId,
       title: '',
       alt: '',
-      idempotencyKey: 'confirm-request-expired',
     }),
     MediaUploadExpiredError
   );
@@ -357,11 +317,7 @@ test('expired upload intent fails before copy or post mutation', async () => {
 
 test('cleanup failure preserves the attached image and is reported', async () => {
   const { objects, posts, service } = await harness();
-  const upload = await service.createUpload(
-    'post-1',
-    descriptor(),
-    'presign-request-cleanup'
-  );
+  const upload = await service.createUpload('post-1', descriptor());
   objects.objects.set(upload.objectKey, {
     contentType: 'image/webp',
     sizeBytes: 2048,
@@ -378,7 +334,6 @@ test('cleanup failure preserves the attached image and is reported', async () =>
     uploadId: upload.uploadId,
     title: 'Cleanup warning',
     alt: 'Attached despite cleanup warning',
-    idempotencyKey: 'confirm-request-cleanup',
   });
 
   assert.equal(confirmed.cleanupPending, true);
@@ -389,13 +344,9 @@ test('cleanup failure preserves the attached image and is reported', async () =>
   assert.equal(objects.objects.has(confirmed.image.image.key), true);
 });
 
-test('confirmed requests replay only with the same idempotency key', async () => {
+test('a confirmed upload replays only with the same title and alt', async () => {
   const { objects, service } = await harness();
-  const upload = await service.createUpload(
-    'post-1',
-    descriptor(),
-    'presign-request-0006'
-  );
+  const upload = await service.createUpload('post-1', descriptor());
   objects.objects.set(upload.objectKey, {
     contentType: 'image/webp',
     sizeBytes: 2048,
@@ -407,28 +358,20 @@ test('confirmed requests replay only with the same idempotency key', async () =>
     uploadId: upload.uploadId,
     title: 'Replay-safe',
     alt: 'Replay-safe image',
-    idempotencyKey: 'confirm-request-0004',
   };
   await service.confirmUpload(input);
   const replayed = await service.confirmUpload(input);
   assert.equal(replayed.replayed, true);
   assert.equal(objects.copied.length, 1);
   await assert.rejects(
-    service.confirmUpload({
-      ...input,
-      idempotencyKey: 'confirm-request-changed',
-    }),
+    service.confirmUpload({ ...input, alt: 'A different image text' }),
     MediaUploadConflictError
   );
 });
 
 test('concurrent confirmation replay never deletes the winner object', async () => {
   const { objects, posts, service } = await harness();
-  const upload = await service.createUpload(
-    'post-1',
-    descriptor(),
-    'presign-request-0007'
-  );
+  const upload = await service.createUpload('post-1', descriptor());
   objects.objects.set(upload.objectKey, {
     contentType: 'image/webp',
     sizeBytes: 2048,
@@ -440,7 +383,6 @@ test('concurrent confirmation replay never deletes the winner object', async () 
     uploadId: upload.uploadId,
     title: 'Concurrent replay',
     alt: 'Concurrent replay image',
-    idempotencyKey: 'confirm-request-0007',
   };
 
   const results = await Promise.all([
@@ -459,44 +401,43 @@ test('concurrent confirmation replay never deletes the winner object', async () 
 });
 
 test('replacement never cleans up a destination that is already attached', async () => {
-  const { objects, posts, service } = await harness();
-  const idempotencyKey = 'presign-request-reused';
-  const uploadId = createHash('sha256')
-    .update(`media-upload\u0000post-1\u0000${idempotencyKey}`, 'utf8')
-    .digest('hex');
+  const { intents, objects, posts, service } = await harness();
+  const uploadId = 'c'.repeat(64);
   const permanentKey = `images/posts/post-1/main/${uploadId}.webp`;
+  const temporaryKey = `temporary/${uploadId}.webp`;
+  const stored = {
+    contentType: 'image/webp',
+    sizeBytes: 2048,
+    checksumSha256: CHECKSUM,
+    encryption: 'AES256',
+  };
   const current = (await posts.getById('post-1'))!;
   await posts.update(
-    {
-      ...current,
-      mainImage: { ...current.mainImage!, key: permanentKey },
-    },
+    { ...current, mainImage: { ...current.mainImage!, key: permanentKey } },
     1
   );
-  objects.objects.set(permanentKey, {
+  objects.objects.set(permanentKey, stored);
+  objects.objects.set(temporaryKey, stored);
+  await intents.create({
+    uploadId,
+    postId: 'post-1',
+    role: 'main',
+    temporaryKey,
+    permanentKey,
     contentType: 'image/webp',
     sizeBytes: 2048,
     checksumSha256: CHECKSUM,
-    encryption: 'AES256',
-  });
-  const upload = await service.createUpload(
-    'post-1',
-    descriptor({ expectedVersion: 2 }),
-    idempotencyKey
-  );
-  objects.objects.set(upload.objectKey, {
-    contentType: 'image/webp',
-    sizeBytes: 2048,
-    checksumSha256: CHECKSUM,
-    encryption: 'AES256',
+    expectedVersion: 2,
+    createdAt: TIME,
+    expiresAt: Math.floor(new Date(TIME).getTime() / 1000) + 300,
+    status: 'pending',
   });
 
   const confirmed = await service.confirmUpload({
     postId: 'post-1',
-    uploadId: upload.uploadId,
+    uploadId,
     title: 'Same destination',
     alt: 'Same destination replacement',
-    idempotencyKey: 'confirm-request-reused',
   });
 
   assert.equal(confirmed.image.image.key, permanentKey);

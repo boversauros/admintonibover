@@ -19,6 +19,8 @@ export const RESTORABLE_ENTITY_TYPES = [
 export type RestorableEntityType = (typeof RESTORABLE_ENTITY_TYPES)[number];
 
 export const EXCLUDED_BACKUP_ENTITY_TYPES = [
+  // No longer written. Leftovers stay excluded because a backup rejects any
+  // unknown entity type, and the dev refresh clears what is listed here.
   'IDEMPOTENCY',
   'MEDIA_UPLOAD',
 ] as const;

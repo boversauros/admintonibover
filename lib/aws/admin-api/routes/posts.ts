@@ -1,34 +1,28 @@
+import { isDeepStrictEqual } from 'node:util';
+
 import { isOwnedImageKey } from '@/lib/aws/media/service';
-import { isRecord } from '@/lib/contract/values';
 import { PRESIGNED_URL_TTL_SECONDS } from '@/lib/domain/media/contracts';
-import { PostNotFoundError } from '@/lib/domain/posts/errors';
+import {
+  PostNotFoundError,
+  PostVersionConflictError,
+} from '@/lib/domain/posts/errors';
 import type { Post, PostImage } from '@/lib/domain/posts/types';
 
-import type { RouteHandler } from '../context';
+import type { AdminApiDependencies, RouteHandler } from '../context';
 import { ApiConflictError, validation } from '../errors';
 import {
   booleanField,
   errorResponse,
   expectedVersion,
-  ID_PATTERN,
   numberField,
   parseBody,
   pathId,
   postResponse,
   recordBody,
-  requireIdempotencyKey,
   response,
 } from '../http';
-import {
-  mutationDigest,
-  requiredReservation,
-  reservationResult,
-  resultString,
-  resultStrings,
-} from '../idempotency';
 import { cleanupImages } from '../image-cleanup';
 import { parseListOptions, parsePost } from '../post-parsing';
-import type { MutationReservation } from '../store';
 
 const MAX_BULK_POSTS = 100;
 
@@ -45,31 +39,37 @@ function keepImageWithAlt(
   return { ...stored, alt: submitted.alt };
 }
 
-type BulkPublicationTarget = { id: string; version: number };
-
-function bulkPublicationTargets(
-  reservation: Extract<MutationReservation, { state: 'reserved' }>
-): BulkPublicationTarget[] {
-  const context = reservation.context;
-  if (
-    !context ||
-    context.operation !== 'bulk-publication-v1' ||
-    !Array.isArray(context.targets)
-  ) {
-    throw new TypeError('Stored bulk publication context is invalid');
-  }
-  return context.targets.map((value, index) => {
-    if (
-      !isRecord(value) ||
-      typeof value.id !== 'string' ||
-      !ID_PATTERN.test(value.id) ||
-      !Number.isSafeInteger(value.version) ||
-      (value.version as number) < 1
-    ) {
-      throw new TypeError(`Stored bulk publication target ${index} is invalid`);
-    }
-    return { id: value.id, version: value.version as number };
+/** Whether two posts hold the same content, ignoring server-managed fields. */
+function sameContent(left: Post, right: Post): boolean {
+  const content = (post: Post) => ({
+    ...post,
+    version: 0,
+    createdAt: '',
+    updatedAt: '',
+    migration: null,
   });
+  return isDeepStrictEqual(content(left), content(right));
+}
+
+/**
+ * Runs a post write. When the response to an earlier attempt was lost, the
+ * browser's retry hits a version conflict against its own write, so a conflict
+ * whose stored post `isOwnWrite` recognises counts as success.
+ */
+async function writeOrRecognise(
+  posts: AdminApiDependencies['posts'],
+  id: string,
+  write: () => Promise<Post>,
+  isOwnWrite: (stored: Post) => boolean
+): Promise<{ post: Post; replayed: boolean }> {
+  try {
+    return { post: await write(), replayed: false };
+  } catch (error) {
+    if (!(error instanceof PostVersionConflictError)) throw error;
+    const stored = await posts.getById(id);
+    if (!stored || !isOwnWrite(stored)) throw error;
+    return { post: stored, replayed: true };
+  }
 }
 
 const listPosts: RouteHandler = async ({ event, requestId, dependencies }) => {
@@ -94,13 +94,7 @@ const listPosts: RouteHandler = async ({ event, requestId, dependencies }) => {
   return response(200, { data: { ...page, items } }, requestId);
 };
 
-const createPost: RouteHandler = async ({
-  event,
-  routeKey,
-  requestId,
-  admin,
-  dependencies,
-}) => {
+const createPost: RouteHandler = async ({ event, requestId, dependencies }) => {
   const post = parsePost(parseBody(event));
   if (
     post.migration !== null ||
@@ -113,38 +107,18 @@ const createPost: RouteHandler = async ({
       'New posts cannot set migration metadata or image objects'
     );
   }
-  const key = requireIdempotencyKey(event);
-  const reservation = await dependencies.store.reserveMutation({
-    scope: routeKey,
-    subject: admin.subject,
-    key,
-    requestDigest: mutationDigest(post),
-  });
-  const replay = reservationResult(reservation);
-  if (replay) {
-    const existing = await dependencies.posts.getById(
-      resultString(replay, 'postId')
-    );
-    if (!existing) {
-      throw new ApiConflictError(
-        'IDEMPOTENCY_RESULT_GONE',
-        'The original mutation result no longer exists'
-      );
-    }
-    return postResponse(200, existing, requestId, true);
-  }
-  const created = await dependencies.posts.create(post);
-  await dependencies.store.completeMutation(requiredReservation(reservation), {
-    postId: created.id,
-  });
-  return postResponse(201, created, requestId);
+  const { post: created, replayed } = await writeOrRecognise(
+    dependencies.posts,
+    post.id,
+    () => dependencies.posts.create(post),
+    stored => stored.version === 1 && sameContent(stored, post)
+  );
+  return postResponse(replayed ? 200 : 201, created, requestId, replayed);
 };
 
 const publishAllDrafts: RouteHandler = async ({
   event,
-  routeKey,
   requestId,
-  admin,
   dependencies,
 }) => {
   const body = recordBody(parseBody(event));
@@ -163,58 +137,33 @@ const publishAllDrafts: RouteHandler = async ({
       `Bulk publication is capped at ${MAX_BULK_POSTS} posts`
     );
   }
-  const key = requireIdempotencyKey(event);
-  const reservationInput = {
-    scope: routeKey,
-    subject: admin.subject,
-    key,
-    requestDigest: mutationDigest(body),
-    resumePending: true,
-  } as const;
-  let reservation = await dependencies.store.findMutation(reservationInput);
-  if (!reservation) {
-    let cursor: string | undefined;
-    const drafts: BulkPublicationTarget[] = [];
-    do {
-      const page = await dependencies.posts.list({
-        limit: 50,
-        cursor,
-        published: false,
-        direction: 'ascending',
-      });
-      drafts.push(
-        ...page.items.map(item => ({ id: item.id, version: item.version }))
-      );
-      if (drafts.length > MAX_BULK_POSTS) {
-        throw new ApiConflictError(
-          'BULK_LIMIT_EXCEEDED',
-          `Bulk publication is capped at ${MAX_BULK_POSTS} posts`
-        );
-      }
-      cursor = page.nextCursor ?? undefined;
-    } while (cursor !== undefined);
-    if (drafts.length !== expectedCount) {
+  let cursor: string | undefined;
+  const drafts: { id: string; version: number }[] = [];
+  do {
+    const page = await dependencies.posts.list({
+      limit: 50,
+      cursor,
+      published: false,
+      direction: 'ascending',
+    });
+    drafts.push(
+      ...page.items.map(item => ({ id: item.id, version: item.version }))
+    );
+    if (drafts.length > MAX_BULK_POSTS) {
       throw new ApiConflictError(
-        'BULK_COUNT_MISMATCH',
-        `Expected ${expectedCount} drafts but found ${drafts.length}`
+        'BULK_LIMIT_EXCEEDED',
+        `Bulk publication is capped at ${MAX_BULK_POSTS} posts`
       );
     }
-    reservation = await dependencies.store.reserveMutation({
-      ...reservationInput,
-      pendingContext: { operation: 'bulk-publication-v1', targets: drafts },
-    });
-  }
-  const replay = reservationResult(reservation);
-  if (replay) {
-    return response(
-      200,
-      { data: { publishedCount: replay.publishedCount, replayed: true } },
-      requestId
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor !== undefined);
+  if (drafts.length !== expectedCount) {
+    throw new ApiConflictError(
+      'BULK_COUNT_MISMATCH',
+      `Expected ${expectedCount} drafts but found ${drafts.length}`
     );
   }
-  const writableReservation = requiredReservation(reservation);
-  const targets = bulkPublicationTargets(writableReservation);
-  for (const target of targets) {
+  for (const target of drafts) {
     const post = await dependencies.posts.getById(target.id);
     if (!post) throw new PostNotFoundError(target.id);
     if (post.published) continue;
@@ -223,13 +172,9 @@ const publishAllDrafts: RouteHandler = async ({
       target.version
     );
   }
-  const publishedCount = targets.length;
-  await dependencies.store.completeMutation(writableReservation, {
-    publishedCount,
-  });
   return response(
     200,
-    { data: { publishedCount, replayed: false } },
+    { data: { publishedCount: drafts.length, replayed: false } },
     requestId
   );
 };
@@ -242,13 +187,7 @@ const readPost: RouteHandler = async ({ event, requestId, dependencies }) => {
     : errorResponse(404, 'NOT_FOUND', 'Post not found', requestId);
 };
 
-const updatePost: RouteHandler = async ({
-  event,
-  routeKey,
-  requestId,
-  admin,
-  dependencies,
-}) => {
+const updatePost: RouteHandler = async ({ event, requestId, dependencies }) => {
   const id = pathId(event);
   const post = parsePost(parseBody(event));
   if (post.id !== id) {
@@ -270,54 +209,31 @@ const updatePost: RouteHandler = async ({
     mainImage: keepImageWithAlt(current.mainImage, post.mainImage),
     thumbImage: keepImageWithAlt(current.thumbImage, post.thumbImage),
   };
-  const key = requireIdempotencyKey(event);
-  const reservation = await dependencies.store.reserveMutation({
-    scope: routeKey,
-    subject: admin.subject,
-    key,
-    requestDigest: mutationDigest({ post: safePost, version }),
-  });
-  const replay = reservationResult(reservation);
-  if (replay) {
-    const existing = await dependencies.posts.getById(id);
-    if (!existing) throw new PostNotFoundError(id);
-    return postResponse(200, existing, requestId, true);
-  }
-  const updated = await dependencies.posts.update(safePost, version);
-  await dependencies.store.completeMutation(requiredReservation(reservation), {
-    postId: id,
-  });
-  return postResponse(200, updated, requestId);
+  const { post: updated, replayed } = await writeOrRecognise(
+    dependencies.posts,
+    id,
+    () => dependencies.posts.update(safePost, version),
+    stored => stored.version === version + 1 && sameContent(stored, safePost)
+  );
+  return postResponse(200, updated, requestId, replayed);
 };
 
 const deletePost: RouteHandler = async ({
   event,
-  routeKey,
   requestId,
-  admin,
   dependencies,
   logger,
 }) => {
   const id = pathId(event);
   const version = expectedVersion(event);
-  const key = requireIdempotencyKey(event);
-  const reservation = await dependencies.store.reserveMutation({
-    scope: routeKey,
-    subject: admin.subject,
-    key,
-    requestDigest: mutationDigest({ id, version }),
-  });
-  const replay = reservationResult(reservation);
-  let imageKeys: string[];
-  if (replay) {
-    imageKeys = resultStrings(replay, 'imageKeys');
-  } else {
-    const deleted = await dependencies.posts.delete(id, version);
-    imageKeys = deleted.imageKeys;
-    await dependencies.store.completeMutation(
-      requiredReservation(reservation),
-      { postId: deleted.postId, imageKeys }
-    );
+  let imageKeys: string[] = [];
+  let replayed = false;
+  try {
+    ({ imageKeys } = await dependencies.posts.delete(id, version));
+  } catch (error) {
+    // A retry after a lost response finds the post already gone.
+    if (!(error instanceof PostNotFoundError)) throw error;
+    replayed = true;
   }
   const cleanup = await cleanupImages(
     id,
@@ -330,8 +246,8 @@ const deletePost: RouteHandler = async ({
     {
       data: {
         postId: id,
-        cleanup: { ...cleanup, retryWithSameIdempotencyKey: cleanup.pending },
-        replayed: replay !== null,
+        cleanup: { ...cleanup, retryWithSameIdempotencyKey: false },
+        replayed,
       },
     },
     requestId
@@ -340,9 +256,7 @@ const deletePost: RouteHandler = async ({
 
 const setPublication: RouteHandler = async ({
   event,
-  routeKey,
   requestId,
-  admin,
   dependencies,
 }) => {
   const id = pathId(event);
@@ -357,29 +271,15 @@ const setPublication: RouteHandler = async ({
     );
   }
   const version = expectedVersion(event);
-  const key = requireIdempotencyKey(event);
-  const reservation = await dependencies.store.reserveMutation({
-    scope: routeKey,
-    subject: admin.subject,
-    key,
-    requestDigest: mutationDigest({ id, version, published }),
-  });
-  const replay = reservationResult(reservation);
-  if (replay) {
-    const existing = await dependencies.posts.getById(id);
-    if (!existing) throw new PostNotFoundError(id);
-    return postResponse(200, existing, requestId, true);
-  }
   const post = await dependencies.posts.getById(id);
   if (!post) throw new PostNotFoundError(id);
-  const updated = await dependencies.posts.update(
-    { ...post, published },
-    version
+  const { post: updated, replayed } = await writeOrRecognise(
+    dependencies.posts,
+    id,
+    () => dependencies.posts.update({ ...post, published }, version),
+    stored => stored.version === version + 1 && stored.published === published
   );
-  await dependencies.store.completeMutation(requiredReservation(reservation), {
-    postId: id,
-  });
-  return postResponse(200, updated, requestId);
+  return postResponse(200, updated, requestId, replayed);
 };
 
 export const postRoutes = {

@@ -41,6 +41,8 @@ type MutationRequest<T> = {
   method: AwsMutationMethod;
   parseSuccess: EnvelopeParser<T>;
   path: string;
+  /** Set to false when repeating the request could not be recognised. */
+  retry?: boolean;
   signal?: AbortSignal;
 };
 
@@ -105,12 +107,14 @@ async function requestAwsMutation<T>({
   method,
   parseSuccess,
   path,
+  retry = true,
   signal,
 }: MutationRequest<T>): Promise<AdminApiSuccessEnvelope<T>> {
   const correlationId = crypto.randomUUID();
+  const attempts = retry ? 2 : 1;
   let lastNetworkError = false;
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     let response: Response;
     try {
       response = await fetchImplementation(path, {
@@ -133,12 +137,14 @@ async function requestAwsMutation<T>({
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') throw error;
       lastNetworkError = true;
-      if (attempt === 0) continue;
-      break;
+      continue;
     }
 
     redirectIfSessionExpired(response);
-    if (attempt === 0 && RETRYABLE_GATEWAY_STATUSES.has(response.status)) {
+    if (
+      attempt + 1 < attempts &&
+      RETRYABLE_GATEWAY_STATUSES.has(response.status)
+    ) {
       continue;
     }
 
@@ -300,6 +306,9 @@ export async function publishAllAdminPosts(
     idempotencyKey,
     parseSuccess: parseBulkEnvelope,
     fetchImplementation,
+    // An interrupted run may have published some posts, so the count it was
+    // confirmed with no longer holds. The user confirms the remainder instead.
+    retry: false,
   });
   return response.data;
 }

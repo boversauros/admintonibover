@@ -41,7 +41,6 @@ function fromItem(item: DynamoItem): UploadIntent {
   }
   const base: PendingUploadIntent = {
     uploadId: stringValue(item.uploadId, 'uploadId'),
-    requestDigest: stringValue(item.requestDigest, 'requestDigest'),
     postId: stringValue(item.postId, 'postId'),
     role: stringValue(item.role, 'role') as PendingUploadIntent['role'],
     temporaryKey: stringValue(item.temporaryKey, 'temporaryKey'),
@@ -73,39 +72,13 @@ function fromItem(item: DynamoItem): UploadIntent {
   };
 }
 
-function sameRequest(
-  existing: UploadIntent,
-  requested: PendingUploadIntent
-): boolean {
-  return (
-    existing.uploadId === requested.uploadId &&
-    existing.requestDigest === requested.requestDigest &&
-    existing.postId === requested.postId &&
-    existing.role === requested.role &&
-    existing.temporaryKey === requested.temporaryKey &&
-    existing.permanentKey === requested.permanentKey &&
-    existing.contentType === requested.contentType &&
-    existing.sizeBytes === requested.sizeBytes &&
-    existing.checksumSha256 === requested.checksumSha256 &&
-    existing.expectedVersion === requested.expectedVersion
-  );
-}
-
 export class DynamoDbMediaIntentRepository {
   constructor(
     private readonly dynamodb: DynamoDbPort,
     private readonly posts: DynamoDbPostRepository
   ) {}
 
-  async createOrGet(intent: PendingUploadIntent): Promise<UploadIntent> {
-    const existing = await this.get(intent.uploadId);
-    if (existing) {
-      if (!sameRequest(existing, intent)) {
-        throw new MediaUploadConflictError(intent.uploadId);
-      }
-      return existing;
-    }
-
+  async create(intent: PendingUploadIntent): Promise<void> {
     try {
       await this.dynamodb.transactWrite([
         {
@@ -128,14 +101,9 @@ export class DynamoDbMediaIntentRepository {
           },
         },
       ]);
-      return intent;
     } catch (error) {
       if (!(error instanceof DynamoTransactionCanceledError)) throw error;
-      const raced = await this.get(intent.uploadId);
-      if (!raced || !sameRequest(raced, intent)) {
-        throw new MediaUploadConflictError(intent.uploadId);
-      }
-      return raced;
+      throw new MediaUploadConflictError(intent.uploadId);
     }
   }
 

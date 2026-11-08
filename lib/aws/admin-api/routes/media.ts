@@ -3,6 +3,7 @@ import {
   validateImageText,
   validateUploadDescriptor,
 } from '@/lib/domain/media/validation';
+import { PostVersionConflictError } from '@/lib/domain/posts/errors';
 
 import type { AdminApiEvent, RouteHandler } from '../context';
 import { validation } from '../errors';
@@ -11,17 +12,8 @@ import {
   parseBody,
   pathId,
   recordBody,
-  requireIdempotencyKey,
   response,
 } from '../http';
-import {
-  mutationDigest,
-  requiredReservation,
-  reservationResult,
-  resultBoolean,
-  resultInteger,
-  resultNullableString,
-} from '../idempotency';
 import { cleanupImages } from '../image-cleanup';
 
 const UPLOAD_ID_PATTERN = /^[a-f0-9]{64}$/;
@@ -78,11 +70,7 @@ const presignImage: RouteHandler = async ({
 }) => {
   const id = pathId(event);
   const descriptor = validateUploadDescriptor(parseBody(event));
-  const upload = await dependencies.media.createUpload(
-    id,
-    descriptor,
-    requireIdempotencyKey(event)
-  );
+  const upload = await dependencies.media.createUpload(id, descriptor);
   return response(201, { data: upload }, requestId);
 };
 
@@ -96,46 +84,36 @@ const confirmImage: RouteHandler = async ({
   const confirmed = await dependencies.media.confirmUpload({
     postId: id,
     ...body,
-    idempotencyKey: requireIdempotencyKey(event),
   });
   return response(200, { data: confirmed }, requestId);
 };
 
 const detachImage: RouteHandler = async ({
   event,
-  routeKey,
   requestId,
-  admin,
   dependencies,
   logger,
 }) => {
   const id = pathId(event);
   const role = pathImageRole(event);
   const version = expectedVersion(event);
-  const key = requireIdempotencyKey(event);
-  const reservation = await dependencies.store.reserveMutation({
-    scope: routeKey,
-    subject: admin.subject,
-    key,
-    requestDigest: mutationDigest({ id, role, version }),
-  });
-  const replay = reservationResult(reservation);
   let postVersion: number;
-  let previousImageKey: string | null;
-  let detached: boolean;
-  if (replay) {
-    postVersion = resultInteger(replay, 'postVersion');
-    previousImageKey = resultNullableString(replay, 'previousImageKey');
-    detached = resultBoolean(replay, 'detached');
-  } else {
+  let previousImageKey: string | null = null;
+  let detached = true;
+  let replayed = false;
+  try {
     const result = await dependencies.posts.detachImage(id, role, version);
     postVersion = result.version;
     previousImageKey = result.previousImageKey;
     detached = result.detached;
-    await dependencies.store.completeMutation(
-      requiredReservation(reservation),
-      { postVersion, previousImageKey, detached }
-    );
+  } catch (error) {
+    if (!(error instanceof PostVersionConflictError)) throw error;
+    // A retry after a lost response finds its own detach already stored.
+    const stored = await dependencies.posts.getById(id);
+    const image = role === 'main' ? stored?.mainImage : stored?.thumbImage;
+    if (stored?.version !== version + 1 || image !== null) throw error;
+    postVersion = stored.version;
+    replayed = true;
   }
   const cleanup = previousImageKey
     ? await cleanupImages(
@@ -155,11 +133,8 @@ const detachImage: RouteHandler = async ({
         postVersion,
         role,
         detached,
-        cleanup: {
-          ...cleanup,
-          retryWithSameIdempotencyKey: cleanup.pending,
-        },
-        replayed: replay !== null,
+        cleanup: { ...cleanup, retryWithSameIdempotencyKey: false },
+        replayed,
       },
     },
     requestId

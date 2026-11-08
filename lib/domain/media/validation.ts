@@ -24,7 +24,6 @@ const NORMALIZED_EXTENSION_BY_MIME: Record<AllowedImageMimeType, string> = {
 
 const CHECKSUM_PATTERN = /^[A-Za-z0-9+/]{43}=$/;
 const FILE_NAME_PATTERN = /^[^/\\\u0000-\u001f]{1,255}$/;
-const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,199}$/;
 
 function issue(
   issues: MediaValidationIssue[],
@@ -37,18 +36,6 @@ function issue(
 
 export function normalizedExtension(contentType: AllowedImageMimeType): string {
   return NORMALIZED_EXTENSION_BY_MIME[contentType];
-}
-
-export function validateIdempotencyKey(value: string): void {
-  if (!IDEMPOTENCY_KEY_PATTERN.test(value)) {
-    throw new MediaValidationError([
-      {
-        path: 'idempotencyKey',
-        code: 'INVALID_IDEMPOTENCY_KEY',
-        message: 'Idempotency-Key must contain 8-200 safe ASCII characters',
-      },
-    ]);
-  }
 }
 
 export function validateUploadDescriptor(

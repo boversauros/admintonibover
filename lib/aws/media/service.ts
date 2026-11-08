@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 import {
   PRESIGNED_URL_TTL_SECONDS,
@@ -39,18 +39,6 @@ const NOOP_LOGGER: MediaLogger = {
 
 function digest(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
-}
-
-function uploadRequestDigest(
-  postId: string,
-  descriptor: ImageUploadDescriptor
-): string {
-  return digest(
-    JSON.stringify({
-      postId,
-      ...descriptor,
-    })
-  );
 }
 
 function ownedImagePrefix(postId: string, role: ImageRole): string {
@@ -102,8 +90,7 @@ export class MediaService {
 
   async createUpload(
     postId: string,
-    descriptor: ImageUploadDescriptor,
-    idempotencyKey: string
+    descriptor: ImageUploadDescriptor
   ): Promise<PresignedImageUpload> {
     const post = await this.posts.getById(postId);
     if (!post) throw new PostNotFoundError(postId);
@@ -111,15 +98,12 @@ export class MediaService {
       throw new PostVersionConflictError(postId, descriptor.expectedVersion);
     }
 
-    const requestDigest = uploadRequestDigest(postId, descriptor);
-    const uploadId = digest(
-      `media-upload\u0000${postId}\u0000${idempotencyKey}`
-    );
+    // A retried request gets a new ID; the unused intent simply expires.
+    const uploadId = randomBytes(32).toString('hex');
     const extension = normalizedExtension(descriptor.contentType);
     const now = this.clock();
     const intent: PendingUploadIntent = {
       uploadId,
-      requestDigest,
       postId,
       role: descriptor.role,
       temporaryKey: `temporary/${uploadId}.${extension}`,
@@ -132,34 +116,28 @@ export class MediaService {
       expiresAt: Math.floor(now.getTime() / 1000) + PRESIGNED_URL_TTL_SECONDS,
       status: 'pending',
     };
-    const stored = await this.intents.createOrGet(intent);
-    if (stored.status === 'confirmed') {
-      throw new MediaUploadConflictError(uploadId);
-    }
-    const remainingSeconds =
-      stored.expiresAt - Math.floor(now.getTime() / 1000);
-    if (remainingSeconds < 1) throw new MediaUploadExpiredError(uploadId);
+    await this.intents.create(intent);
     const signed = await this.objects.presignUpload(
-      stored,
-      Math.min(PRESIGNED_URL_TTL_SECONDS, remainingSeconds)
+      intent,
+      PRESIGNED_URL_TTL_SECONDS
     );
     this.logger.info({
       message: 'media_upload_presigned',
       postId,
       role: descriptor.role,
       uploadId,
-      objectKey: stored.temporaryKey,
+      objectKey: intent.temporaryKey,
     });
     return {
       uploadId,
-      objectKey: stored.temporaryKey,
+      objectKey: intent.temporaryKey,
       uploadUrl: signed.url,
       headers: {
-        'content-type': stored.contentType,
-        'x-amz-checksum-sha256': stored.checksumSha256,
+        'content-type': intent.contentType,
+        'x-amz-checksum-sha256': intent.checksumSha256,
       },
       expiresAt: signed.expiresAt,
-      postVersion: stored.expectedVersion,
+      postVersion: intent.expectedVersion,
     };
   }
 
@@ -168,7 +146,6 @@ export class MediaService {
     uploadId: string;
     title: string;
     alt: string;
-    idempotencyKey: string;
   }): Promise<ConfirmedImageUpload> {
     const intent = await this.intents.require(input.uploadId);
     if (intent.postId !== input.postId) {
@@ -179,7 +156,6 @@ export class MediaService {
         uploadId: input.uploadId,
         title: input.title,
         alt: input.alt,
-        idempotencyKey: input.idempotencyKey,
       })
     );
     if (intent.status === 'confirmed') {
