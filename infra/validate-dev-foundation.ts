@@ -968,13 +968,7 @@ export function validateFoundationTemplate(
   );
   requireEqual(
     apiCors.AllowHeaders,
-    [
-      'authorization',
-      'content-type',
-      'idempotency-key',
-      'if-match',
-      'x-correlation-id',
-    ],
+    ['authorization', 'content-type', 'if-match', 'x-correlation-id'],
     'HttpApi.Cors.AllowHeaders',
     issues
   );

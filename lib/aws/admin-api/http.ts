@@ -54,10 +54,9 @@ export function errorResponse(
 export function postResponse(
   statusCode: number,
   post: Post,
-  requestId: string,
-  replayed = false
+  requestId: string
 ): AdminApiResponse {
-  return response(statusCode, { data: { post, replayed } }, requestId, {
+  return response(statusCode, { data: { post } }, requestId, {
     etag: `"${post.version}"`,
   });
 }

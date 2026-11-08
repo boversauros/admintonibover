@@ -108,7 +108,6 @@ function fakeApi(failOn?: string) {
         role,
         image: preview,
         cleanupPending: false,
-        replayed: false,
       };
     },
     async detachImage({ postId, postVersion, role }) {
@@ -123,9 +122,7 @@ function fakeApi(failOn?: string) {
         cleanup: {
           pending: false,
           failedCount: 0,
-          retryWithSameIdempotencyKey: false,
         },
-        replayed: false,
       };
     },
   };

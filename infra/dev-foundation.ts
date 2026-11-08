@@ -646,7 +646,6 @@ export function createFoundationTemplate(
             AllowHeaders: [
               'authorization',
               'content-type',
-              'idempotency-key',
               'if-match',
               'x-correlation-id',
             ],

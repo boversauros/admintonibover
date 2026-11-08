@@ -162,7 +162,7 @@ export class MediaService {
       if (intent.confirmDigest !== confirmDigest) {
         throw new MediaUploadConflictError(input.uploadId);
       }
-      return this.confirmedResponse(intent, true, false);
+      return this.confirmedResponse(intent, false);
     }
 
     const now = this.clock();
@@ -239,7 +239,7 @@ export class MediaService {
       objectKey: intent.permanentKey,
       cleanupPending,
     });
-    return this.confirmedResponse(confirmed, false, cleanupPending);
+    return this.confirmedResponse(confirmed, cleanupPending);
   }
 
   private async preview(
@@ -284,7 +284,6 @@ export class MediaService {
 
   private async confirmedResponse(
     intent: Extract<UploadIntent, { status: 'confirmed' }>,
-    replayed: boolean,
     cleanupPending: boolean
   ): Promise<ConfirmedImageUpload> {
     const image: PostImage = {
@@ -310,7 +309,6 @@ export class MediaService {
         previewExpiresAt: signed.expiresAt,
       },
       cleanupPending,
-      replayed,
     };
   }
 
@@ -335,7 +333,7 @@ export class MediaService {
       if (latest.confirmDigest !== confirmDigest) {
         throw new MediaUploadConflictError(intent.uploadId);
       }
-      return this.confirmedResponse(latest, true, false);
+      return this.confirmedResponse(latest, false);
     }
     if (latest?.status === 'pending') return null;
 

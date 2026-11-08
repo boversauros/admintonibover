@@ -100,7 +100,6 @@ const detachImage: RouteHandler = async ({
   let postVersion: number;
   let previousImageKey: string | null = null;
   let detached = true;
-  let replayed = false;
   try {
     const result = await dependencies.posts.detachImage(id, role, version);
     postVersion = result.version;
@@ -113,7 +112,6 @@ const detachImage: RouteHandler = async ({
     const image = role === 'main' ? stored?.mainImage : stored?.thumbImage;
     if (stored?.version !== version + 1 || image !== null) throw error;
     postVersion = stored.version;
-    replayed = true;
   }
   const cleanup = previousImageKey
     ? await cleanupImages(
@@ -133,8 +131,7 @@ const detachImage: RouteHandler = async ({
         postVersion,
         role,
         detached,
-        cleanup: { ...cleanup, retryWithSameIdempotencyKey: false },
-        replayed,
+        cleanup,
       },
     },
     requestId

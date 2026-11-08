@@ -61,14 +61,14 @@ async function writeOrRecognise(
   id: string,
   write: () => Promise<Post>,
   isOwnWrite: (stored: Post) => boolean
-): Promise<{ post: Post; replayed: boolean }> {
+): Promise<Post> {
   try {
-    return { post: await write(), replayed: false };
+    return await write();
   } catch (error) {
     if (!(error instanceof PostVersionConflictError)) throw error;
     const stored = await posts.getById(id);
     if (!stored || !isOwnWrite(stored)) throw error;
-    return { post: stored, replayed: true };
+    return stored;
   }
 }
 
@@ -107,13 +107,13 @@ const createPost: RouteHandler = async ({ event, requestId, dependencies }) => {
       'New posts cannot set migration metadata or image objects'
     );
   }
-  const { post: created, replayed } = await writeOrRecognise(
+  const created = await writeOrRecognise(
     dependencies.posts,
     post.id,
     () => dependencies.posts.create(post),
     stored => stored.version === 1 && sameContent(stored, post)
   );
-  return postResponse(replayed ? 200 : 201, created, requestId, replayed);
+  return postResponse(201, created, requestId);
 };
 
 const publishAllDrafts: RouteHandler = async ({
@@ -172,11 +172,7 @@ const publishAllDrafts: RouteHandler = async ({
       target.version
     );
   }
-  return response(
-    200,
-    { data: { publishedCount: drafts.length, replayed: false } },
-    requestId
-  );
+  return response(200, { data: { publishedCount: drafts.length } }, requestId);
 };
 
 const readPost: RouteHandler = async ({ event, requestId, dependencies }) => {
@@ -209,13 +205,13 @@ const updatePost: RouteHandler = async ({ event, requestId, dependencies }) => {
     mainImage: keepImageWithAlt(current.mainImage, post.mainImage),
     thumbImage: keepImageWithAlt(current.thumbImage, post.thumbImage),
   };
-  const { post: updated, replayed } = await writeOrRecognise(
+  const updated = await writeOrRecognise(
     dependencies.posts,
     id,
     () => dependencies.posts.update(safePost, version),
     stored => stored.version === version + 1 && sameContent(stored, safePost)
   );
-  return postResponse(200, updated, requestId, replayed);
+  return postResponse(200, updated, requestId);
 };
 
 const deletePost: RouteHandler = async ({
@@ -227,13 +223,11 @@ const deletePost: RouteHandler = async ({
   const id = pathId(event);
   const version = expectedVersion(event);
   let imageKeys: string[] = [];
-  let replayed = false;
   try {
     ({ imageKeys } = await dependencies.posts.delete(id, version));
   } catch (error) {
     // A retry after a lost response finds the post already gone.
     if (!(error instanceof PostNotFoundError)) throw error;
-    replayed = true;
   }
   const cleanup = await cleanupImages(
     id,
@@ -246,8 +240,7 @@ const deletePost: RouteHandler = async ({
     {
       data: {
         postId: id,
-        cleanup: { ...cleanup, retryWithSameIdempotencyKey: false },
-        replayed,
+        cleanup,
       },
     },
     requestId
@@ -273,13 +266,13 @@ const setPublication: RouteHandler = async ({
   const version = expectedVersion(event);
   const post = await dependencies.posts.getById(id);
   if (!post) throw new PostNotFoundError(id);
-  const { post: updated, replayed } = await writeOrRecognise(
+  const updated = await writeOrRecognise(
     dependencies.posts,
     id,
     () => dependencies.posts.update({ ...post, published }, version),
     stored => stored.version === version + 1 && stored.published === published
   );
-  return postResponse(200, updated, requestId, replayed);
+  return postResponse(200, updated, requestId);
 };
 
 export const postRoutes = {
