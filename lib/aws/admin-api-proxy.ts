@@ -122,7 +122,6 @@ export async function forwardToAdminApi({
   const url = new URL(apiUrl);
   url.pathname = `${url.pathname.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
   if (method === 'GET') url.search = request.nextUrl.search;
-  const idempotencyKey = request.headers.get('idempotency-key');
   const expectedVersion = request.headers.get('if-match');
 
   let upstream: Response;
@@ -138,7 +137,6 @@ export async function forwardToAdminApi({
         authorization: `Bearer ${accessToken}`,
         'x-correlation-id': requestId,
         ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-        ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}),
         ...(expectedVersion ? { 'if-match': expectedVersion } : {}),
       },
     });

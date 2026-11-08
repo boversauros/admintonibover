@@ -37,7 +37,6 @@ type MutationRequest<T> = {
   body?: unknown;
   expectedVersion?: number;
   fetchImplementation?: typeof fetch;
-  idempotencyKey: string;
   method: AwsMutationMethod;
   parseSuccess: EnvelopeParser<T>;
   path: string;
@@ -103,7 +102,6 @@ async function requestAwsMutation<T>({
   body,
   expectedVersion,
   fetchImplementation = fetch,
-  idempotencyKey,
   method,
   parseSuccess,
   path,
@@ -125,7 +123,6 @@ async function requestAwsMutation<T>({
         signal,
         headers: {
           accept: 'application/json',
-          'idempotency-key': idempotencyKey,
           'x-correlation-id': correlationId,
           ...(body === undefined ? {} : { 'content-type': 'application/json' }),
           ...(expectedVersion === undefined
@@ -204,10 +201,6 @@ async function requestAwsMutation<T>({
   );
 }
 
-export function mutationKey(scope: string): string {
-  return `${scope}:${crypto.randomUUID()}`;
-}
-
 export function isExactBulkConfirmation(
   value: string,
   expectedCount: number
@@ -217,14 +210,12 @@ export function isExactBulkConfirmation(
 
 export async function createAwsPost(
   post: Post,
-  idempotencyKey = mutationKey('post-create'),
   fetchImplementation?: typeof fetch
 ): Promise<Post> {
   const response = await requestAwsMutation({
     path: '/api/aws/posts',
     method: 'POST',
     body: post,
-    idempotencyKey,
     parseSuccess: parsePostDetailEnvelope,
     fetchImplementation,
   });
@@ -234,7 +225,6 @@ export async function createAwsPost(
 export async function updateAwsPost(
   post: Post,
   expectedVersion: number,
-  idempotencyKey = mutationKey('post-update'),
   fetchImplementation?: typeof fetch
 ): Promise<Post> {
   const response = await requestAwsMutation({
@@ -242,7 +232,6 @@ export async function updateAwsPost(
     method: 'PUT',
     body: post,
     expectedVersion,
-    idempotencyKey,
     parseSuccess: parsePostDetailEnvelope,
     fetchImplementation,
   });
@@ -253,7 +242,6 @@ export async function setAwsPostPublication(
   postId: string,
   expectedVersion: number,
   published: boolean,
-  idempotencyKey = mutationKey(published ? 'post-publish' : 'post-unpublish'),
   fetchImplementation?: typeof fetch
 ): Promise<Post> {
   const response = await requestAwsMutation({
@@ -264,7 +252,6 @@ export async function setAwsPostPublication(
       confirmation: published ? 'PUBLISH' : 'UNPUBLISH',
     },
     expectedVersion,
-    idempotencyKey,
     parseSuccess: parsePostDetailEnvelope,
     fetchImplementation,
   });
@@ -273,7 +260,6 @@ export async function setAwsPostPublication(
 
 export async function deleteAdminPost(
   post: { id: string; version?: number },
-  idempotencyKey = mutationKey('post-delete'),
   fetchImplementation?: typeof fetch
 ): Promise<DeletePostMutationResult> {
   if (!post.version) {
@@ -287,7 +273,6 @@ export async function deleteAdminPost(
     path: `/api/aws/posts/${encodeURIComponent(post.id)}`,
     method: 'DELETE',
     expectedVersion: post.version,
-    idempotencyKey,
     parseSuccess: parseDeleteEnvelope,
     fetchImplementation,
   });
@@ -296,14 +281,12 @@ export async function deleteAdminPost(
 
 export async function publishAllAdminPosts(
   expectedCount: number,
-  idempotencyKey = mutationKey('posts-publish-all'),
   fetchImplementation?: typeof fetch
 ): Promise<BulkPublicationResult> {
   const response = await requestAwsMutation({
     path: '/api/aws/posts/publication/bulk',
     method: 'POST',
     body: { published: true, confirmation: 'PUBLISH_ALL', expectedCount },
-    idempotencyKey,
     parseSuccess: parseBulkEnvelope,
     fetchImplementation,
     // An interrupted run may have published some posts, so the count it was
@@ -513,7 +496,6 @@ export async function uploadAwsPostImage(input: {
     path: `/api/aws/posts/${encodeURIComponent(input.postId)}/images/presign`,
     method: 'POST',
     body: descriptor,
-    idempotencyKey: mutationKey(`image-${input.role}-presign`),
     parseSuccess: parsePresignEnvelope,
     fetchImplementation,
     signal: input.signal,
@@ -539,7 +521,6 @@ export async function uploadAwsPostImage(input: {
       title: input.title,
       alt: input.alt,
     },
-    idempotencyKey: mutationKey(`image-${input.role}-confirm`),
     parseSuccess: parseConfirmedEnvelope,
     fetchImplementation,
     signal: input.signal,
@@ -551,7 +532,6 @@ export async function detachAwsPostImage(input: {
   postId: string;
   postVersion: number;
   role: ImageRole;
-  idempotencyKey?: string;
   fetchImplementation?: typeof fetch;
   signal?: AbortSignal;
 }): Promise<DetachedImage> {
@@ -559,8 +539,6 @@ export async function detachAwsPostImage(input: {
     path: `/api/aws/posts/${encodeURIComponent(input.postId)}/images/${input.role}`,
     method: 'DELETE',
     expectedVersion: input.postVersion,
-    idempotencyKey:
-      input.idempotencyKey ?? mutationKey(`image-${input.role}-detach`),
     parseSuccess: parseDetachedImageEnvelope,
     fetchImplementation: input.fetchImplementation,
     signal: input.signal,

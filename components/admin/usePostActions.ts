@@ -7,13 +7,12 @@ import {
   AdminMutationError,
   countDraftPosts,
   deleteAdminPost,
-  mutationKey,
   publishAllAdminPosts,
 } from '@/lib/api/adminMutations';
 
 export type Confirmation =
-  | { kind: 'delete'; post: AdminPostSummary; idempotencyKey: string }
-  | { kind: 'bulk'; count: number; idempotencyKey: string };
+  | { kind: 'delete'; post: AdminPostSummary }
+  | { kind: 'bulk'; count: number };
 
 export type ActionMessage = {
   type: 'error' | 'success' | 'warning';
@@ -58,11 +57,7 @@ export function usePostActions({
   const requestDelete = (post: AdminPostSummary) => {
     if (deletingPostId) return;
     setMessage(null);
-    setConfirmation({
-      kind: 'delete',
-      post,
-      idempotencyKey: mutationKey('post-delete'),
-    });
+    setConfirmation({ kind: 'delete', post });
   };
 
   const requestPublishAll = async () => {
@@ -80,11 +75,7 @@ export function usePostActions({
         });
         return;
       }
-      setConfirmation({
-        kind: 'bulk',
-        count,
-        idempotencyKey: mutationKey('posts-publish-all'),
-      });
+      setConfirmation({ kind: 'bulk', count });
       setBulkConfirmationText('');
     } catch (error) {
       setMessage({
@@ -105,10 +96,7 @@ export function usePostActions({
     setDeletingPostId(value.post.id);
     setMessage(null);
     try {
-      let result = await deleteAdminPost(value.post, value.idempotencyKey);
-      if (result.cleanup.retryWithSameIdempotencyKey) {
-        result = await deleteAdminPost(value.post, value.idempotencyKey);
-      }
+      const result = await deleteAdminPost(value.post);
       setConfirmation(null);
       setMessage({
         type: result.cleanup.pending ? 'warning' : 'success',
@@ -141,10 +129,7 @@ export function usePostActions({
     setIsPublishingAll(true);
     setMessage(null);
     try {
-      const result = await publishAllAdminPosts(
-        value.count,
-        value.idempotencyKey
-      );
+      const result = await publishAllAdminPosts(value.count);
       setConfirmation(null);
       setBulkConfirmationText('');
       try {

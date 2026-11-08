@@ -70,10 +70,10 @@ function postFixture(): Post {
   };
 }
 
-function postEnvelope(post: Post, replayed = false): Record<string, unknown> {
+function postEnvelope(post: Post): Record<string, unknown> {
   return {
     version: 1,
-    data: { post, replayed },
+    data: { post },
     requestId: 'request-1',
   };
 }
@@ -81,7 +81,7 @@ function postEnvelope(post: Post, replayed = false): Record<string, unknown> {
 test('bulk publication is not retried after a gateway failure', async () => {
   let requests = 0;
   await assert.rejects(
-    publishAllAdminPosts(2, 'posts-publish-all:no-retry', async () => {
+    publishAllAdminPosts(2, async () => {
       requests += 1;
       return new Response(null, { status: 503 });
     }),
@@ -91,41 +91,34 @@ test('bulk publication is not retried after a gateway failure', async () => {
   assert.equal(requests, 1);
 });
 
-test('create retries a transient gateway failure with the same idempotency key', async () => {
+test('create retries a transient gateway failure', async () => {
   const post = postFixture();
-  const keys: string[] = [];
   let requests = 0;
-  const result = await createAwsPost(
-    post,
-    'post-create:fixed-key',
-    async (input, init) => {
-      requests += 1;
-      assert.equal(String(input), '/api/aws/posts');
-      assert.equal(init?.method, 'POST');
-      keys.push(new Headers(init?.headers).get('idempotency-key') ?? '');
-      return requests === 1
-        ? Response.json(
-            {
-              version: 1,
-              error: { code: 'UPSTREAM_UNAVAILABLE', message: 'Unavailable' },
-              requestId: 'failed-request',
-            },
-            { status: 502 }
-          )
-        : Response.json(postEnvelope(post), { status: 201 });
-    }
-  );
+  const result = await createAwsPost(post, async (input, init) => {
+    requests += 1;
+    assert.equal(String(input), '/api/aws/posts');
+    assert.equal(init?.method, 'POST');
+    return requests === 1
+      ? Response.json(
+          {
+            version: 1,
+            error: { code: 'UPSTREAM_UNAVAILABLE', message: 'Unavailable' },
+            requestId: 'failed-request',
+          },
+          { status: 502 }
+        )
+      : Response.json(postEnvelope(post), { status: 201 });
+  });
 
   assert.equal(result.id, post.id);
   assert.equal(requests, 2);
-  assert.deepEqual(keys, ['post-create:fixed-key', 'post-create:fixed-key']);
 });
 
 test('updates forward the optimistic version and surface a typed conflict without retrying', async () => {
   const post = postFixture();
   let requests = 0;
   await assert.rejects(
-    updateAwsPost(post, 7, 'post-update:fixed-key', async (_input, init) => {
+    updateAwsPost(post, 7, async (_input, init) => {
       requests += 1;
       assert.equal(init?.method, 'PUT');
       assert.equal(new Headers(init?.headers).get('if-match'), '"7"');
@@ -155,7 +148,6 @@ test('updates forward the optimistic version and surface a typed conflict withou
 test('AWS delete and bulk publication preserve exact result counts', async () => {
   const deleteResult = await deleteAdminPost(
     { id: 'post-1', version: 7 },
-    'post-delete:fixed-key',
     async (_input, init) => {
       assert.equal(init?.method, 'DELETE');
       assert.equal(new Headers(init?.headers).get('if-match'), '"7"');
@@ -166,9 +158,7 @@ test('AWS delete and bulk publication preserve exact result counts', async () =>
           cleanup: {
             pending: false,
             failedCount: 0,
-            retryWithSameIdempotencyKey: false,
           },
-          replayed: false,
         },
         requestId: 'delete-request',
       });
@@ -177,23 +167,19 @@ test('AWS delete and bulk publication preserve exact result counts', async () =>
   assert.equal(deleteResult.postId, 'post-1');
   assert.equal(deleteResult.cleanup.pending, false);
 
-  const bulk = await publishAllAdminPosts(
-    100,
-    'posts-publish-all:fixed-key',
-    async (_input, init) => {
-      assert.equal(init?.method, 'POST');
-      assert.deepEqual(JSON.parse(String(init?.body)), {
-        published: true,
-        confirmation: 'PUBLISH_ALL',
-        expectedCount: 100,
-      });
-      return Response.json({
-        version: 1,
-        data: { publishedCount: 100, replayed: false },
-        requestId: 'bulk-request',
-      });
-    }
-  );
+  const bulk = await publishAllAdminPosts(100, async (_input, init) => {
+    assert.equal(init?.method, 'POST');
+    assert.deepEqual(JSON.parse(String(init?.body)), {
+      published: true,
+      confirmation: 'PUBLISH_ALL',
+      expectedCount: 100,
+    });
+    return Response.json({
+      version: 1,
+      data: { publishedCount: 100 },
+      requestId: 'bulk-request',
+    });
+  });
   assert.equal(bulk.publishedCount, 100);
 });
 
@@ -206,7 +192,7 @@ test('bulk publication confirmation matches only the displayed exact count', () 
 
 test('AWS bulk publication reports a stale confirmation count clearly', async () => {
   await assert.rejects(
-    publishAllAdminPosts(2, 'posts-publish-all:stale-count', async () =>
+    publishAllAdminPosts(2, async () =>
       Response.json(
         {
           version: 1,
@@ -360,7 +346,6 @@ test('image replacement presigns, uploads, and confirms in order without a front
             previewExpiresAt: '2026-08-22T10:05:00.000Z',
           },
           cleanupPending: false,
-          replayed: false,
         },
         requestId: 'confirm-request',
       });
@@ -477,7 +462,7 @@ test('cancelling a private upload stops before confirmation and remains an abort
   assert.deepEqual(paths, ['/api/aws/posts/post-1/images/presign']);
 });
 
-test('image detach sends the current version and preserves cleanup retry metadata', async () => {
+test('image detach sends the current version and reports failed cleanup', async () => {
   let requestPath = '';
   let requestMethod = '';
   let requestHeaders = new Headers();
@@ -485,7 +470,6 @@ test('image detach sends the current version and preserves cleanup retry metadat
     postId: 'post-1',
     postVersion: 7,
     role: 'main',
-    idempotencyKey: 'detach-main-stable-key',
     fetchImplementation: async (input, init) => {
       requestPath = String(input);
       requestMethod = init?.method ?? '';
@@ -500,9 +484,7 @@ test('image detach sends the current version and preserves cleanup retry metadat
           cleanup: {
             pending: true,
             failedCount: 1,
-            retryWithSameIdempotencyKey: true,
           },
-          replayed: false,
         },
         requestId: 'detach-request',
       });
@@ -512,6 +494,6 @@ test('image detach sends the current version and preserves cleanup retry metadat
   assert.equal(requestPath, '/api/aws/posts/post-1/images/main');
   assert.equal(requestMethod, 'DELETE');
   assert.equal(requestHeaders.get('if-match'), '"7"');
-  assert.equal(requestHeaders.get('idempotency-key'), 'detach-main-stable-key');
-  assert.equal(detached.cleanup.retryWithSameIdempotencyKey, true);
+  assert.equal(requestHeaders.has('idempotency-key'), false);
+  assert.equal(detached.cleanup.pending, true);
 });

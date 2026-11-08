@@ -359,9 +359,9 @@ test('a confirmed upload replays only with the same title and alt', async () => 
     title: 'Replay-safe',
     alt: 'Replay-safe image',
   };
-  await service.confirmUpload(input);
-  const replayed = await service.confirmUpload(input);
-  assert.equal(replayed.replayed, true);
+  const first = await service.confirmUpload(input);
+  const retried = await service.confirmUpload(input);
+  assert.equal(retried.image.image.key, first.image.image.key);
   assert.equal(objects.copied.length, 1);
   await assert.rejects(
     service.confirmUpload({ ...input, alt: 'A different image text' }),
@@ -394,10 +394,6 @@ test('concurrent confirmation replay never deletes the winner object', async () 
   assert.equal((await posts.getById('post-1'))?.version, 2);
   assert.equal(objects.deleted.includes(permanentKey), false);
   assert.equal(objects.objects.has(permanentKey), true);
-  assert.equal(
-    results.some(result => result.replayed),
-    true
-  );
 });
 
 test('replacement never cleans up a destination that is already attached', async () => {

@@ -171,7 +171,6 @@ function setup(maximumPageSize = Number.POSITIVE_INFINITY) {
           previewExpiresAt: NOW,
         },
         cleanupPending: false,
-        replayed: false,
       };
     },
   };
@@ -413,7 +412,7 @@ test('concurrent retries of one create cannot duplicate the post', async () => {
   ]);
   assert.deepEqual(
     responses.map(response => response.statusCode).sort(),
-    [200, 201]
+    [201, 201]
   );
   assert.equal(
     port.snapshot().filter(item => item.entityType === 'POST').length,
@@ -431,9 +430,9 @@ test('a retried create returns the stored post and list/get/update preserve stab
   assert.equal(created.statusCode, 201);
   assert.equal(created.headers.etag, '"1"');
 
-  const replayed = await handler(createEvent);
-  assert.equal(replayed.statusCode, 200);
-  assert.equal(data(replayed).replayed, true);
+  const retried = await handler(createEvent);
+  assert.equal(retried.statusCode, 201);
+  assert.equal(retried.headers.etag, '"1"');
   assert.equal(
     port.snapshot().filter(item => item.entityType === 'POST').length,
     1
@@ -591,7 +590,6 @@ test('a retry after a lost response counts as success without writing again', as
   assert.equal((await handler(updateEvent)).statusCode, 200);
   const updateRetry = await handler(updateEvent);
   assert.equal(updateRetry.statusCode, 200);
-  assert.equal(data(updateRetry).replayed, true);
   assert.equal(updateRetry.headers.etag, '"2"');
   assert.equal((await posts.getById('post-retry'))?.version, 2);
 
@@ -603,7 +601,6 @@ test('a retry after a lost response counts as success without writing again', as
   assert.equal((await handler(publishEvent)).statusCode, 200);
   const publishRetry = await handler(publishEvent);
   assert.equal(publishRetry.statusCode, 200);
-  assert.equal(data(publishRetry).replayed, true);
   assert.equal((await posts.getById('post-retry'))?.version, 3);
 
   const staleUnpublish = await handler(
@@ -741,9 +738,7 @@ test('delete is data-atomic, reports failed image cleanup, and a retry deletes n
   assert.deepEqual(data(first).cleanup, {
     pending: true,
     failedCount: 1,
-    retryWithSameIdempotencyKey: false,
   });
-  assert.equal(data(first).replayed, false);
   assert.equal(await posts.getById('post-delete'), null);
   const attempted = deletedKeys.length;
 
@@ -752,9 +747,7 @@ test('delete is data-atomic, reports failed image cleanup, and a retry deletes n
   assert.deepEqual(data(retry).cleanup, {
     pending: false,
     failedCount: 0,
-    retryWithSameIdempotencyKey: false,
   });
-  assert.equal(data(retry).replayed, true);
   assert.equal(deletedKeys.length, attempted);
 });
 
@@ -848,7 +841,6 @@ test('image detach is conditional and a retry after commit changes nothing', asy
   assert.deepEqual(data(first).cleanup, {
     pending: true,
     failedCount: 1,
-    retryWithSameIdempotencyKey: false,
   });
   const stored = await posts.getById('post-delete');
   assert.equal(stored?.mainImage, null);
@@ -856,13 +848,11 @@ test('image detach is conditional and a retry after commit changes nothing', asy
 
   const retry = await handler(detachEvent);
   assert.equal(retry.statusCode, 200);
-  assert.equal(data(retry).replayed, true);
   assert.equal(data(retry).postVersion, 2);
   assert.equal(data(retry).detached, true);
   assert.deepEqual(data(retry).cleanup, {
     pending: false,
     failedCount: 0,
-    retryWithSameIdempotencyKey: false,
   });
   assert.equal(deletedKeys.length, 1);
   assert.equal((await posts.getById('post-delete'))?.version, 2);
@@ -1067,11 +1057,10 @@ test('an invalid post body is rejected with the failing field and nothing is sto
       code: 'INVALID_LENGTH',
     },
   ];
-  for (const [index, { body: input, code }] of cases.entries()) {
+  for (const { body: input, code } of cases) {
     const rejected = await handler(
       event('POST /posts', {
         body: input,
-        headers: { 'idempotency-key': `invalid-post-${index}-key` },
       })
     );
     assert.equal(rejected.statusCode, 400, code);

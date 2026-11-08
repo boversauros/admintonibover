@@ -83,7 +83,7 @@ test('a read forwards the query string as is with the server token', async () =>
   assert.equal(response.headers.get('cache-control'), 'no-store');
 });
 
-test('a write forwards its body, idempotency key and expected version but not the query', async () => {
+test('a write forwards its body and expected version but not the query', async () => {
   let sentUrl = '';
   let sentHeaders = new Headers();
   let sentBody: unknown;
@@ -95,7 +95,7 @@ test('a write forwards its body, idempotency key and expected version but not th
     path: 'posts/post-1/publication',
     request: request('/api/aws/posts/post-1/publication?ignored=1', {
       method: 'PUT',
-      headers: { 'idempotency-key': 'post-publish:1', 'if-match': '"4"' },
+      headers: { 'if-match': '"4"' },
     }),
     requestId: 'browser-correlation',
     fetchImplementation: async (input, init) => {
@@ -112,7 +112,6 @@ test('a write forwards its body, idempotency key and expected version but not th
   );
   assert.equal(sentBody, '{"published":true}');
   assert.equal(sentHeaders.get('content-type'), 'application/json');
-  assert.equal(sentHeaders.get('idempotency-key'), 'post-publish:1');
   assert.equal(sentHeaders.get('if-match'), '"4"');
 });
 

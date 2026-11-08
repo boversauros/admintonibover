@@ -66,7 +66,6 @@ export type ConfirmedImageUpload = {
   role: ImageRole;
   image: ImagePreview;
   cleanupPending: boolean;
-  replayed: boolean;
 };
 
 export type DetachedImage = {
@@ -77,9 +76,7 @@ export type DetachedImage = {
   cleanup: {
     pending: boolean;
     failedCount: number;
-    retryWithSameIdempotencyKey: boolean;
   };
-  replayed: boolean;
 };
 
 export type MediaApiError = {

@@ -265,7 +265,6 @@ test('a committed mutation stays successful and surfaces a failed rebuild', asyn
   try {
     const result = await deleteAdminPost(
       { id: 'post-1', version: 7 },
-      'post-delete:fixed-key',
       async () =>
         Response.json(
           {
@@ -275,9 +274,7 @@ test('a committed mutation stays successful and surfaces a failed rebuild', asyn
               cleanup: {
                 pending: false,
                 failedCount: 0,
-                retryWithSameIdempotencyKey: false,
               },
-              replayed: false,
             },
             requestId: 'delete-request',
           },

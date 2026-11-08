@@ -66,18 +66,15 @@ export type AdminPostListPage = {
 export type ImageCleanup = {
   pending: boolean;
   failedCount: number;
-  retryWithSameIdempotencyKey: boolean;
 };
 
 export type DeletePostMutationResult = {
   postId: string;
   cleanup: ImageCleanup;
-  replayed: boolean;
 };
 
 export type BulkPublicationResult = {
   publishedCount: number;
-  replayed: boolean;
 };
 
 export type AdminApiSuccessEnvelope<T> = {
@@ -130,10 +127,6 @@ function parseCleanup(value: unknown, path: string): ImageCleanup {
   return {
     pending: booleanValue(cleanup.pending, `${path}.pending`),
     failedCount: integerValue(cleanup.failedCount, `${path}.failedCount`),
-    retryWithSameIdempotencyKey: booleanValue(
-      cleanup.retryWithSameIdempotencyKey,
-      `${path}.retryWithSameIdempotencyKey`
-    ),
   };
 }
 
@@ -226,10 +219,8 @@ export const parsePostListEnvelope = successEnvelope<AdminPostListPage>(
 
 export const parsePostDetailEnvelope = successEnvelope<{
   post: Post;
-  replayed: boolean;
 }>(detail => ({
   post: parsePost(detail.post, 'data.post'),
-  replayed: booleanValue(detail.replayed, 'response.data.replayed'),
 }));
 
 export const parseCategoriesEnvelope = successEnvelope<{
@@ -252,7 +243,6 @@ export const parseDeleteEnvelope = successEnvelope<DeletePostMutationResult>(
   result => ({
     postId: stringValue(result.postId, 'response.data.postId'),
     cleanup: parseCleanup(result.cleanup, 'response.data.cleanup'),
-    replayed: booleanValue(result.replayed, 'response.data.replayed'),
   })
 );
 
@@ -263,7 +253,6 @@ export const parseDetachedImageEnvelope = successEnvelope<DetachedImage>(
     role: roleValue(result.role, 'response.data.role'),
     detached: booleanValue(result.detached, 'response.data.detached'),
     cleanup: parseCleanup(result.cleanup, 'response.data.cleanup'),
-    replayed: booleanValue(result.replayed, 'response.data.replayed'),
   })
 );
 
@@ -273,7 +262,6 @@ export const parseBulkEnvelope = successEnvelope<BulkPublicationResult>(
       result.publishedCount,
       'response.data.publishedCount'
     ),
-    replayed: booleanValue(result.replayed, 'response.data.replayed'),
   })
 );
 
@@ -344,7 +332,6 @@ export const parseConfirmedEnvelope = successEnvelope<ConfirmedImageUpload>(
       confirmed.cleanupPending,
       'response.data.cleanupPending'
     ),
-    replayed: booleanValue(confirmed.replayed, 'response.data.replayed'),
   })
 );
 
