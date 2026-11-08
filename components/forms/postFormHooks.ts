@@ -8,7 +8,6 @@ import {
   getAwsMediaInspection,
 } from '@/lib/api/adminMutations';
 import { getAdminCategories, type AdminCategory } from '@/lib/api/adminReads';
-import { isLegacyNumericSlug } from '@/lib/domain/posts/public-slugs';
 import type { Post, PostLanguage } from '@/lib/domain/posts/types';
 import type { PostFormValues } from '@/lib/forms/postForm';
 import { initialPostRecord, postRecordReducer } from '@/lib/forms/postRecord';
@@ -115,8 +114,7 @@ export function useDefaultSortOrder(
 
 /**
  * Keeps the slug generated from the title until the editor changes it by hand.
- * An imported numeric slug (the old `-N` placeholder) is replaced too, so
- * saving the post fixes its address. Returns the current title.
+ * Returns the current title.
  */
 export function useAutoSlug(
   control: Control<PostFormValues>,
@@ -133,11 +131,7 @@ export function useAutoSlug(
   useEffect(() => {
     if (!title) return;
     const generated = slugify(title);
-    if (
-      !slug ||
-      slug === previousAutoSlug.current ||
-      isLegacyNumericSlug(slug, title)
-    ) {
+    if (!slug || slug === previousAutoSlug.current) {
       setValue(`translations.${language}.slug`, generated);
     }
     previousAutoSlug.current = generated;

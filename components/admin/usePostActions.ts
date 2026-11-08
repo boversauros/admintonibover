@@ -3,7 +3,6 @@
 import { useRef, useState } from 'react';
 
 import type { AdminPostSummary } from '@/lib/api/adminReads';
-import { countDraftsWithLegacySlugs } from '@/lib/api/legacySlugs';
 import {
   AdminMutationError,
   countDraftPosts,
@@ -81,22 +80,6 @@ export function usePostActions({
         });
         return;
       }
-      const legacy = await countDraftsWithLegacySlugs(
-        undefined,
-        (done, total) =>
-          setMessage({
-            type: 'success',
-            text: `Comprovant les adreces dels esborranys: ${done} de ${total}…`,
-          })
-      );
-      if (legacy > 0) {
-        setMessage({
-          type: 'error',
-          text: `${legacy} esborrany(s) encara tenen una adreça web antiga (un número). Desa’ls abans de publicar-los tots, o demana a un superadministrador que faci servir «Adreces antigues».`,
-        });
-        return;
-      }
-      setMessage(null);
       setConfirmation({
         kind: 'bulk',
         count,
