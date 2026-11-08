@@ -192,9 +192,7 @@ test('create/read/list/update/delete round trip preserves all supported fields',
     port
       .snapshot()
       .some(item =>
-        ['POST', 'POST_SUMMARY', 'REFERENCE_SEGMENT', 'SLUG_LOCK'].includes(
-          String(item.entityType)
-        )
+        ['POST', 'POST_SUMMARY', 'SLUG_LOCK'].includes(String(item.entityType))
       ),
     false
   );
@@ -433,27 +431,45 @@ test('detaching an already-empty role is an explicit no-op', async () => {
   assert.equal((await repository.getById('post-1'))?.version, 1);
 });
 
-test('reference-heavy posts use paginated ordered segments and round trip', async () => {
+function manyReferences(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `reference-${index}`,
+    type: 'text' as const,
+    reference: `https://reference.invalid/${index}/${'x'.repeat(1800)}`,
+    sortOrder: index,
+  }));
+}
+
+test('reference-heavy posts stay inline and read back in one request', async () => {
   const { port, repository } = testRepository(1);
   const input = fixturePost({ withImages: false });
-  input.translations.ca.references = Array.from(
-    { length: 220 },
-    (_, index) => ({
-      id: `reference-${index}`,
-      type: 'text' as const,
-      reference: `https://reference.invalid/${index}/${'x'.repeat(1800)}`,
-      sortOrder: index,
-    })
-  );
+  input.translations.ca.references = manyReferences(100);
 
   const created = await repository.create(input);
-  const segmentCount = port
-    .snapshot()
-    .filter(item => item.entityType === 'REFERENCE_SEGMENT').length;
-  assert.equal(segmentCount > 1, true);
-  const queriesBefore = port.requests.queries;
+  const aggregate = port.snapshot().find(item => item.entityType === 'POST');
+  assert.equal(aggregate?.referenceStorage, 'inline');
+
+  const before = { ...port.requests };
   assert.deepEqual(await repository.getById(created.id), created);
-  assert.equal(port.requests.queries - queriesBefore, segmentCount);
+  assert.deepEqual(port.requests, { ...before, gets: before.gets + 1 });
+});
+
+test('a post with too many references fails before any DynamoDB request', async () => {
+  const { port, repository } = testRepository();
+  const oversized = fixturePost({ withImages: false });
+  oversized.translations.ca.references = manyReferences(220);
+
+  await assert.rejects(
+    repository.create(oversized),
+    PostAggregateTooLargeError
+  );
+  assert.deepEqual(port.requests, {
+    gets: 0,
+    queries: 0,
+    scans: 0,
+    transactions: 0,
+  });
+  assert.deepEqual(port.snapshot(), []);
 });
 
 test('oversized base aggregate fails before any DynamoDB request', async () => {
@@ -480,32 +496,67 @@ test('oversized base aggregate fails before any DynamoDB request', async () => {
   assert.deepEqual(port.snapshot(), []);
 });
 
-test('segment version corruption is rejected as a typed integrity error', async () => {
-  const { port, repository } = testRepository(1);
-  const input = fixturePost({ withImages: false });
-  input.translations.ca.references = Array.from(
-    { length: 220 },
-    (_, index) => ({
-      id: `reference-${index}`,
-      type: 'text' as const,
-      reference: `https://reference.invalid/${index}/${'x'.repeat(1800)}`,
-      sortOrder: index,
-    })
+async function withStoredOversizedPost() {
+  const { port, repository } = testRepository();
+  await repository.create(fixturePost());
+  const items = port.snapshot();
+  const aggregate = items.find(item => item.entityType === 'POST');
+  assert.ok(aggregate);
+  const translations = aggregate.translations as Post['translations'];
+  translations.ca.references = manyReferences(220);
+  const seeded = new InMemoryDynamoDbPort(items);
+  return {
+    port: seeded,
+    repository: new DynamoDbPostRepository(seeded, {
+      clock: () => new Date(UPDATE_TIME),
+    }),
+  };
+}
+
+test('a stored post above the size guard can still be read and deleted', async () => {
+  const { port, repository } = await withStoredOversizedPost();
+
+  const stored = await repository.getById('post-1');
+  assert.ok(stored);
+  await repository.delete('post-1', stored.version);
+
+  assert.equal(await repository.getById('post-1'), null);
+  assert.equal(
+    port.snapshot().some(item => item.entityType === 'POST'),
+    false
   );
-  await repository.create(input);
+});
+
+test('a stored post above the size guard can be shortened but not resaved as is', async () => {
+  const { repository } = await withStoredOversizedPost();
+  const stored = await repository.getById('post-1');
+  assert.ok(stored);
+
+  await assert.rejects(
+    repository.update(stored, stored.version),
+    PostAggregateTooLargeError
+  );
+
+  const shortened = structuredClone(stored);
+  shortened.translations.ca.references = manyReferences(1);
+  const updated = await repository.update(shortened, stored.version);
+  assert.equal(updated.translations.ca.references.length, 1);
+  assert.equal(updated.version, stored.version + 1);
+});
+
+test('a stored post without inline references is a typed integrity error', async () => {
+  const { port, repository } = testRepository();
+  await repository.create(fixturePost());
   const corrupted = port.snapshot();
-  const segment = corrupted.find(
-    item => item.entityType === 'REFERENCE_SEGMENT'
-  );
-  assert.ok(segment);
-  segment.version = 999;
+  const aggregate = corrupted.find(item => item.entityType === 'POST');
+  assert.ok(aggregate);
+  aggregate.referenceStorage = 'segmented';
   const corruptedRepository = new DynamoDbPostRepository(
-    new InMemoryDynamoDbPort(corrupted, 1),
-    { queryPageSize: 1 }
+    new InMemoryDynamoDbPort(corrupted)
   );
 
   await assert.rejects(
-    corruptedRepository.getById(input.id),
+    corruptedRepository.getById('post-1'),
     PostDataIntegrityError
   );
 });

@@ -14,17 +14,11 @@ import type {
   PostTranslation,
   TranslationStatus,
 } from '@/lib/domain/posts/types';
-import { POST_LANGUAGES } from '@/lib/domain/posts/types';
 import {
   POST_DOMAIN_LIMITS,
   assertValidPost,
 } from '@/lib/domain/posts/validation';
 
-import { estimateDynamoDbItemSize } from './item-size';
-import {
-  DYNAMODB_ITEM_SIZE_GUARD_BYTES,
-  REFERENCE_SEGMENT_TARGET_BYTES,
-} from './limits';
 import type { DynamoItem, DynamoKey } from './port';
 
 type StoredKeyword = {
@@ -46,7 +40,7 @@ type StoredTranslation = {
   content: string;
   slug: string;
   keywords: StoredKeyword[];
-  references?: StoredReference[];
+  references: StoredReference[];
   translationStatus: TranslationStatus;
 };
 
@@ -62,22 +56,12 @@ export type PostAggregateItem = DynamoItem & {
   createdAt: string;
   updatedAt: string;
   translations: Record<PostLanguage, StoredTranslation>;
-  referenceStorage: 'inline' | 'segmented';
-  referenceSegmentCounts?: Record<PostLanguage, number>;
+  // Always 'inline'. Lambdas built before segmentation was removed require it.
+  referenceStorage: 'inline';
   mainImage: PostImage | null;
   thumbImage: PostImage | null;
   version: number;
   migration: PostMigrationMetadata | null;
-};
-
-export type ReferenceSegmentItem = DynamoItem & {
-  entityType: 'REFERENCE_SEGMENT';
-  schemaVersion: 1;
-  postId: string;
-  language: PostLanguage;
-  sequence: number;
-  version: number;
-  references: StoredReference[];
 };
 
 export type PostSummaryItem = DynamoItem & {
@@ -107,13 +91,13 @@ export type SlugLockItem = DynamoItem & {
 
 export type PreparedPostItems = {
   aggregate: PostAggregateItem;
-  referenceSegments: ReferenceSegmentItem[];
   summary: PostSummaryItem;
   slugLocks: Record<PostLanguage, SlugLockItem | null>;
 };
 
 const SORT_ORDER_WIDTH = 12;
-const SEGMENT_SEQUENCE_WIDTH = 6;
+/** Serialized JSON overstates DynamoDB's size, whose item limit is 400 KiB. */
+const POST_AGGREGATE_MAX_JSON_BYTES = 300 * 1024;
 
 export function postKey(postId: string): DynamoKey {
   return { PK: `POST#${postId}`, SK: `POST#${postId}` };
@@ -152,28 +136,19 @@ function storedReference(reference: PostReference): StoredReference {
   };
 }
 
-function storedTranslation(
-  translation: PostTranslation,
-  includeReferences: boolean
-): StoredTranslation {
+function storedTranslation(translation: PostTranslation): StoredTranslation {
   return {
     legacyId: translation.id,
     title: translation.title,
     content: translation.content,
     slug: translation.slug,
     keywords: translation.keywords.map(storedKeyword),
-    ...(includeReferences
-      ? { references: translation.references.map(storedReference) }
-      : {}),
+    references: translation.references.map(storedReference),
     translationStatus: translation.translationStatus,
   };
 }
 
-function aggregateItem(
-  post: Post,
-  referenceStorage: 'inline' | 'segmented',
-  segmentCounts?: Record<PostLanguage, number>
-): PostAggregateItem {
+function aggregateItem(post: Post): PostAggregateItem {
   return {
     ...postKey(post.id),
     entityType: 'POST',
@@ -187,77 +162,15 @@ function aggregateItem(
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
     translations: {
-      ca: storedTranslation(
-        post.translations.ca,
-        referenceStorage === 'inline'
-      ),
-      en: storedTranslation(
-        post.translations.en,
-        referenceStorage === 'inline'
-      ),
+      ca: storedTranslation(post.translations.ca),
+      en: storedTranslation(post.translations.en),
     },
-    referenceStorage,
-    ...(segmentCounts ? { referenceSegmentCounts: segmentCounts } : {}),
+    referenceStorage: 'inline',
     mainImage: post.mainImage ? { ...post.mainImage } : null,
     thumbImage: post.thumbImage ? { ...post.thumbImage } : null,
     version: post.version,
     migration: post.migration ? { ...post.migration } : null,
   };
-}
-
-function createReferenceSegment(
-  post: Post,
-  language: PostLanguage,
-  sequence: number,
-  references: PostReference[]
-): ReferenceSegmentItem {
-  return {
-    PK: `POST#${post.id}`,
-    SK: `REFS#${language}#${sequence
-      .toString()
-      .padStart(SEGMENT_SEQUENCE_WIDTH, '0')}`,
-    entityType: 'REFERENCE_SEGMENT',
-    schemaVersion: 1,
-    postId: post.id,
-    language,
-    sequence,
-    version: post.version,
-    references: references.map(storedReference),
-  };
-}
-
-function segmentReferences(
-  post: Post,
-  language: PostLanguage
-): ReferenceSegmentItem[] {
-  const references = post.translations[language].references;
-  const segments: ReferenceSegmentItem[] = [];
-  let current: PostReference[] = [];
-
-  for (const reference of references) {
-    const candidate = createReferenceSegment(post, language, segments.length, [
-      ...current,
-      reference,
-    ]);
-    if (
-      current.length > 0 &&
-      estimateDynamoDbItemSize(candidate) > REFERENCE_SEGMENT_TARGET_BYTES
-    ) {
-      segments.push(
-        createReferenceSegment(post, language, segments.length, current)
-      );
-      current = [reference];
-    } else {
-      current.push(reference);
-    }
-  }
-
-  if (current.length > 0) {
-    segments.push(
-      createReferenceSegment(post, language, segments.length, current)
-    );
-  }
-  return segments;
 }
 
 function excerpt(content: string): string {
@@ -312,50 +225,27 @@ function slugLockItem(
   };
 }
 
-function assertItemBelowGuard(item: DynamoItem, description: string): void {
-  const bytes = estimateDynamoDbItemSize(item);
-  if (bytes >= DYNAMODB_ITEM_SIZE_GUARD_BYTES) {
-    throw new PostAggregateTooLargeError(`${description}:${bytes}`);
-  }
-}
-
+/** Builds items without a size check, so stored posts stay editable. */
 export function preparePostItems(post: Post): PreparedPostItems {
   assertValidPost(post);
-  const inlineAggregate = aggregateItem(post, 'inline');
-  let aggregate = inlineAggregate;
-  let referenceSegments: ReferenceSegmentItem[] = [];
-
-  if (
-    estimateDynamoDbItemSize(inlineAggregate) >= DYNAMODB_ITEM_SIZE_GUARD_BYTES
-  ) {
-    const ca = segmentReferences(post, 'ca');
-    const en = segmentReferences(post, 'en');
-    referenceSegments = [...ca, ...en];
-    aggregate = aggregateItem(post, 'segmented', {
-      ca: ca.length,
-      en: en.length,
-    });
-  }
-
-  assertItemBelowGuard(aggregate, 'aggregate');
-  referenceSegments.forEach(segment =>
-    assertItemBelowGuard(
-      segment,
-      `segment:${segment.language}:${segment.sequence}`
-    )
-  );
-  const summary = summaryItem(post);
-  assertItemBelowGuard(summary, 'summary');
-
   return {
-    aggregate,
-    referenceSegments,
-    summary,
+    aggregate: aggregateItem(post),
+    summary: summaryItem(post),
     slugLocks: {
       ca: slugLockItem(post.id, 'ca', post.translations.ca.slug),
       en: slugLockItem(post.id, 'en', post.translations.en.slug),
     },
   };
+}
+
+/** Builds items for a new post state, rejecting one that is too large. */
+export function prepareNewPostItems(post: Post): PreparedPostItems {
+  const prepared = preparePostItems(post);
+  const bytes = Buffer.byteLength(JSON.stringify(prepared.aggregate), 'utf8');
+  if (bytes > POST_AGGREGATE_MAX_JSON_BYTES) {
+    throw new PostAggregateTooLargeError(`aggregate:${bytes}`);
+  }
+  return prepared;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -413,11 +303,7 @@ function parseStoredKeyword(value: unknown, path: string): PostKeyword {
   };
 }
 
-function parseStoredTranslation(
-  value: unknown,
-  path: string,
-  references: PostReference[]
-): PostTranslation {
+function parseStoredTranslation(value: unknown, path: string): PostTranslation {
   const record = recordValue(value, path);
   const status = stringValue(
     record.translationStatus,
@@ -435,7 +321,10 @@ function parseStoredTranslation(
       (keyword, index) =>
         parseStoredKeyword(keyword, `${path}.keywords.${index}`)
     ),
-    references,
+    references: arrayValue(record.references, `${path}.references`).map(
+      (reference, index) =>
+        parseStoredReference(reference, `${path}.references.${index}`)
+    ),
     translationStatus: status,
   };
 }
@@ -464,64 +353,7 @@ function parseMigration(value: unknown): PostMigrationMetadata | null {
   };
 }
 
-function parseSegmentReferences(
-  postId: string,
-  version: number,
-  language: PostLanguage,
-  expectedCount: number,
-  segments: DynamoItem[]
-): PostReference[] {
-  const parsed = segments
-    .filter(segment => segment.language === language)
-    .map((segment, index) => {
-      if (
-        segment.entityType !== 'REFERENCE_SEGMENT' ||
-        segment.schemaVersion !== 1 ||
-        segment.postId !== postId ||
-        segment.language !== language ||
-        segment.version !== version ||
-        segment.PK !== `POST#${postId}`
-      ) {
-        dataError(`segments.${language}.${index}:metadata`);
-      }
-      const sequence = numberValue(
-        segment.sequence,
-        `segments.${language}.${index}.sequence`
-      );
-      if (
-        segment.SK !==
-        `REFS#${language}#${sequence
-          .toString()
-          .padStart(SEGMENT_SEQUENCE_WIDTH, '0')}`
-      ) {
-        dataError(`segments.${language}.${index}:key`);
-      }
-      return {
-        sequence,
-        references: arrayValue(
-          segment.references,
-          `segments.${language}.${index}.references`
-        ).map((reference, referenceIndex) =>
-          parseStoredReference(
-            reference,
-            `segments.${language}.${index}.references.${referenceIndex}`
-          )
-        ),
-      };
-    })
-    .sort((left, right) => left.sequence - right.sequence);
-
-  if (parsed.length !== expectedCount) dataError(`segments.${language}:count`);
-  parsed.forEach((segment, index) => {
-    if (segment.sequence !== index) dataError(`segments.${language}:sequence`);
-  });
-  return parsed.flatMap(segment => segment.references);
-}
-
-export function postFromItems(
-  aggregate: DynamoItem,
-  segmentItems: DynamoItem[]
-): Post {
+export function postFromItem(aggregate: DynamoItem): Post {
   if (
     aggregate.entityType !== 'POST' ||
     aggregate.schemaVersion !== 1 ||
@@ -533,55 +365,9 @@ export function postFromItems(
   const id = stringValue(aggregate.id, 'id');
   const version = numberValue(aggregate.version, 'version');
   const translations = recordValue(aggregate.translations, 'translations');
-  const storage = stringValue(aggregate.referenceStorage, 'referenceStorage');
-  if (storage !== 'inline' && storage !== 'segmented') {
+  if (aggregate.referenceStorage !== 'inline') {
     dataError('referenceStorage:value');
   }
-  const counts =
-    storage === 'segmented'
-      ? recordValue(aggregate.referenceSegmentCounts, 'referenceSegmentCounts')
-      : null;
-  if (counts) {
-    const expectedSegmentCount =
-      numberValue(counts.ca, 'referenceSegmentCounts.ca') +
-      numberValue(counts.en, 'referenceSegmentCounts.en');
-    if (segmentItems.length !== expectedSegmentCount) {
-      dataError('segments:count');
-    }
-  }
-  const references = {} as Record<PostLanguage, PostReference[]>;
-  for (const language of POST_LANGUAGES) {
-    const translation = recordValue(
-      translations[language],
-      `translations.${language}`
-    );
-    if (storage === 'segmented' && translation.references !== undefined) {
-      dataError(`translations.${language}.references:unexpected`);
-    }
-    references[language] =
-      storage === 'inline'
-        ? arrayValue(
-            translation.references,
-            `translations.${language}.references`
-          ).map((reference, index) =>
-            parseStoredReference(
-              reference,
-              `translations.${language}.references.${index}`
-            )
-          )
-        : parseSegmentReferences(
-            id,
-            version,
-            language,
-            numberValue(
-              counts![language],
-              `referenceSegmentCounts.${language}`
-            ),
-            segmentItems
-          );
-  }
-  if (storage === 'inline' && segmentItems.length > 0)
-    dataError('segments:unexpected');
 
   const category = recordValue(aggregate.category, 'category');
   const post: Post = {
@@ -597,16 +383,8 @@ export function postFromItems(
     createdAt: stringValue(aggregate.createdAt, 'createdAt'),
     updatedAt: stringValue(aggregate.updatedAt, 'updatedAt'),
     translations: {
-      ca: parseStoredTranslation(
-        translations.ca,
-        'translations.ca',
-        references.ca
-      ),
-      en: parseStoredTranslation(
-        translations.en,
-        'translations.en',
-        references.en
-      ),
+      ca: parseStoredTranslation(translations.ca, 'translations.ca'),
+      en: parseStoredTranslation(translations.en, 'translations.en'),
     },
     mainImage: parseImage(aggregate.mainImage, 'mainImage'),
     thumbImage: parseImage(aggregate.thumbImage, 'thumbImage'),

@@ -113,21 +113,12 @@ export class AwsDynamoDbPort implements DynamoDbPort {
   }
 
   async query(input: DynamoQueryInput): Promise<DynamoQueryPage> {
-    const hasSortPrefix = input.sortKeyBeginsWith !== undefined;
     const result = await this.client.send(
       new QueryCommand({
         TableName: this.tableName,
-        KeyConditionExpression: hasSortPrefix
-          ? '#pk = :pk AND begins_with(#sk, :sk)'
-          : '#pk = :pk',
-        ExpressionAttributeNames: {
-          '#pk': 'PK',
-          ...(hasSortPrefix ? { '#sk': 'SK' } : {}),
-        },
-        ExpressionAttributeValues: {
-          ':pk': input.partitionKey,
-          ...(hasSortPrefix ? { ':sk': input.sortKeyBeginsWith } : {}),
-        },
+        KeyConditionExpression: '#pk = :pk',
+        ExpressionAttributeNames: { '#pk': 'PK' },
+        ExpressionAttributeValues: { ':pk': input.partitionKey },
         ConsistentRead: input.consistentRead,
         ScanIndexForward: input.scanIndexForward,
         ExclusiveStartKey: input.exclusiveStartKey,

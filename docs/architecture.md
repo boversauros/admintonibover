@@ -168,23 +168,23 @@ use retention policies so a stack change cannot silently destroy them.
 The table has string `PK` and `SK` keys, Standard table class, on-demand
 capacity, no GSI/LSI, and no streams. Current item types are:
 
-| Entity              | Key                                        | Purpose                                                                |
-| ------------------- | ------------------------------------------ | ---------------------------------------------------------------------- |
-| `POST`              | `POST#<id>` / `POST#<id>`                  | Canonical bilingual aggregate, image metadata, timestamps, and version |
-| `REFERENCE_SEGMENT` | `POST#<id>` / `REFS#<language>#<sequence>` | Ordered overflow references                                            |
-| `POST_SUMMARY`      | `POSTS` / `ORDER#...#POST#<id>`            | Bounded list/filter/pagination projection                              |
-| `SLUG_LOCK`         | `SLUG#<language>#<slug>` / `LOCK`          | Unique bilingual slug ownership                                        |
-| `CATEGORY`          | taxonomy keys                              | Bilingual category catalog                                             |
-| `KEYWORD`           | taxonomy keys                              | Language-specific keyword catalog                                      |
-| `DATA_REVISION`     | `SYSTEM` / `REVISION`                      | Monotonic backup-consistency marker                                    |
-| `IDEMPOTENCY`       | request digest keys                        | 24-hour retry result/progress record                                   |
-| `MEDIA_UPLOAD`      | upload keys                                | Short-lived upload intent                                              |
+| Entity          | Key                               | Purpose                                                                |
+| --------------- | --------------------------------- | ---------------------------------------------------------------------- |
+| `POST`          | `POST#<id>` / `POST#<id>`         | Canonical bilingual aggregate, image metadata, timestamps, and version |
+| `POST_SUMMARY`  | `POSTS` / `ORDER#...#POST#<id>`   | Bounded list/filter/pagination projection                              |
+| `SLUG_LOCK`     | `SLUG#<language>#<slug>` / `LOCK` | Unique bilingual slug ownership                                        |
+| `CATEGORY`      | taxonomy keys                     | Bilingual category catalog                                             |
+| `KEYWORD`       | taxonomy keys                     | Language-specific keyword catalog                                      |
+| `DATA_REVISION` | `SYSTEM` / `REVISION`             | Monotonic backup-consistency marker                                    |
+| `IDEMPOTENCY`   | request digest keys               | 24-hour retry result/progress record                                   |
+| `MEDIA_UPLOAD`  | upload keys                       | Short-lived upload intent                                              |
 
-Reads are strongly consistent and paginated. A post normally stores references
-inline; at the 350 KiB safety guard they move into bounded ordered segments.
-Writes fail before AWS if the aggregate, segment, 100-action transaction, or
-4 MiB transaction limit cannot be met. Aggregate, summary, slug locks,
-segments, catalog changes, revision, and idempotency state change atomically.
+Reads are strongly consistent and paginated. A post stores its references
+inline. A write whose aggregate serializes to more than 300 KiB fails with a
+413 before reaching AWS; a post already stored above that can still be shortened
+or deleted. Aggregate, summary, slug locks, catalog changes, revision, and
+idempotency state change atomically. Backup v2 keeps a `REFERENCE_SEGMENT` count,
+now always zero, so existing backup files stay valid.
 
 ## Images
 

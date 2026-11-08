@@ -46,7 +46,6 @@ export type DynamoTransactionAction =
 
 export type DynamoQueryInput = {
   partitionKey: string;
-  sortKeyBeginsWith?: string;
   consistentRead: boolean;
   scanIndexForward: boolean;
   exclusiveStartKey?: DynamoKey;

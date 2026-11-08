@@ -71,11 +71,6 @@ export class InMemoryDynamoDbPort implements DynamoDbPort {
     this.requests.queries += 1;
     const ascending = [...this.items.values()]
       .filter(item => item.PK === input.partitionKey)
-      .filter(
-        item =>
-          input.sortKeyBeginsWith === undefined ||
-          item.SK.startsWith(input.sortKeyBeginsWith)
-      )
       .sort((left, right) => left.SK.localeCompare(right.SK));
     const ordered = input.scanIndexForward ? ascending : ascending.reverse();
     const startIndex = input.exclusiveStartKey

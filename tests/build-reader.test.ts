@@ -43,7 +43,7 @@ function post(id: string, published = true): Post {
 
 function storedPost(value: Post): DynamoItem[] {
   const prepared = preparePostItems(value);
-  return [prepared.aggregate, prepared.summary, ...prepared.referenceSegments];
+  return [prepared.aggregate, prepared.summary];
 }
 
 function fixture(
@@ -220,20 +220,18 @@ test('more than 50 posts paginate with published filtering and reject reused cur
   );
 });
 
-test('published detail rebuilds segmented references, projects fields, and enforces version', async () => {
+test('published detail returns every reference, projects fields, and enforces version', async () => {
   const value = post('post-1');
   value.translations.ca.references = Array.from(
     { length: 200 },
     (_, index) => ({
       id: `reference-${index}`,
       type: 'text',
-      reference: `Reference ${index} ${'x'.repeat(1750)}`,
+      reference: `Reference ${index} ${'x'.repeat(500)}`,
       blockquote: 'Quotation',
       sortOrder: index,
     })
   );
-  const prepared = preparePostItems(value);
-  assert.equal(prepared.aggregate.referenceStorage, 'segmented');
   const { reader } = fixture([value], 1);
   const result = await reader(
     request('post', { id: 'post-1', expectedVersion: 1 })

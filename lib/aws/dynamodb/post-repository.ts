@@ -4,7 +4,6 @@ import {
   type ImageRole,
 } from '@/lib/domain/media/contracts';
 import {
-  PostAggregateTooLargeError,
   PostDataIntegrityError,
   PostNotFoundError,
   PostSlugConflictError,
@@ -26,16 +25,12 @@ import type {
 } from '@/lib/domain/posts/types';
 import { slugify } from '@/lib/utils/slugify';
 
-import { estimateDynamoDbItemSize } from './item-size';
 import {
-  DYNAMODB_TRANSACTION_MAX_BYTES,
-  DYNAMODB_TRANSACTION_MAX_ITEMS,
-} from './limits';
-import {
-  postFromItems,
+  postFromItem,
   postIdFromSlugLock,
   postKey,
   postListItemFromItem,
+  prepareNewPostItems,
   preparePostItems,
   slugLockKey,
   type PreparedPostItems,
@@ -84,39 +79,6 @@ function validationError(
   message: string
 ): PostValidationError {
   return new PostValidationError([{ path, code, message }]);
-}
-
-function transactionBytes(actions: DynamoTransactionAction[]): number {
-  return actions.reduce((total, action) => {
-    if (action.type === 'put') {
-      return total + estimateDynamoDbItemSize(action.item);
-    }
-    if (action.type === 'delete') {
-      return total + estimateDynamoDbItemSize(action.key);
-    }
-    return (
-      total +
-      estimateDynamoDbItemSize({
-        ...action.key,
-        ...action.set,
-        [action.attribute]: action.initialValue + action.by,
-      })
-    );
-  }, 0);
-}
-
-function assertTransactionWithinLimits(
-  actions: DynamoTransactionAction[]
-): void {
-  if (actions.length > DYNAMODB_TRANSACTION_MAX_ITEMS) {
-    throw new PostAggregateTooLargeError(
-      `transaction-actions:${actions.length}`
-    );
-  }
-  const bytes = transactionBytes(actions);
-  if (bytes > DYNAMODB_TRANSACTION_MAX_BYTES) {
-    throw new PostAggregateTooLargeError(`transaction-bytes:${bytes}`);
-  }
 }
 
 function revisionAction(updatedAt: string): DynamoTransactionAction {
@@ -250,7 +212,7 @@ export class DynamoDbPostRepository implements PostRepository {
         ? { createdAt: timestamp, updatedAt: timestamp }
         : {}),
     };
-    const prepared = preparePostItems(post);
+    const prepared = prepareNewPostItems(post);
     const actions: DynamoTransactionAction[] = [
       {
         type: 'put',
@@ -264,14 +226,6 @@ export class DynamoDbPostRepository implements PostRepository {
         item: prepared.summary,
         condition: { type: 'attributeNotExists', attribute: 'PK' },
       },
-      ...prepared.referenceSegments.map(
-        (item): DynamoTransactionAction => ({
-          type: 'put',
-          label: `segment:create:${item.language}:${item.sequence}`,
-          item,
-          condition: { type: 'attributeNotExists', attribute: 'PK' },
-        })
-      ),
       ...(['ca', 'en'] as const).flatMap(language => {
         const item = prepared.slugLocks[language];
         return item
@@ -291,7 +245,6 @@ export class DynamoDbPostRepository implements PostRepository {
       revisionAction(post.updatedAt),
     ];
 
-    assertTransactionWithinLimits(actions);
     try {
       await this.dynamodb.transactWrite(actions);
     } catch (error) {
@@ -302,25 +255,7 @@ export class DynamoDbPostRepository implements PostRepository {
 
   async getById(id: string): Promise<Post | null> {
     const aggregate = await this.dynamodb.get(postKey(id), true);
-    if (!aggregate) return null;
-
-    const segments: DynamoItem[] = [];
-    if (aggregate.referenceStorage === 'segmented') {
-      let exclusiveStartKey: DynamoKey | undefined;
-      do {
-        const page = await this.dynamodb.query({
-          partitionKey: `POST#${id}`,
-          sortKeyBeginsWith: 'REFS#',
-          consistentRead: true,
-          scanIndexForward: true,
-          exclusiveStartKey,
-          limit: this.queryPageSize,
-        });
-        segments.push(...page.items);
-        exclusiveStartKey = page.lastEvaluatedKey;
-      } while (exclusiveStartKey !== undefined);
-    }
-    return postFromItems(aggregate, segments);
+    return aggregate ? postFromItem(aggregate) : null;
   }
 
   async getBySlug(language: PostLanguage, slug: string): Promise<Post | null> {
@@ -407,7 +342,7 @@ export class DynamoDbPostRepository implements PostRepository {
       version: expectedVersion + 1,
       updatedAt: timestamp,
     };
-    preparePostItems(preflight);
+    prepareNewPostItems(preflight);
 
     const current = await this.getById(input.id);
     if (!current) throw new PostNotFoundError(input.id);
@@ -421,9 +356,8 @@ export class DynamoDbPostRepository implements PostRepository {
       migration: current.migration,
     };
     const previous = preparePostItems(current);
-    const next = preparePostItems(post);
+    const next = prepareNewPostItems(post);
     const actions = this.updateActions(previous, next, post, expectedVersion);
-    assertTransactionWithinLimits(actions);
 
     try {
       await this.dynamodb.transactWrite(actions);
@@ -460,7 +394,7 @@ export class DynamoDbPostRepository implements PostRepository {
       updatedAt: timestamp,
     };
     const previous = preparePostItems(current);
-    const next = preparePostItems(post);
+    const next = prepareNewPostItems(post);
     const actions = this.updateActions(previous, next, post, expectedVersion);
     actions.push({
       type: 'put',
@@ -468,7 +402,6 @@ export class DynamoDbPostRepository implements PostRepository {
       item: input.confirmedIntentItem,
       condition: { type: 'equals', attribute: 'status', value: 'pending' },
     });
-    assertTransactionWithinLimits(actions);
 
     try {
       await this.dynamodb.transactWrite(actions);
@@ -515,9 +448,8 @@ export class DynamoDbPostRepository implements PostRepository {
       updatedAt: this.clock().toISOString(),
     };
     const previous = preparePostItems(current);
-    const next = preparePostItems(post);
+    const next = prepareNewPostItems(post);
     const actions = this.updateActions(previous, next, post, expectedVersion);
-    assertTransactionWithinLimits(actions);
 
     try {
       await this.dynamodb.transactWrite(actions);
@@ -563,13 +495,6 @@ export class DynamoDbPostRepository implements PostRepository {
         label: 'summary:delete',
         key: { PK: prepared.summary.PK, SK: prepared.summary.SK },
       },
-      ...prepared.referenceSegments.map(
-        (segment): DynamoTransactionAction => ({
-          type: 'delete',
-          label: `segment:delete:${segment.language}:${segment.sequence}`,
-          key: { PK: segment.PK, SK: segment.SK },
-        })
-      ),
       ...(['ca', 'en'] as const).flatMap(language => {
         const key = lockKey(prepared, language);
         return key
@@ -589,7 +514,6 @@ export class DynamoDbPostRepository implements PostRepository {
       }),
       revisionAction(this.clock().toISOString()),
     ];
-    assertTransactionWithinLimits(actions);
     try {
       await this.dynamodb.transactWrite(actions);
     } catch (error) {
@@ -636,26 +560,6 @@ export class DynamoDbPostRepository implements PostRepository {
       });
     }
     actions.push({ type: 'put', label: 'summary:put', item: next.summary });
-
-    const nextSegmentKeys = new Set(
-      next.referenceSegments.map(segment => `${segment.PK}\u0000${segment.SK}`)
-    );
-    for (const segment of next.referenceSegments) {
-      actions.push({
-        type: 'put',
-        label: `segment:put:${segment.language}:${segment.sequence}`,
-        item: segment,
-      });
-    }
-    for (const segment of previous.referenceSegments) {
-      if (!nextSegmentKeys.has(`${segment.PK}\u0000${segment.SK}`)) {
-        actions.push({
-          type: 'delete',
-          label: `segment:delete-old:${segment.language}:${segment.sequence}`,
-          key: { PK: segment.PK, SK: segment.SK },
-        });
-      }
-    }
 
     for (const language of ['ca', 'en'] as const) {
       const oldKey = lockKey(previous, language);
