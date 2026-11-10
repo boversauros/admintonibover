@@ -7,6 +7,7 @@ import type {
   PostReference,
   PostTranslation,
 } from '@/lib/domain/posts/types';
+import { normalizeTitle } from '@/lib/utils/normalizeTitle';
 
 // The admin post form edits the canonical `Post` directly. Keyword and
 // reference IDs travel with the form state, so saving never has to recover
@@ -83,7 +84,7 @@ function postTranslation(
 ): PostTranslation {
   return {
     id: current?.id ?? newPostFormId(`translation-${language}`),
-    title: values.title,
+    title: normalizeTitle(values.title),
     content: markdownParagraphs(values.content),
     slug: values.slug,
     keywords: values.keywords.map(keyword => ({ ...keyword })),
