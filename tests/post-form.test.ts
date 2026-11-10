@@ -94,6 +94,26 @@ test('saving an unchanged post reproduces it exactly, apart from updatedAt', () 
   assert.deepEqual(saved, { ...post, updatedAt: LATER });
 });
 
+test('saving cleans hidden characters and stray spaces from titles without changing slugs', () => {
+  const post = postFixture();
+  const values = postFormValues(post);
+  values.translations.ca.title = ' La qualitat de la llum  (Vermeer) ';
+  values.translations.en.title = 'The​ Quality  of the Light (Vermeer)';
+  const saved = postFromForm(values, {
+    category: CATEGORY,
+    current: post,
+    now: LATER,
+    postId: 'unused',
+  });
+  assert.equal(saved.translations.ca.title, 'La qualitat de la llum (Vermeer)');
+  assert.equal(
+    saved.translations.en.title,
+    'The Quality of the Light (Vermeer)'
+  );
+  assert.equal(saved.translations.ca.slug, post.translations.ca.slug);
+  assert.equal(saved.translations.en.slug, post.translations.en.slug);
+});
+
 test('the form edits a copy, never the loaded post', () => {
   const post = postFixture();
   const values = postFormValues(post);
