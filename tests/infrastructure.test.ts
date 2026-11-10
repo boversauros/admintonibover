@@ -289,3 +289,65 @@ test('offline validation rejects public storage and credentialed API CORS', () =
   (api.CorsConfiguration as Record<string, unknown>).AllowCredentials = true;
   assert.throws(() => validateDevFoundationTemplate(credentialedApi));
 });
+
+test('offline validation rejects insecure transport, open routes, broad IAM and raised throttling', () => {
+  const plainHttp = createProductionFoundationTemplate();
+  const bucketPolicy = plainHttp.Resources.ContentBucketPolicy.Properties!
+    .PolicyDocument as { Statement: { Sid?: string }[] };
+  bucketPolicy.Statement = bucketPolicy.Statement.filter(
+    statement => statement.Sid !== 'DenyInsecureTransport'
+  );
+  assert.throws(
+    () => validateProductionFoundationTemplate(plainHttp),
+    /DenyInsecureTransport/
+  );
+
+  const openRoute = createProductionFoundationTemplate();
+  openRoute.Resources.PostsListRoute.Properties!.AuthorizationType = 'NONE';
+  assert.throws(
+    () => validateProductionFoundationTemplate(openRoute),
+    /PostsListRoute\.AuthorizationType/
+  );
+
+  const wildcardAction = createProductionFoundationTemplate();
+  const runtimePolicies = wildcardAction.Resources.LambdaExecutionRole
+    .Properties!.Policies as {
+    PolicyDocument: { Statement: Record<string, unknown>[] };
+  }[];
+  runtimePolicies[0].PolicyDocument.Statement[1].Action = 'dynamodb:*';
+  assert.throws(
+    () => validateProductionFoundationTemplate(wildcardAction),
+    /UseExactContentTable must not use wildcard action dynamodb:\*/
+  );
+
+  const wildcardResource = createProductionFoundationTemplate();
+  const resourcePolicies = wildcardResource.Resources.LambdaExecutionRole
+    .Properties!.Policies as {
+    PolicyDocument: { Statement: Record<string, unknown>[] };
+  }[];
+  resourcePolicies[0].PolicyDocument.Statement[1].Resource = '*';
+  assert.throws(
+    () => validateProductionFoundationTemplate(wildcardResource),
+    /UseExactContentTable must be scoped to exact resources/
+  );
+
+  const raisedThrottle = createProductionFoundationTemplate();
+  (
+    raisedThrottle.Resources.ApiStage.Properties!.DefaultRouteSettings as {
+      ThrottlingRateLimit: number;
+    }
+  ).ThrottlingRateLimit = 100;
+  assert.throws(
+    () => validateProductionFoundationTemplate(raisedThrottle),
+    /ApiStage\.DefaultRouteSettings\.ThrottlingRateLimit/
+  );
+
+  const broadReader = createDevFoundationTemplate();
+  const readerPolicies = broadReader.Resources.ReaderExecutionRole.Properties!
+    .Policies as { PolicyDocument: { Statement: { Action: string[] }[] } }[];
+  readerPolicies[0].PolicyDocument.Statement[1].Action.push('dynamodb:Scan');
+  assert.throws(
+    () => validateDevFoundationTemplate(broadReader),
+    /ReaderExecutionRole must not allow dynamodb:Scan/
+  );
+});
