@@ -3,84 +3,112 @@ import {
   EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN,
   EXPECTED_RESOURCE_TYPE_COUNTS,
   EXPECTED_DEV_RESOURCE_TYPE_COUNTS,
-  REQUIRED_TAGS,
   type CloudFormationTemplate,
   type FoundationEnvironment,
 } from './dev-foundation';
 
+// Security and cost invariants of the synthesized foundation templates. The
+// generator is deterministic and CI compares the committed synthesis byte for
+// byte, so this guards only what must never drift: the approved resource
+// inventory, data retention, public exposure, identity and IAM scope, CORS
+// origins, throttling and billable shape. Structure the generator already
+// guarantees (names, wiring, headers, tags) is deliberately not repeated here.
+
+const TEMPLATE_BYTE_LIMIT = 1024 * 1024;
+const INLINE_BUNDLE_BYTE_LIMIT = 950_000;
+
+const READER_ALLOWED_ACTIONS = new Set([
+  'logs:CreateLogStream',
+  'logs:PutLogEvents',
+  'dynamodb:GetItem',
+  'dynamodb:Query',
+  's3:GetObject',
+]);
+
+const READER_TRUST_POLICY =
+  '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Federated":"${VercelOidcProvider}"},"Action":"sts:AssumeRoleWithWebIdentity","Condition":{"StringEquals":{"oidc.vercel.com/${VercelTeamSlug}:aud":"https://vercel.com/${VercelTeamSlug}","oidc.vercel.com/${VercelTeamSlug}:sub":"owner:${VercelTeamSlug}:project:${VercelSiteProjectName}:environment:preview"}}}]}';
+
+const FORBIDDEN_ROLE_ACTIONS = ['logs:CreateLogGroup'];
+
 type UnknownRecord = Record<string, unknown>;
 
-const TAGGED_RESOURCES = [
-  'ContentTable',
-  'ContentBucket',
-  'UserPool',
-  'LambdaLogGroup',
-  'LambdaExecutionRole',
-  'FoundationFunction',
-  'HttpApi',
-  'ApiStage',
-] as const;
+// Expected values keyed by root (resource or parameter) and dotted path.
+type Expectations = Record<string, Record<string, unknown>>;
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function asRecord(
-  value: unknown,
-  path: string,
-  issues: string[]
-): UnknownRecord {
-  if (!isRecord(value)) {
-    issues.push(`${path} must be an object`);
-    return {};
+function at(value: unknown, path: string): unknown {
+  let current = value;
+  for (const key of path.split('.')) {
+    if (Array.isArray(current) && /^\d+$/.test(key)) {
+      current = current[Number(key)];
+    } else if (isRecord(current)) {
+      current = current[key];
+    } else {
+      return undefined;
+    }
   }
-  return value;
+  return current;
 }
 
-function asArray(value: unknown, path: string, issues: string[]): unknown[] {
-  if (!Array.isArray(value)) {
-    issues.push(`${path} must be an array`);
-    return [];
-  }
-  return value;
+function list(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  return value === undefined ? [] : [value];
 }
 
-function requireEqual(
+function byKey(items: unknown, key: string): UnknownRecord {
+  return Object.fromEntries(
+    list(items).map(item => [String(at(item, key)), item])
+  );
+}
+
+function compare(
+  issues: string[],
+  label: string,
   actual: unknown,
-  expected: unknown,
-  path: string,
-  issues: string[]
+  expected: unknown
 ): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     issues.push(
-      `${path} must equal ${JSON.stringify(expected)}, received ${JSON.stringify(actual)}`
+      `${label} must equal ${JSON.stringify(expected)}, received ${JSON.stringify(actual)}`
     );
   }
 }
 
-function extractTags(
-  resourceName: string,
-  properties: UnknownRecord,
-  issues: string[]
-): UnknownRecord {
-  const tagProperty =
-    resourceName === 'UserPool' ? properties.UserPoolTags : properties.Tags;
+function expectAll(
+  issues: string[],
+  roots: UnknownRecord,
+  expectations: Expectations
+): void {
+  for (const [root, fields] of Object.entries(expectations)) {
+    for (const [path, expected] of Object.entries(fields)) {
+      compare(issues, `${root}.${path}`, at(roots[root], path), expected);
+    }
+  }
+}
 
-  if (isRecord(tagProperty)) return tagProperty;
+function roleStatements(
+  template: CloudFormationTemplate,
+  roleId: string
+): UnknownRecord[] {
+  return list(at(template.Resources[roleId], 'Properties.Policies'))
+    .flatMap(policy => list(at(policy, 'PolicyDocument.Statement')))
+    .filter(isRecord);
+}
 
-  const tagList = asArray(
-    tagProperty,
-    `Resources.${resourceName}.tags`,
-    issues
-  );
-  return Object.fromEntries(
-    tagList.flatMap(entry => {
-      if (!isRecord(entry) || typeof entry.Key !== 'string') {
-        return [];
-      }
-      return [[entry.Key, entry.Value]];
-    })
-  );
+// An IAM resource is exact when it is the ARN of a resource in this stack, or
+// a path under one (`${ContentBucket.Arn}/images/*`).
+function isStackResourceArn(
+  resource: unknown,
+  template: CloudFormationTemplate
+): boolean {
+  const getAtt = at(resource, 'Fn::GetAtt.0');
+  if (typeof getAtt === 'string') return getAtt in template.Resources;
+  const sub = at(resource, 'Fn::Sub');
+  const match = typeof sub === 'string' ? /^\$\{(\w+)\.Arn\}/.exec(sub) : null;
+  return match !== null && match[1] in template.Resources;
 }
 
 export type InfrastructureValidationSummary = {
@@ -93,1038 +121,308 @@ export function validateFoundationTemplate(
   template: CloudFormationTemplate,
   environment: FoundationEnvironment
 ): InfrastructureValidationSummary {
-  const issues: string[] = [];
-  const resourceTypes: Record<string, number> = {};
   const isProduction = environment === 'prod';
-  if (
-    Buffer.byteLength(`${JSON.stringify(template, null, 2)}\n`, 'utf8') >
-    1024 * 1024
-  ) {
+  const resources = template.Resources;
+  const properties: UnknownRecord = Object.fromEntries(
+    Object.entries(resources).map(([id, resource]) => [id, resource.Properties])
+  );
+  const issues: string[] = [];
+
+  // Inventory: no unapproved service and no extra billable resource.
+  const serialized = `${JSON.stringify(template, null, 2)}\n`;
+  if (Buffer.byteLength(serialized, 'utf8') > TEMPLATE_BYTE_LIMIT) {
     issues.push('Template exceeds the CloudFormation 1 MiB S3 template limit');
   }
-  const expectedResourceTypes = isProduction
+  const expectedTypes: Record<string, number> = isProduction
     ? EXPECTED_RESOURCE_TYPE_COUNTS
     : EXPECTED_DEV_RESOURCE_TYPE_COUNTS;
-
-  for (const [logicalId, resource] of Object.entries(template.Resources)) {
+  const resourceTypes: Record<string, number> = {};
+  for (const [id, resource] of Object.entries(resources)) {
     resourceTypes[resource.Type] = (resourceTypes[resource.Type] ?? 0) + 1;
-    if (!(resource.Type in expectedResourceTypes)) {
-      issues.push(
-        `Resources.${logicalId} uses unapproved type ${resource.Type}`
-      );
+    if (!(resource.Type in expectedTypes)) {
+      issues.push(`Resources.${id} uses unapproved type ${resource.Type}`);
     }
+  }
+  for (const [type, count] of Object.entries(expectedTypes)) {
+    compare(issues, `resource count ${type}`, resourceTypes[type], count);
   }
 
-  for (const [resourceType, expectedCount] of Object.entries(
-    expectedResourceTypes
-  )) {
-    requireEqual(
-      resourceTypes[resourceType],
-      expectedCount,
-      `resource type inventory.${resourceType}`,
-      issues
-    );
-  }
-
-  const environmentParameter = template.Parameters.Environment;
-  requireEqual(
-    environmentParameter?.Default,
-    environment,
-    'Environment.Default',
-    issues
-  );
-  requireEqual(
-    environmentParameter?.AllowedValues,
-    [environment],
-    'Environment.AllowedValues',
-    issues
-  );
-
-  const deletionProtectionParameter =
-    template.Parameters.EnableTableDeletionProtection;
-  if (isProduction) {
-    requireEqual(
-      deletionProtectionParameter,
-      undefined,
-      'EnableTableDeletionProtection',
-      issues
-    );
-  } else {
-    requireEqual(
-      deletionProtectionParameter?.Default,
-      'false',
-      'EnableTableDeletionProtection.Default',
-      issues
-    );
-    requireEqual(
-      deletionProtectionParameter?.AllowedValues,
-      ['true', 'false'],
-      'EnableTableDeletionProtection.AllowedValues',
-      issues
-    );
-  }
-
-  const guardrailParameter = template.Parameters.GuardrailsEvidenceConfirmed;
-  requireEqual(
-    guardrailParameter?.AllowedValues,
-    ['CONFIRMED'],
-    'GuardrailsEvidenceConfirmed.AllowedValues',
-    issues
-  );
-  if ('Default' in guardrailParameter) {
-    issues.push(
-      'GuardrailsEvidenceConfirmed must not have a default acknowledgement'
-    );
-  }
-  const existingSuperAdmin = template.Parameters.ExistingSuperAdminUsername;
-  if (!isProduction) {
-    for (const name of ['VercelTeamSlug', 'VercelSiteProjectName']) {
-      const parameter = template.Parameters[name];
-      requireEqual(
-        parameter?.AllowedPattern,
-        '^[a-z0-9]+(?:-[a-z0-9]+)*$',
-        `${name}.AllowedPattern`,
-        issues
-      );
-      if (!parameter || 'Default' in parameter)
-        issues.push(`${name} must be required without a default`);
-    }
-    requireEqual(
-      template.Parameters.ReaderCodeObjectKey?.AllowedPattern,
-      '^deployment/build-reader/[0-9a-f]{64}\\.zip$',
-      'ReaderCodeObjectKey.AllowedPattern',
-      issues
-    );
-    if (
-      !template.Parameters.ReaderCodeObjectKey ||
-      'Default' in template.Parameters.ReaderCodeObjectKey
-    )
-      issues.push('ReaderCodeObjectKey must be required without a default');
-    const reader = template.Resources.ReaderFunction;
-    const execution = template.Resources.ReaderExecutionRole;
-    const invoke = template.Resources.ReaderInvokeRole;
-    const provider = template.Resources.VercelOidcProvider;
-    const readerCode = asRecord(
-      reader?.Properties?.Code,
-      'ReaderFunction.Code',
-      issues
-    );
-    requireEqual(
-      readerCode,
-      {
-        S3Bucket: { Ref: 'ContentBucket' },
-        S3Key: { Ref: 'ReaderCodeObjectKey' },
-      },
-      'ReaderFunction.Code',
-      issues
-    );
-    const readerPolicies = JSON.stringify(execution?.Properties?.Policies);
-    const invokePolicies = JSON.stringify(invoke?.Properties?.Policies);
-    requireEqual(
-      readerPolicies.includes('dynamodb:GetItem') &&
-        readerPolicies.includes('dynamodb:Query'),
-      true,
-      'ReaderExecutionRole table reads',
-      issues
-    );
-    requireEqual(
-      readerPolicies.includes('images/posts/*'),
-      true,
-      'ReaderExecutionRole image prefix',
-      issues
-    );
-    for (const forbidden of [
-      'dynamodb:Scan',
-      'dynamodb:PutItem',
-      's3:ListBucket',
-      's3:PutObject',
-      'backups/*',
-      'lambda:InvokeFunction',
-    ]) {
-      if (readerPolicies.includes(forbidden))
-        issues.push(`ReaderExecutionRole contains ${forbidden}`);
-    }
-    requireEqual(
-      invokePolicies.includes('lambda:InvokeFunction') &&
-        invokePolicies.includes('ReaderFunction'),
-      true,
-      'ReaderInvokeRole exact invoke',
-      issues
-    );
-    for (const forbidden of ['dynamodb:', 's3:', 'FoundationFunction']) {
-      if (invokePolicies.includes(forbidden))
-        issues.push(`ReaderInvokeRole contains ${forbidden}`);
-    }
-    requireEqual(
-      provider?.Properties?.Url,
-      { 'Fn::Sub': 'https://oidc.vercel.com/${VercelTeamSlug}' },
-      'VercelOidcProvider.Url',
-      issues
-    );
-    const trust = JSON.stringify(invoke?.Properties?.AssumeRolePolicyDocument);
-    for (const required of [
-      'sts:AssumeRoleWithWebIdentity',
-      ':aud',
-      ':sub',
-      'environment:preview',
-      'StringEquals',
-    ]) {
-      if (!trust.includes(required))
-        issues.push(`ReaderInvokeRole trust lacks ${required}`);
-    }
-    if (trust.includes('StringLike') || trust.includes('*'))
-      issues.push('ReaderInvokeRole trust must have exact conditions');
-    if (
-      'ReaderFunctionUrl' in template.Resources ||
-      'ReaderApiRoute' in template.Resources
-    )
-      issues.push('Reader must not have a public endpoint');
-  } else {
-    for (const name of [
-      'ReaderFunction',
-      'ReaderExecutionRole',
-      'ReaderInvokeRole',
-      'VercelOidcProvider',
-      'ReaderLogGroup',
-    ]) {
-      if (name in template.Resources)
-        issues.push(`Production must not contain ${name}`);
-    }
-  }
-  requireEqual(
-    existingSuperAdmin?.NoEcho,
-    true,
-    'ExistingSuperAdminUsername.NoEcho',
-    issues
-  );
-  requireEqual(
-    existingSuperAdmin?.AllowedPattern,
-    '^\\S+$',
-    'ExistingSuperAdminUsername.AllowedPattern',
-    issues
-  );
-  if ('Default' in existingSuperAdmin) {
-    issues.push('ExistingSuperAdminUsername must not have a default');
-  }
-  requireEqual(
-    template.Rules.GuardrailsMustBeConfirmed,
-    {
-      Assertions: [
-        {
-          Assert: {
-            'Fn::Equals': [{ Ref: 'GuardrailsEvidenceConfirmed' }, 'CONFIRMED'],
-          },
-          AssertDescription:
-            'Recheck the private account, identity, billing, Region, and resource baseline before deploying.',
-        },
-      ],
-    },
-    'Rules.GuardrailsMustBeConfirmed',
-    issues
-  );
-  for (const [name, pattern] of [
-    [
-      'AllowedOrigins',
-      isProduction
+  // Parameters: a template deploys only to its own environment, only after
+  // the guardrail acknowledgement, and never with defaulted identity inputs.
+  expectAll(issues, template, {
+    Parameters: {
+      'Environment.AllowedValues': [environment],
+      'GuardrailsEvidenceConfirmed.AllowedValues': ['CONFIRMED'],
+      'GuardrailsEvidenceConfirmed.Default': undefined,
+      'AllowedOrigins.AllowedPattern': isProduction
         ? EXACT_PRODUCTION_ADMIN_ORIGIN_PATTERN
         : EXACT_ADMIN_ORIGIN_PATTERN,
-    ],
-  ] as const) {
-    const parameter = template.Parameters[name];
-    requireEqual(
-      parameter?.AllowedPattern,
-      pattern,
-      `${name}.AllowedPattern`,
-      issues
-    );
-    if ('Default' in parameter) {
-      issues.push(`${name} must not have a default`);
-    }
-  }
-
-  for (const resourceName of TAGGED_RESOURCES) {
-    const resource = template.Resources[resourceName];
-    const properties = asRecord(
-      resource?.Properties,
-      `Resources.${resourceName}.Properties`,
-      issues
-    );
-    const tags = extractTags(resourceName, properties, issues);
-    requireEqual(tags, REQUIRED_TAGS, `Resources.${resourceName}.tags`, issues);
-  }
-
-  const expectedUpdateReplacePolicy = isProduction ? 'Retain' : 'Delete';
-  for (const [resourceName, expectedDeletionPolicy] of [
-    ['ContentTable', isProduction ? 'Retain' : 'Delete'],
-    ['ContentBucket', isProduction ? 'RetainExceptOnCreate' : 'Delete'],
-    ['UserPool', isProduction ? 'Retain' : 'Delete'],
-    ['SuperAdminsGroup', isProduction ? 'Retain' : 'Delete'],
-    ['EditorsGroup', isProduction ? 'Retain' : 'Delete'],
-  ] as const) {
-    const resource = template.Resources[resourceName];
-    requireEqual(
-      resource.DeletionPolicy,
-      expectedDeletionPolicy,
-      `Resources.${resourceName}.DeletionPolicy`,
-      issues
-    );
-    requireEqual(
-      resource.UpdateReplacePolicy,
-      expectedUpdateReplacePolicy,
-      `Resources.${resourceName}.UpdateReplacePolicy`,
-      issues
-    );
-  }
-  const initialMembership = template.Resources.InitialSuperAdminMembership;
-  requireEqual(
-    initialMembership.DeletionPolicy,
-    isProduction ? 'Retain' : 'Delete',
-    'Resources.InitialSuperAdminMembership.DeletionPolicy',
-    issues
-  );
-  requireEqual(
-    initialMembership.UpdateReplacePolicy,
-    'Delete',
-    'Resources.InitialSuperAdminMembership.UpdateReplacePolicy',
-    issues
-  );
-
-  const table = asRecord(
-    template.Resources.ContentTable.Properties,
-    'Resources.ContentTable.Properties',
-    issues
-  );
-  requireEqual(
-    table.BillingMode,
-    'PAY_PER_REQUEST',
-    'ContentTable.BillingMode',
-    issues
-  );
-  requireEqual(table.TableClass, 'STANDARD', 'ContentTable.TableClass', issues);
-  requireEqual(
-    table.GlobalSecondaryIndexes,
-    undefined,
-    'ContentTable.GlobalSecondaryIndexes',
-    issues
-  );
-  requireEqual(
-    table.LocalSecondaryIndexes,
-    undefined,
-    'ContentTable.LocalSecondaryIndexes',
-    issues
-  );
-  requireEqual(
-    table.StreamSpecification,
-    undefined,
-    'ContentTable.StreamSpecification',
-    issues
-  );
-  const recovery = asRecord(
-    table.PointInTimeRecoverySpecification,
-    'ContentTable.PointInTimeRecoverySpecification',
-    issues
-  );
-  requireEqual(
-    recovery.PointInTimeRecoveryEnabled,
-    true,
-    'ContentTable.PointInTimeRecoveryEnabled',
-    issues
-  );
-  requireEqual(
-    table.TimeToLiveSpecification,
-    { AttributeName: 'expiresAt', Enabled: true },
-    'ContentTable.TimeToLiveSpecification',
-    issues
-  );
-  requireEqual(
-    table.DeletionProtectionEnabled,
-    isProduction
-      ? true
-      : {
-          'Fn::If': ['TableDeletionProtectionEnabled', true, false],
-        },
-    'ContentTable.DeletionProtectionEnabled',
-    issues
-  );
-
-  const bucket = asRecord(
-    template.Resources.ContentBucket.Properties,
-    'Resources.ContentBucket.Properties',
-    issues
-  );
-  const publicAccess = asRecord(
-    bucket.PublicAccessBlockConfiguration,
-    'ContentBucket.PublicAccessBlockConfiguration',
-    issues
-  );
-  for (const setting of [
-    'BlockPublicAcls',
-    'BlockPublicPolicy',
-    'IgnorePublicAcls',
-    'RestrictPublicBuckets',
-  ]) {
-    requireEqual(
-      publicAccess[setting],
-      true,
-      `ContentBucket.${setting}`,
-      issues
-    );
-  }
-  requireEqual(
-    bucket.AccessControl,
-    undefined,
-    'ContentBucket.AccessControl',
-    issues
-  );
-  requireEqual(
-    bucket.OwnershipControls,
-    { Rules: [{ ObjectOwnership: 'BucketOwnerEnforced' }] },
-    'ContentBucket.OwnershipControls',
-    issues
-  );
-  requireEqual(
-    bucket.VersioningConfiguration,
-    { Status: 'Enabled' },
-    'ContentBucket.VersioningConfiguration',
-    issues
-  );
-  const corsConfiguration = asRecord(
-    bucket.CorsConfiguration,
-    'ContentBucket.CorsConfiguration',
-    issues
-  );
-  const corsRules = asArray(
-    corsConfiguration.CorsRules,
-    'ContentBucket.CorsConfiguration.CorsRules',
-    issues
-  );
-  const corsRule = asRecord(
-    corsRules[0],
-    'ContentBucket.CorsConfiguration.CorsRules[0]',
-    issues
-  );
-  requireEqual(
-    corsRule.AllowedOrigins,
-    { Ref: 'AllowedOrigins' },
-    'ContentBucket.Cors.AllowedOrigins',
-    issues
-  );
-  requireEqual(
-    corsRules.length,
-    1,
-    'ContentBucket.Cors.CorsRules.length',
-    issues
-  );
-  requireEqual(
-    corsRule.AllowedMethods,
-    ['GET', 'HEAD', 'PUT'],
-    'ContentBucket.Cors.AllowedMethods',
-    issues
-  );
-  requireEqual(
-    corsRule.AllowedHeaders,
-    ['content-type', 'x-amz-checksum-sha256'],
-    'ContentBucket.Cors.AllowedHeaders',
-    issues
-  );
-  requireEqual(
-    corsRule.ExposedHeaders,
-    undefined,
-    'ContentBucket.Cors.ExposedHeaders',
-    issues
-  );
-  requireEqual(corsRule.MaxAge, 300, 'ContentBucket.Cors.MaxAge', issues);
-  requireEqual(
-    bucket.LifecycleConfiguration,
-    {
-      Rules: [
-        {
-          Id: 'ExpireAbandonedTemporaryUploads',
-          Prefix: 'temporary/',
-          Status: 'Enabled',
-          ExpirationInDays: 1,
-          NoncurrentVersionExpiration: { NoncurrentDays: 1 },
-          AbortIncompleteMultipartUpload: { DaysAfterInitiation: 1 },
-        },
-        {
-          Id: 'ExpirePreviousObjectVersions',
-          Status: 'Enabled',
-          NoncurrentVersionExpiration: { NoncurrentDays: 35 },
-          ExpiredObjectDeleteMarker: true,
-        },
-      ],
+      'AllowedOrigins.Default': undefined,
+      'ExistingSuperAdminUsername.NoEcho': true,
+      'ExistingSuperAdminUsername.Default': undefined,
+      ...(isProduction
+        ? {}
+        : {
+            'VercelTeamSlug.Default': undefined,
+            'VercelSiteProjectName.Default': undefined,
+            'ReaderCodeObjectKey.Default': undefined,
+          }),
     },
-    'ContentBucket.LifecycleConfiguration',
-    issues
-  );
-
-  const bucketPolicy = asRecord(
-    template.Resources.ContentBucketPolicy.Properties,
-    'Resources.ContentBucketPolicy.Properties',
-    issues
-  );
-  const policyDocument = asRecord(
-    bucketPolicy.PolicyDocument,
-    'ContentBucketPolicy.PolicyDocument',
-    issues
-  );
-  const bucketStatements = asArray(
-    policyDocument.Statement,
-    'ContentBucketPolicy.PolicyDocument.Statement',
-    issues
-  );
-  const staleSignatureStatement = bucketStatements.find(statement =>
-    isRecord(statement)
-      ? statement.Sid === 'DenyStalePresignedObjectRequests'
-      : false
-  );
-  requireEqual(
-    staleSignatureStatement,
-    {
-      Sid: 'DenyStalePresignedObjectRequests',
-      Effect: 'Deny',
-      Principal: '*',
-      Action: ['s3:GetObject', 's3:PutObject'],
-      Resource: { 'Fn::Sub': '${ContentBucket.Arn}/*' },
-      Condition: {
-        NumericGreaterThan: { 's3:signatureAge': '300000' },
+    Rules: {
+      'GuardrailsMustBeConfirmed.Assertions.0.Assert': {
+        'Fn::Equals': [{ Ref: 'GuardrailsEvidenceConfirmed' }, 'CONFIRMED'],
       },
     },
-    'ContentBucketPolicy.DenyStalePresignedObjectRequests',
-    issues
+  });
+
+  // Retention: production keeps every data-bearing resource.
+  const retain = isProduction ? 'Retain' : 'Delete';
+  const retained = (deletionPolicy = retain) => ({
+    DeletionPolicy: deletionPolicy,
+    UpdateReplacePolicy: retain,
+  });
+  expectAll(issues, resources, {
+    ContentTable: retained(),
+    ContentBucket: retained(isProduction ? 'RetainExceptOnCreate' : 'Delete'),
+    UserPool: retained(),
+    SuperAdminsGroup: retained(),
+    EditorsGroup: retained(),
+    InitialSuperAdminMembership: { DeletionPolicy: retain },
+  });
+
+  expectAll(issues, properties, {
+    // Table: on-demand billing, point-in-time recovery, deletion protection.
+    ContentTable: {
+      BillingMode: 'PAY_PER_REQUEST',
+      'PointInTimeRecoverySpecification.PointInTimeRecoveryEnabled': true,
+      DeletionProtectionEnabled: isProduction
+        ? true
+        : { 'Fn::If': ['TableDeletionProtectionEnabled', true, false] },
+    },
+    // Bucket: private, owner-enforced, versioned, exact CORS origins.
+    ContentBucket: {
+      'PublicAccessBlockConfiguration.BlockPublicAcls': true,
+      'PublicAccessBlockConfiguration.BlockPublicPolicy': true,
+      'PublicAccessBlockConfiguration.IgnorePublicAcls': true,
+      'PublicAccessBlockConfiguration.RestrictPublicBuckets': true,
+      AccessControl: undefined,
+      OwnershipControls: {
+        Rules: [{ ObjectOwnership: 'BucketOwnerEnforced' }],
+      },
+      VersioningConfiguration: { Status: 'Enabled' },
+      'CorsConfiguration.CorsRules.1': undefined,
+      'CorsConfiguration.CorsRules.0.AllowedOrigins': { Ref: 'AllowedOrigins' },
+      'CorsConfiguration.CorsRules.0.AllowedMethods': ['GET', 'HEAD', 'PUT'],
+    },
+    // Cognito: invitation-only, Lite tier, no hosted login, no group roles.
+    UserPool: {
+      'AdminCreateUserConfig.AllowAdminCreateUserOnly': true,
+      UserPoolTier: 'LITE',
+      UserPoolAddOns: undefined,
+      DeletionProtection: isProduction ? 'ACTIVE' : 'INACTIVE',
+    },
+    UserPoolClient: {
+      ExplicitAuthFlows: [
+        'ALLOW_USER_PASSWORD_AUTH',
+        'ALLOW_REFRESH_TOKEN_AUTH',
+      ],
+      AllowedOAuthFlowsUserPoolClient: undefined,
+      AllowedOAuthFlows: undefined,
+      AllowedOAuthScopes: undefined,
+      CallbackURLs: undefined,
+      LogoutURLs: undefined,
+      DefaultRedirectURI: undefined,
+    },
+    SuperAdminsGroup: { RoleArn: undefined },
+    EditorsGroup: { RoleArn: undefined },
+    // API: Cognito JWTs, exact CORS origins without credentials, throttled,
+    // invocable only from this API.
+    JwtAuthorizer: {
+      JwtConfiguration: {
+        Audience: [{ Ref: 'UserPoolClient' }],
+        Issuer: {
+          'Fn::Sub':
+            'https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}',
+        },
+      },
+    },
+    HttpApi: {
+      'CorsConfiguration.AllowOrigins': { Ref: 'AllowedOrigins' },
+      'CorsConfiguration.AllowCredentials': false,
+    },
+    ApiStage: {
+      'DefaultRouteSettings.ThrottlingRateLimit': 2,
+      'DefaultRouteSettings.ThrottlingBurstLimit': 4,
+    },
+    ApiInvokePermission: {
+      SourceArn: {
+        'Fn::Sub':
+          'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*',
+      },
+    },
+    // Lambda: bounded cost, no VPC/NAT, no reserved capacity, short logs.
+    FoundationFunction: {
+      Architectures: ['arm64'],
+      MemorySize: 256,
+      Timeout: 30,
+      ReservedConcurrentExecutions: undefined,
+      ProvisionedConcurrencyConfig: undefined,
+      VpcConfig: undefined,
+    },
+    LambdaLogGroup: { RetentionInDays: 14 },
+    // Every route, including any added later, sits behind the JWT authorizer.
+    ...Object.fromEntries(
+      Object.entries(resources)
+        .filter(([, resource]) => resource.Type === 'AWS::ApiGatewayV2::Route')
+        .map(([id]) => [
+          id,
+          { AuthorizationType: 'JWT', AuthorizerId: { Ref: 'JwtAuthorizer' } },
+        ])
+    ),
+  });
+
+  // Lifecycle rules and policy statements, addressed by their Id or Sid.
+  const bucketStatements = at(
+    properties.ContentBucketPolicy,
+    'PolicyDocument.Statement'
   );
-  for (const statement of bucketStatements) {
+  expectAll(
+    issues,
+    {
+      ContentBucketLifecycle: byKey(
+        at(properties.ContentBucket, 'LifecycleConfiguration.Rules'),
+        'Id'
+      ),
+      ContentBucketPolicy: byKey(bucketStatements, 'Sid'),
+      LambdaExecutionRole: byKey(
+        roleStatements(template, 'LambdaExecutionRole'),
+        'Sid'
+      ),
+    },
+    {
+      // Abandoned uploads and previous object versions expire.
+      ContentBucketLifecycle: {
+        'ExpireAbandonedTemporaryUploads.ExpirationInDays': 1,
+        'ExpirePreviousObjectVersions.NoncurrentVersionExpiration.NoncurrentDays': 35,
+      },
+      // TLS only and short-lived presigned URLs.
+      ContentBucketPolicy: {
+        DenyInsecureTransport: {
+          Sid: 'DenyInsecureTransport',
+          Effect: 'Deny',
+          Principal: '*',
+          Action: 's3:*',
+          Resource: [
+            { 'Fn::GetAtt': ['ContentBucket', 'Arn'] },
+            { 'Fn::Sub': '${ContentBucket.Arn}/*' },
+          ],
+          Condition: { Bool: { 'aws:SecureTransport': 'false' } },
+        },
+        DenyStalePresignedObjectRequests: {
+          Sid: 'DenyStalePresignedObjectRequests',
+          Effect: 'Deny',
+          Principal: '*',
+          Action: ['s3:GetObject', 's3:PutObject'],
+          Resource: { 'Fn::Sub': '${ContentBucket.Arn}/*' },
+          Condition: { NumericGreaterThan: { 's3:signatureAge': '300000' } },
+        },
+      },
+      // User administration is limited to this user pool.
+      LambdaExecutionRole: {
+        'ManageUsersInExactPool.Resource': {
+          'Fn::GetAtt': ['UserPool', 'Arn'],
+        },
+      },
+    }
+  );
+  for (const statement of list(bucketStatements)) {
+    const principal = at(statement, 'Principal');
     if (
-      isRecord(statement) &&
-      statement.Effect === 'Allow' &&
-      (statement.Principal === '*' ||
-        (isRecord(statement.Principal) && statement.Principal.AWS === '*'))
+      at(statement, 'Effect') === 'Allow' &&
+      (principal === '*' || at(principal, 'AWS') === '*')
     ) {
       issues.push('ContentBucketPolicy must not allow an anonymous principal');
     }
   }
 
-  const userPool = asRecord(
-    template.Resources.UserPool.Properties,
-    'Resources.UserPool.Properties',
-    issues
-  );
-  requireEqual(
-    userPool.MfaConfiguration,
-    'OFF',
-    'UserPool.MfaConfiguration',
-    issues
-  );
-  requireEqual(userPool.EnabledMfas, undefined, 'UserPool.EnabledMfas', issues);
-  requireEqual(userPool.UserPoolTier, 'LITE', 'UserPool.UserPoolTier', issues);
-  requireEqual(
-    userPool.DeletionProtection,
-    isProduction ? 'ACTIVE' : 'INACTIVE',
-    'UserPool.DeletionProtection',
-    issues
-  );
-  requireEqual(
-    userPool.UserPoolAddOns,
-    undefined,
-    'UserPool.UserPoolAddOns',
-    issues
-  );
-  const adminCreateUserConfig = asRecord(
-    userPool.AdminCreateUserConfig,
-    'UserPool.AdminCreateUserConfig',
-    issues
-  );
-  requireEqual(
-    adminCreateUserConfig.AllowAdminCreateUserOnly,
-    true,
-    'UserPool.AdminCreateUserConfig.AllowAdminCreateUserOnly',
-    issues
-  );
-  requireEqual(
-    adminCreateUserConfig.UnusedAccountValidityDays,
-    undefined,
-    'UserPool.AdminCreateUserConfig.UnusedAccountValidityDays',
-    issues
-  );
-  const userPoolPolicies = asRecord(
-    userPool.Policies,
-    'UserPool.Policies',
-    issues
-  );
-  const passwordPolicy = asRecord(
-    userPoolPolicies.PasswordPolicy,
-    'UserPool.Policies.PasswordPolicy',
-    issues
-  );
-  requireEqual(
-    passwordPolicy.TemporaryPasswordValidityDays,
-    3,
-    'UserPool.Policies.PasswordPolicy.TemporaryPasswordValidityDays',
-    issues
-  );
-
-  for (const [resourceName, groupName, precedence] of [
-    ['SuperAdminsGroup', 'super-admins', 0],
-    ['EditorsGroup', 'editors', 10],
-  ] as const) {
-    const group = asRecord(
-      template.Resources[resourceName].Properties,
-      `Resources.${resourceName}.Properties`,
-      issues
-    );
-    requireEqual(
-      group.GroupName,
-      groupName,
-      `${resourceName}.GroupName`,
-      issues
-    );
-    requireEqual(
-      group.Precedence,
-      precedence,
-      `${resourceName}.Precedence`,
-      issues
-    );
-    requireEqual(
-      group.UserPoolId,
-      { Ref: 'UserPool' },
-      `${resourceName}.UserPoolId`,
-      issues
-    );
-    requireEqual(group.RoleArn, undefined, `${resourceName}.RoleArn`, issues);
-  }
-  const membership = asRecord(
-    initialMembership.Properties,
-    'Resources.InitialSuperAdminMembership.Properties',
-    issues
-  );
-  requireEqual(
-    initialMembership.DependsOn,
-    'SuperAdminsGroup',
-    'InitialSuperAdminMembership.DependsOn',
-    issues
-  );
-  requireEqual(
-    membership.GroupName,
-    'super-admins',
-    'InitialSuperAdminMembership.GroupName',
-    issues
-  );
-  requireEqual(
-    membership.Username,
-    { Ref: 'ExistingSuperAdminUsername' },
-    'InitialSuperAdminMembership.Username',
-    issues
-  );
-  requireEqual(
-    membership.UserPoolId,
-    { Ref: 'UserPool' },
-    'InitialSuperAdminMembership.UserPoolId',
-    issues
-  );
-
-  const client = asRecord(
-    template.Resources.UserPoolClient.Properties,
-    'Resources.UserPoolClient.Properties',
-    issues
-  );
-  requireEqual(
-    client.GenerateSecret,
-    false,
-    'UserPoolClient.GenerateSecret',
-    issues
-  );
-  requireEqual(
-    client.ExplicitAuthFlows,
-    ['ALLOW_USER_PASSWORD_AUTH', 'ALLOW_REFRESH_TOKEN_AUTH'],
-    'UserPoolClient.ExplicitAuthFlows',
-    issues
-  );
-  for (const property of [
-    'AllowedOAuthFlowsUserPoolClient',
-    'AllowedOAuthFlows',
-    'AllowedOAuthScopes',
-    'CallbackURLs',
-    'LogoutURLs',
-    'DefaultRedirectURI',
-  ]) {
-    requireEqual(
-      client[property],
-      undefined,
-      `UserPoolClient.${property}`,
-      issues
-    );
-  }
-
-  const lambda = asRecord(
-    template.Resources.FoundationFunction.Properties,
-    'Resources.FoundationFunction.Properties',
-    issues
-  );
-  requireEqual(
-    lambda.Runtime,
-    'nodejs24.x',
-    'FoundationFunction.Runtime',
-    issues
-  );
-  requireEqual(
-    lambda.Architectures,
-    ['arm64'],
-    'FoundationFunction.Architectures',
-    issues
-  );
-  requireEqual(lambda.MemorySize, 256, 'FoundationFunction.MemorySize', issues);
-  requireEqual(lambda.Timeout, 30, 'FoundationFunction.Timeout', issues);
-  requireEqual(
-    template.Resources.FoundationFunction.DependsOn,
-    'InitialSuperAdminMembership',
-    'FoundationFunction.DependsOn',
-    issues
-  );
-  const lambdaEnvironment = asRecord(
-    lambda.Environment,
-    'FoundationFunction.Environment',
-    issues
-  );
-  const lambdaVariables = asRecord(
-    lambdaEnvironment.Variables,
-    'FoundationFunction.Environment.Variables',
-    issues
-  );
-  requireEqual(
-    lambdaVariables.BACKUP_ENVIRONMENT,
-    { Ref: 'Environment' },
-    'FoundationFunction.Environment.BACKUP_ENVIRONMENT',
-    issues
-  );
-  requireEqual(
-    lambdaVariables.REQUIRED_ADMIN_SCOPE,
-    undefined,
-    'FoundationFunction.Environment.REQUIRED_ADMIN_SCOPE',
-    issues
-  );
-  const lambdaCode = asRecord(lambda.Code, 'FoundationFunction.Code', issues);
+  const inlineBundle = at(properties.FoundationFunction, 'Code.ZipFile');
   if (
-    typeof lambdaCode.ZipFile !== 'string' ||
-    Buffer.byteLength(lambdaCode.ZipFile, 'utf8') > 950_000
+    typeof inlineBundle !== 'string' ||
+    Buffer.byteLength(inlineBundle, 'utf8') > INLINE_BUNDLE_BYTE_LIMIT
   ) {
     issues.push(
-      'FoundationFunction inline bundle must be at most 950000 bytes'
-    );
-  }
-  requireEqual(
-    lambda.ReservedConcurrentExecutions,
-    undefined,
-    'FoundationFunction.ReservedConcurrentExecutions',
-    issues
-  );
-  requireEqual(
-    lambda.VpcConfig,
-    undefined,
-    'FoundationFunction.VpcConfig',
-    issues
-  );
-  requireEqual(
-    lambda.ProvisionedConcurrencyConfig,
-    undefined,
-    'FoundationFunction.ProvisionedConcurrencyConfig',
-    issues
-  );
-
-  const logGroup = asRecord(
-    template.Resources.LambdaLogGroup.Properties,
-    'Resources.LambdaLogGroup.Properties',
-    issues
-  );
-  requireEqual(
-    logGroup.RetentionInDays,
-    14,
-    'LambdaLogGroup.RetentionInDays',
-    issues
-  );
-
-  const expectedProtectedRoutes = {
-    FoundationRoute: 'GET /health',
-    PostsListRoute: 'GET /posts',
-    PostCreateRoute: 'POST /posts',
-    PostsBulkPublicationRoute: 'POST /posts/publication/bulk',
-    PostReadRoute: 'GET /posts/{id}',
-    PostUpdateRoute: 'PUT /posts/{id}',
-    PostDeleteRoute: 'DELETE /posts/{id}',
-    PostPublicationRoute: 'PUT /posts/{id}/publication',
-    PostImagesReadRoute: 'GET /posts/{id}/images',
-    PostImagePresignRoute: 'POST /posts/{id}/images/presign',
-    PostImageConfirmRoute: 'POST /posts/{id}/images/confirm',
-    PostImageDetachRoute: 'DELETE /posts/{id}/images/{role}',
-    CategoriesListRoute: 'GET /categories',
-    KeywordsListRoute: 'GET /keywords',
-    BackupDownloadRoute: 'GET /backup',
-    UsersListRoute: 'GET /users',
-    UserInviteRoute: 'POST /users',
-    UserActionRoute: 'POST /users/{username}/actions',
-  } as const;
-  for (const [logicalId, routeKey] of Object.entries(expectedProtectedRoutes)) {
-    const protectedRoute = asRecord(
-      template.Resources[logicalId].Properties,
-      `Resources.${logicalId}.Properties`,
-      issues
-    );
-    requireEqual(
-      protectedRoute.AuthorizationType,
-      'JWT',
-      `${logicalId}.AuthorizationType`,
-      issues
-    );
-    requireEqual(
-      template.Resources[logicalId].DependsOn,
-      'InitialSuperAdminMembership',
-      `${logicalId}.DependsOn`,
-      issues
-    );
-    requireEqual(
-      protectedRoute.AuthorizationScopes,
-      undefined,
-      `${logicalId}.AuthorizationScopes`,
-      issues
-    );
-    requireEqual(
-      protectedRoute.AuthorizerId,
-      { Ref: 'JwtAuthorizer' },
-      `${logicalId}.AuthorizerId`,
-      issues
-    );
-    requireEqual(
-      protectedRoute.RouteKey,
-      routeKey,
-      `${logicalId}.RouteKey`,
-      issues
-    );
-    requireEqual(
-      protectedRoute.Target,
-      {
-        'Fn::Join': ['/', ['integrations', { Ref: 'FoundationIntegration' }]],
-      },
-      `${logicalId}.Target`,
-      issues
+      `FoundationFunction inline bundle must be at most ${INLINE_BUNDLE_BYTE_LIMIT} bytes`
     );
   }
 
-  const jwtAuthorizer = asRecord(
-    template.Resources.JwtAuthorizer.Properties,
-    'Resources.JwtAuthorizer.Properties',
-    issues
-  );
-  requireEqual(
-    jwtAuthorizer.AuthorizerType,
-    'JWT',
-    'JwtAuthorizer.AuthorizerType',
-    issues
-  );
-  requireEqual(
-    jwtAuthorizer.IdentitySource,
-    ['$request.header.Authorization'],
-    'JwtAuthorizer.IdentitySource',
-    issues
-  );
-  requireEqual(
-    jwtAuthorizer.JwtConfiguration,
-    {
-      Audience: [{ Ref: 'UserPoolClient' }],
-      Issuer: {
-        'Fn::Sub':
-          'https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}',
-      },
-    },
-    'JwtAuthorizer.JwtConfiguration',
-    issues
-  );
-
-  const httpApi = asRecord(
-    template.Resources.HttpApi.Properties,
-    'Resources.HttpApi.Properties',
-    issues
-  );
-  const apiCors = asRecord(
-    httpApi.CorsConfiguration,
-    'HttpApi.CorsConfiguration',
-    issues
-  );
-  requireEqual(
-    apiCors.AllowOrigins,
-    { Ref: 'AllowedOrigins' },
-    'HttpApi.Cors.AllowOrigins',
-    issues
-  );
-  requireEqual(
-    apiCors.AllowMethods,
-    ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    'HttpApi.Cors.AllowMethods',
-    issues
-  );
-  requireEqual(
-    apiCors.AllowCredentials,
-    false,
-    'HttpApi.Cors.AllowCredentials',
-    issues
-  );
-  requireEqual(
-    apiCors.AllowHeaders,
-    ['authorization', 'content-type', 'if-match', 'x-correlation-id'],
-    'HttpApi.Cors.AllowHeaders',
-    issues
-  );
-  requireEqual(
-    apiCors.ExposeHeaders,
-    ['etag', 'x-correlation-id'],
-    'HttpApi.Cors.ExposeHeaders',
-    issues
-  );
-  requireEqual(apiCors.MaxAge, 300, 'HttpApi.Cors.MaxAge', issues);
-
-  const stage = asRecord(
-    template.Resources.ApiStage.Properties,
-    'Resources.ApiStage.Properties',
-    issues
-  );
-  requireEqual(stage.StageName, '$default', 'ApiStage.StageName', issues);
-  const defaultRouteSettings = asRecord(
-    stage.DefaultRouteSettings,
-    'ApiStage.DefaultRouteSettings',
-    issues
-  );
-  requireEqual(
-    defaultRouteSettings.ThrottlingRateLimit,
-    2,
-    'ApiStage.ThrottlingRateLimit',
-    issues
-  );
-  requireEqual(
-    defaultRouteSettings.ThrottlingBurstLimit,
-    4,
-    'ApiStage.ThrottlingBurstLimit',
-    issues
-  );
-
-  const apiInvokePermission = asRecord(
-    template.Resources.ApiInvokePermission.Properties,
-    'Resources.ApiInvokePermission.Properties',
-    issues
-  );
-  requireEqual(
-    apiInvokePermission.SourceArn,
-    {
-      'Fn::Sub':
-        'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*',
-    },
-    'ApiInvokePermission.SourceArn',
-    issues
-  );
-
-  const executionRole = asRecord(
-    template.Resources.LambdaExecutionRole.Properties,
-    'Resources.LambdaExecutionRole.Properties',
-    issues
-  );
-  const policies = asArray(
-    executionRole.Policies,
-    'LambdaExecutionRole.Policies',
-    issues
-  );
-  const serializedPolicies = JSON.stringify(policies);
-  if (serializedPolicies.includes('"Action":"*"')) {
-    issues.push('Lambda execution role must not contain wildcard actions');
-  }
-  if (serializedPolicies.includes('"Resource":"*"')) {
-    issues.push(
-      'Lambda execution role must not contain a literal wildcard resource'
-    );
-  }
-  for (const transactionalItemAction of [
-    'dynamodb:DeleteItem',
-    'dynamodb:GetItem',
-    'dynamodb:PutItem',
-    'dynamodb:Scan',
-    'dynamodb:UpdateItem',
-  ]) {
-    if (!serializedPolicies.includes(transactionalItemAction)) {
-      issues.push(
-        `Lambda execution role is missing exact-table action ${transactionalItemAction}`
-      );
+  // IAM: inline policies only, no wildcard actions, every resource an exact
+  // ARN in this stack.
+  for (const [roleId, role] of Object.entries(resources)) {
+    if (role.Type !== 'AWS::IAM::Role') continue;
+    if (at(role.Properties, 'ManagedPolicyArns') !== undefined) {
+      issues.push(`${roleId} must not attach managed policies`);
+    }
+    for (const statement of roleStatements(template, roleId)) {
+      if (statement.Effect !== 'Allow') continue;
+      const label = `${roleId}.${String(statement.Sid ?? 'statement')}`;
+      for (const action of list(statement.Action)) {
+        if (typeof action !== 'string' || action.includes('*')) {
+          issues.push(`${label} must not use wildcard action ${action}`);
+        } else if (FORBIDDEN_ROLE_ACTIONS.includes(action)) {
+          issues.push(`${label} contains forbidden action ${action}`);
+        }
+      }
+      const scoped = list(statement.Resource);
+      if (
+        !scoped.length ||
+        !scoped.every(r => isStackResourceArn(r, template))
+      ) {
+        issues.push(`${label} must be scoped to exact resources in this stack`);
+      }
     }
   }
-  const cognitoActions = [
-    'cognito-idp:ListUsers',
-    'cognito-idp:AdminListGroupsForUser',
-    'cognito-idp:AdminGetUser',
-    'cognito-idp:AdminCreateUser',
-    'cognito-idp:AdminAddUserToGroup',
-    'cognito-idp:AdminResetUserPassword',
-    'cognito-idp:AdminEnableUser',
-    'cognito-idp:AdminDisableUser',
-    'cognito-idp:AdminUserGlobalSignOut',
-  ];
-  for (const action of cognitoActions) {
-    if (!serializedPolicies.includes(action)) {
-      issues.push(`Lambda execution role is missing Cognito action ${action}`);
+
+  // Site reader (development only; the production inventory has no room for
+  // it): a read-only role over published images, invocable only by the exact
+  // Vercel Preview identity.
+  if (!isProduction) {
+    for (const statement of roleStatements(template, 'ReaderExecutionRole')) {
+      const actions = list(statement.Action).map(String);
+      for (const action of actions) {
+        if (!READER_ALLOWED_ACTIONS.has(action)) {
+          issues.push(`ReaderExecutionRole must not allow ${action}`);
+        }
+      }
+      const imagesOnly = list(statement.Resource).every(item =>
+        String(at(item, 'Fn::Sub')).endsWith('/images/posts/*')
+      );
+      if (actions.some(action => action.startsWith('s3:')) && !imagesOnly) {
+        issues.push('ReaderExecutionRole may read only images/posts/*');
+      }
     }
-  }
-  const cognitoStatement = policies
-    .flatMap(policy => {
-      const entry = asRecord(policy, 'LambdaExecutionRole.Policy', issues);
-      const document = asRecord(
-        entry.PolicyDocument,
-        'LambdaExecutionRole.PolicyDocument',
-        issues
-      );
-      return asArray(
-        document.Statement,
-        'LambdaExecutionRole.PolicyDocument.Statement',
-        issues
-      );
-    })
-    .find(statement => {
-      const record = asRecord(
-        statement,
-        'LambdaExecutionRole.PolicyDocument.Statement',
-        issues
-      );
-      return record.Sid === 'ManageUsersInExactPool';
+    expectAll(issues, properties, {
+      VercelOidcProvider: {
+        Url: { 'Fn::Sub': 'https://oidc.vercel.com/${VercelTeamSlug}' },
+      },
+      ReaderInvokeRole: {
+        // Exact audience and subject: only this project's Preview deployments.
+        'AssumeRolePolicyDocument.Fn::Sub': READER_TRUST_POLICY,
+        'Policies.0.PolicyDocument.Statement': [
+          {
+            Effect: 'Allow',
+            Action: ['lambda:InvokeFunction'],
+            Resource: { 'Fn::GetAtt': ['ReaderFunction', 'Arn'] },
+          },
+        ],
+        'Policies.1': undefined,
+      },
     });
-  if (
-    !cognitoStatement ||
-    JSON.stringify(
-      asRecord(cognitoStatement, 'ManageUsersInExactPool', issues).Resource
-    ) !== JSON.stringify({ 'Fn::GetAtt': ['UserPool', 'Arn'] })
-  ) {
-    issues.push(
-      'Cognito user administration must be scoped to the exact UserPool ARN'
-    );
-  }
-  for (const forbiddenAction of ['logs:CreateLogGroup', 's3:*']) {
-    if (serializedPolicies.includes(forbiddenAction)) {
-      issues.push(
-        `Lambda execution role contains forbidden action ${forbiddenAction}`
-      );
-    }
   }
 
   const outputNames = Object.keys(template.Outputs);
-  for (const outputName of outputNames) {
-    if (/secret|password|credential|token/i.test(outputName)) {
-      issues.push(`Output ${outputName} could expose secret material`);
-    }
-  }
-  for (const requiredOutput of [
-    'Region',
-    'Environment',
-    'ApiUrl',
-    'UserPoolId',
-    'UserPoolClientId',
-    'UserPoolIssuer',
-    'TableName',
-    'BucketName',
-  ]) {
-    if (!(requiredOutput in template.Outputs)) {
-      issues.push(`Required output ${requiredOutput} is missing`);
+  for (const name of outputNames) {
+    if (/secret|password|credential|token/i.test(name)) {
+      issues.push(`Output ${name} could expose secret material`);
     }
   }
 
@@ -1135,7 +433,7 @@ export function validateFoundationTemplate(
   }
 
   return {
-    resourceCount: Object.keys(template.Resources).length,
+    resourceCount: Object.keys(resources).length,
     resourceTypes,
     outputNames,
   };

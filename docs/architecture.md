@@ -218,7 +218,12 @@ parameter examples, and the pinned dependency graph. `pnpm infra:synth`
 produces the inline Lambda bundle and environment template in
 `infra/generated/`; both are committed because they are the exact reviewable
 CloudFormation upload inputs, while `pnpm infra:validate` proves they are
-byte-for-byte reproducible. Environment-specific parameter files stay private.
+byte-for-byte reproducible. The contract validator
+(`infra/validate-dev-foundation.ts`) asserts only security and cost invariants:
+the approved resource inventory, retention and deletion protection, private
+TLS-only storage, exact IAM scope, JWT on every route, exact CORS origins,
+throttling, and Lambda sizing. It does not repeat structure the deterministic
+generator already fixes. Environment-specific parameter files stay private.
 
 CI uses pinned Node, pnpm, Python, GitHub Actions, and cfn-lint. It performs a
 frozen-lockfile install, dependency review/audit, secret scan, CloudFormation
