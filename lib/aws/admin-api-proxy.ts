@@ -159,7 +159,7 @@ export async function forwardToAdminApi({
   }
 
   // The AWS write has committed; the hook outcome is reported beside it.
-  const rebuild = await siteRebuildForMutation(
+  const rebuild = siteRebuildForMutation(
     siteRebuild,
     { ok: upstream.ok, body: responseBody },
     `${method} ${path}`
