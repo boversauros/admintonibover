@@ -408,26 +408,43 @@ Which committed mutations request a build:
 | Attach or detach a main/thumb image | Always                          |
 | Reads, users, backups               | Never                           |
 
-Each proxied mutation response carries `x-site-rebuild`: `requested` (Vercel
-queued a build; it has not finished), `failed`, `disabled` (no hook
-configured) or `skipped` (the site cannot have changed). The mutation's own
-status and body never depend on the hook. A failure shows a persistent notice
-with **Actualitzar la web**, which calls the same-origin, signed-in
-`POST /api/site/rebuild`. The next successful save also clears it, because
-every build reads the complete published snapshot.
+Each proxied mutation response carries `x-site-rebuild`: `scheduled` (the
+hook is sent after the response), `failed` (the hook is malformed),
+`disabled` (no hook configured) or `skipped` (the site cannot have changed).
+The mutation's own status and body never depend on the hook. Vercel takes
+about 10 seconds to answer a Deploy Hook
+([admin #115](https://github.com/boversauros/admintonibover/issues/115)), so a
+save does not wait for it: the hook runs in the background (`after()`) and its
+outcome only reaches the runtime logs as `site_rebuild_failed`. Editors
+therefore see no warning when a background hook fails, including a revoked
+hook (`404`). Hobby keeps runtime logs for under an hour, so the dependable
+signal is the `tonibover` deployment list: a save of a published post with no
+new deployment minutes later means the hook failed.
 
-Delay, bursts and limits: the hook call waits at most 5 seconds; the site is
-current once the queued Vercel build completes (normally a few minutes). If a
-hook is triggered again for the same commit, Vercel cancels the earlier build,
-so a burst of saves coalesces into the latest build without admin-side state.
-Vercel allows 60 Deploy Hook triggers per hour per project. A long image
-re-upload session can reach it: the request then fails with `429`, the notice
-appears, and a later retry or save covers the earlier changes.
+A failure the browser does see shows a persistent notice with **Actualitzar la
+web**, which calls the same-origin, signed-in `POST /api/site/rebuild`. That
+retry waits for Vercel's answer and returns `requested` or `failed`; the
+notice then shows a short confirmation or a "still failing" message. The next
+save also clears it, because every build reads the complete published
+snapshot.
+
+Delay, bursts and limits: the hook call waits at most 20 seconds, and the
+routes that send it allow 60 seconds of function time. A timeout is
+ambiguous: Vercel may still have queued the build, so check the `tonibover`
+deployments before retrying repeatedly. The site is current once the queued
+Vercel build completes (normally a few minutes). If a hook is triggered again
+for the same commit, Vercel cancels the earlier build, so a burst of saves
+coalesces into the latest build without admin-side state. Vercel allows 60
+Deploy Hook triggers per hour per project. A long editing or image re-upload
+session can reach it: the background hook then logs `rate_limited`, and a
+later retry or save covers the earlier changes.
 
 Unpublish urgency: an unpublished or deleted post stays on the site until a
 later build succeeds. A failed hook or failed build after an unpublish is
-therefore the urgent case; retry immediately or redeploy manually. Previously
-built image files and old deployment URLs can outlive the unpublish
+therefore the urgent case. Editors are not warned of a failed background
+hook, so after an urgent unpublish confirm that a new `tonibover` deployment
+appears and succeeds; if not, redeploy it manually. Previously built image
+files and old deployment URLs can outlive the unpublish
 (see [site-build-reader.md](site-build-reader.md#media)).
 
 Alerting: Vercel keeps the last successful deployment on the branch alias, so

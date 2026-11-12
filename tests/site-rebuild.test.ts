@@ -163,65 +163,111 @@ test('rebuild policies skip changes that cannot affect the site', () => {
   assert.equal(mutationAffectsSite('ifPublishedCount', '{}'), true);
 });
 
-test('only committed mutations with a policy trigger a rebuild', async () => {
-  let calls = 0;
-  const trigger = async () => {
-    calls += 1;
-    return 'requested' as const;
+test('only committed mutations with a policy schedule a rebuild', async () => {
+  const triggered: string[] = [];
+  const scheduled: Array<() => Promise<void>> = [];
+  const options = {
+    environment,
+    trigger: async (reason: string) => {
+      triggered.push(reason);
+      return 'requested' as const;
+    },
+    schedule: (task: () => Promise<void>) => {
+      scheduled.push(task);
+    },
   };
   const published = JSON.stringify({ data: { post: { published: true } } });
   const draft = JSON.stringify({ data: { post: { published: false } } });
 
   assert.equal(
-    await siteRebuildForMutation(
+    siteRebuildForMutation(
       undefined,
       { ok: true, body: published },
       'x',
-      trigger
+      options
     ),
     null
   );
   assert.equal(
-    await siteRebuildForMutation(
-      'always',
-      { ok: false, body: '{}' },
-      'x',
-      trigger
-    ),
+    siteRebuildForMutation('always', { ok: false, body: '{}' }, 'x', options),
     null
   );
   assert.equal(
-    await siteRebuildForMutation(
+    siteRebuildForMutation(
       'ifPublished',
       { ok: true, body: draft },
       'x',
-      trigger
+      options
     ),
     'skipped'
   );
-  assert.equal(calls, 0);
+  assert.equal(scheduled.length, 0);
   assert.equal(
-    await siteRebuildForMutation(
+    siteRebuildForMutation(
       'ifPublished',
       { ok: true, body: published },
-      'x',
-      trigger
+      'PUT posts/1',
+      options
     ),
-    'requested'
+    'scheduled'
   );
-  assert.equal(calls, 1);
+  // The hook is not sent until the response has been handed back.
+  assert.deepEqual(triggered, []);
+  assert.equal(scheduled.length, 1);
+  await scheduled[0]();
+  assert.deepEqual(triggered, ['PUT posts/1']);
 });
 
-test('a throwing trigger never escapes into the mutation response', async () => {
-  const status = await siteRebuildForMutation(
+test('a missing or malformed hook is reported without scheduling', async () => {
+  const schedule = () => {
+    throw new Error('must not be scheduled');
+  };
+  assert.equal(
+    siteRebuildForMutation('always', { ok: true, body: '{}' }, 'x', {
+      environment: {},
+      schedule,
+    }),
+    'disabled'
+  );
+  const { result, logged } = await captureErrors(async () =>
+    siteRebuildForMutation('always', { ok: true, body: '{}' }, 'x', {
+      environment: { SITE_REBUILD_HOOK_URL: 'https://example.invalid/secret' },
+      schedule,
+    })
+  );
+  assert.equal(result, 'failed');
+  assert.match(logged, /site_rebuild_misconfigured/);
+  assert.doesNotMatch(logged, /example\.invalid|secret/);
+});
+
+test('a failing background hook never escapes into the mutation', async () => {
+  let task: (() => Promise<void>) | undefined;
+  const status = siteRebuildForMutation(
     'always',
     { ok: true, body: '{}' },
     'x',
-    async () => {
-      throw new Error('boom');
+    {
+      environment,
+      trigger: async () => {
+        throw new Error('boom');
+      },
+      schedule: scheduledTask => {
+        task = scheduledTask;
+      },
     }
   );
-  assert.equal(status, 'failed');
+  assert.equal(status, 'scheduled');
+  await assert.doesNotReject(task!());
+
+  assert.equal(
+    siteRebuildForMutation('always', { ok: true, body: '{}' }, 'x', {
+      environment,
+      schedule: () => {
+        throw new Error('outside a request scope');
+      },
+    }),
+    'failed'
+  );
 });
 
 test('the browser broadcasts only known rebuild outcomes', () => {
@@ -240,9 +286,10 @@ test('the browser broadcasts only known rebuild outcomes', () => {
       new Response(null, { headers: { 'x-site-rebuild': value } });
     reportSiteRebuild(withHeader('failed'));
     reportSiteRebuild(withHeader('requested'));
+    reportSiteRebuild(withHeader('scheduled'));
     reportSiteRebuild(withHeader('<script>'));
     reportSiteRebuild(new Response(null));
-    assert.deepEqual(seen, ['failed', 'requested']);
+    assert.deepEqual(seen, ['failed', 'requested', 'scheduled']);
   } finally {
     Object.defineProperty(globalThis, 'window', {
       configurable: true,

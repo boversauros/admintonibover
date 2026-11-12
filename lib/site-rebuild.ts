@@ -8,19 +8,30 @@
 
 import 'server-only';
 
+import { after } from 'next/server';
+
 import { isRecord } from '@/lib/contract/values';
 
 export const SITE_REBUILD_HOOK_ENV = 'SITE_REBUILD_HOOK_URL';
 export const SITE_REBUILD_HEADER = 'x-site-rebuild';
-export const SITE_REBUILD_TIMEOUT_MS = 5_000;
+// Vercel answers the hook in ~10 s (measured 2026-11-12, admin #115) and
+// still queues the build when the caller gives up earlier.
+export const SITE_REBUILD_TIMEOUT_MS = 20_000;
 
 /**
  * - `requested`: Vercel accepted the hook; a build is queued, not finished.
+ * - `scheduled`: the hook is sent after the mutation response; its outcome
+ *   is only logged.
  * - `failed`: the hook was rejected, rate limited, timed out or misconfigured.
  * - `disabled`: no hook is configured in this environment.
  * - `skipped`: the mutation cannot change the published site.
  */
-export type SiteRebuildStatus = 'requested' | 'failed' | 'disabled' | 'skipped';
+export type SiteRebuildStatus =
+  | 'requested'
+  | 'scheduled'
+  | 'failed'
+  | 'disabled'
+  | 'skipped';
 
 /**
  * - `always`: publication changes, deletes and image attach/detach.
@@ -149,18 +160,38 @@ export function mutationAffectsSite(
 /**
  * Hook outcome for one proxied mutation, or `null` when no header applies.
  * Only committed (2xx) upstream mutations with a policy may trigger a build.
+ * The hook itself runs after the response so a save never waits on Vercel;
+ * a missing or malformed hook is still reported synchronously.
  */
-export async function siteRebuildForMutation(
+export function siteRebuildForMutation(
   policy: SiteRebuildPolicy | undefined,
   upstream: { ok: boolean; body: string },
   reason: string,
-  trigger: (reason: string) => Promise<SiteRebuildStatus> = triggerSiteRebuild
-): Promise<SiteRebuildStatus | null> {
+  {
+    environment = process.env,
+    trigger = triggerSiteRebuild,
+    schedule = after,
+  }: {
+    environment?: HookEnvironment;
+    trigger?: (reason: string) => Promise<SiteRebuildStatus>;
+    schedule?: (task: () => Promise<void>) => void;
+  } = {}
+): SiteRebuildStatus | null {
   if (!policy || !upstream.ok) return null;
   if (!mutationAffectsSite(policy, upstream.body)) return 'skipped';
   try {
-    return await trigger(reason);
+    if (!siteRebuildHookUrl(environment)) return 'disabled';
+  } catch {
+    logRebuildEvent('site_rebuild_misconfigured', { reason });
+    return 'failed';
+  }
+  try {
+    // triggerSiteRebuild logs its own failures with fixed fields only.
+    schedule(() => trigger(reason).then(noop, noop));
+    return 'scheduled';
   } catch {
     return 'failed';
   }
 }
+
+function noop(): void {}

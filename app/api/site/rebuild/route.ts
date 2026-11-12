@@ -10,6 +10,8 @@ import { readCognitoSession } from '@/lib/auth/cognito/session';
 import { SITE_REBUILD_HEADER, triggerSiteRebuild } from '@/lib/site-rebuild';
 
 export const dynamic = 'force-dynamic';
+// The Deploy Hook answers in ~10 s; the retry waits for it.
+export const maxDuration = 60;
 
 function json(status: number, body: Record<string, unknown>): NextResponse {
   return NextResponse.json(

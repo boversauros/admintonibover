@@ -4,6 +4,7 @@ export const SITE_REBUILD_EVENT = 'admin:site-rebuild';
 
 const STATUSES = new Set<SiteRebuildStatus>([
   'requested',
+  'scheduled',
   'failed',
   'disabled',
   'skipped',
